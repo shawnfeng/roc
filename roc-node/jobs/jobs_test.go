@@ -40,7 +40,7 @@ func JobStart(t *testing.T) {
 		t.Errorf("%s", fun)
 	}
 
-	err := j.kill()
+	err := j.Kill()
 	if err != nil {
 		slog.Infof("job kill error:%s", err)
 	} else {
@@ -48,7 +48,7 @@ func JobStart(t *testing.T) {
 		t.Errorf("%s", "job kill error")
 	}
 
-	j.start()
+	j.Start()
 	time.Sleep(time.Millisecond * 100)
 	slog.Infoln(j)
 	if j.String() != "job0@60000@sh[c.sh]true@RUN" {
@@ -57,7 +57,7 @@ func JobStart(t *testing.T) {
 
 	}
 
-	err = j.kill()
+	err = j.Kill()
 	if err != nil {
 		slog.Errorln(fmt.Sprintf("job kill error %s", err))
 		t.Errorf("%s", fmt.Sprintf("job kill error %s", err))
@@ -71,9 +71,9 @@ func JobStart(t *testing.T) {
 	}
 
 	// 停止自动重启
-	mc.jobAuto = false
+	mc.JobAuto = false
 	j.updateConf(mc)
-	err = j.kill()
+	err = j.Kill()
 	if err != nil {
 		slog.Errorln(fmt.Sprintf("job kill error %s", err))
 		t.Errorf("%s", fmt.Sprintf("job kill error %s", err))
@@ -113,12 +113,12 @@ func JobKill2(t *testing.T) {
 
 	time.Sleep(time.Second * 1)
 
-	err := j.kill()
+	err := j.Kill()
 	if err != nil {
 		t.Errorf("job kill error:%s", err)
 	}
 
-	err = j.kill()
+	err = j.Kill()
 	if err != nil {
 		// os: process already finished
 		slog.Infof("job kill2 error:%s", err)
@@ -195,7 +195,7 @@ func JobKill(t *testing.T) {
 		},
 	)
 
-	err := j.kill()
+	err := j.Kill()
 	if err == nil {
 		t.Errorf("job init kill error")
 	}
@@ -206,7 +206,7 @@ func JobKill(t *testing.T) {
 
 	time.Sleep(time.Second * 5)
 
-	err = j.kill()
+	err = j.Kill()
 	if err != nil {
 		t.Errorf("job kill error:%s", err)
 	}

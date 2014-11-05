@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"errors"
 	"time"
+	"bufio"
 
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/stime"
@@ -87,27 +88,27 @@ func (m jobExitType) String() string {
 
 type ManulConf struct {
 	// 运行job唯一标识
-	id string
+	Id string
 	// 启动参数
-	name string
-	args []string
+	Name string
+	Args []string
 
 	// 是否自动控制
-	jobAuto bool
+	JobAuto bool
 
 	// 运行失败退避的最大值
-	backOffCeil time.Duration
+	BackOffCeil time.Duration
 
 
 }
 
 func (m *ManulConf) String() string {
-	return fmt.Sprintf("%s@%d@%s%s%t", m.id, m.backOffCeil/1000000, m.name, m.args, m.jobAuto)
+	return fmt.Sprintf("%s@%d@%s%s%t", m.Id, m.BackOffCeil/1000000, m.Name, m.Args, m.JobAuto)
 
 }
 
 
-type job struct {
+type Job struct {
 	mconf *ManulConf
 
 	// 运行开始时间
@@ -131,13 +132,13 @@ type job struct {
 
 
 //func Newjob(id string, name string, args []string, backoff int64) *job {
-func Newjob(conf *ManulConf) *job {
+func Newjob(conf *ManulConf) *Job {
 
-	j := &job {
+	j := &Job {
 		mconf: conf,
 
 		stampBegin: 0,
-		backOff: stime.NewBackOffCtrl(time.Second * 1, conf.backOffCeil),
+		backOff: stime.NewBackOffCtrl(time.Millisecond * 100, conf.BackOffCeil),
 
 		loopState: Loop_STOP,
 
@@ -149,45 +150,45 @@ func Newjob(conf *ManulConf) *job {
 }
 
 
-func (m *job) String() string {
+func (m *Job) String() string {
 	return fmt.Sprintf("%s@%s", m.mconf, m.loopState)
 
 }
 
-func (m *job) updateConf(conf *ManulConf) bool {
-	fun := "job.updateConf"
+func (m *Job) updateConf(conf *ManulConf) bool {
+	fun := "Job.updateConf"
 	slog.Infof("%s %s:%s", fun, m.mconf, conf)
 	isup := false
 
-	if conf.id != m.mconf.id {
-		m.mconf.id = conf.id
+	if conf.Id != m.mconf.Id {
+		m.mconf.Id = conf.Id
 		isup = true
 	}
 
 
-	if conf.name != m.mconf.name {
-		m.mconf.name = conf.name
+	if conf.Name != m.mconf.Name {
+		m.mconf.Name = conf.Name
 		isup = true
 	}
 
-	if conf.jobAuto != m.mconf.jobAuto {
-		m.mconf.jobAuto = conf.jobAuto
+	if conf.JobAuto != m.mconf.JobAuto {
+		m.mconf.JobAuto = conf.JobAuto
 		isup = true
 	}
 
-	if conf.backOffCeil != m.mconf.backOffCeil {
-		m.mconf.backOffCeil = conf.backOffCeil
+	if conf.BackOffCeil != m.mconf.BackOffCeil {
+		m.mconf.BackOffCeil = conf.BackOffCeil
 		isup = true
 	}
 
-	if len(conf.args) != len(m.mconf.args) {
-		m.mconf.args = conf.args
+	if len(conf.Args) != len(m.mconf.Args) {
+		m.mconf.Args = conf.Args
 		isup = true
 	} else {
 
-		for i := 0; i < len(conf.args); i++ {
-			if conf.args[i] != m.mconf.args[i] {
-				m.mconf.args = conf.args
+		for i := 0; i < len(conf.Args); i++ {
+			if conf.Args[i] != m.mconf.Args[i] {
+				m.mconf.Args = conf.Args
 				isup = true
 				break
 			}
@@ -205,8 +206,8 @@ func (m *job) updateConf(conf *ManulConf) bool {
 
 }
 
-func (m *job) kill() error {
-	fun := "job.kill"
+func (m *Job) Kill() error {
+	fun := "Job.Kill"
 
 	slog.Warnf("%s %s", fun, m)
 	if m.loopState == Loop_STOP {
@@ -220,7 +221,7 @@ func (m *job) kill() error {
 	}
 }
 
-func (m *job) start() error {
+func (m *Job) Start() error {
 	if m.loopState != Loop_STOP {
 		return errors.New(fmt.Sprintf("job start err loop state %d", m.loopState))
 	} else {
@@ -230,7 +231,7 @@ func (m *job) start() error {
 
 }
 
-func (m *job) loopStateChange(logkey string, newstate jobLoopType) {
+func (m *Job) loopStateChange(logkey string, newstate jobLoopType) {
 	oldstate := m.loopState
 	if oldstate == newstate {
 		slog.Warnf("loopStateChange %s new eq old %s", logkey, oldstate)
@@ -242,8 +243,8 @@ func (m *job) loopStateChange(logkey string, newstate jobLoopType) {
 
 }
 
-func (m *job) loop() {
-	fun := "job.loop"
+func (m *Job) loop() {
+	fun := "Job.loop"
 	is1stRun := true
 
 
@@ -253,9 +254,8 @@ func (m *job) loop() {
 
 	for {
 
-		if !is1stRun && !m.mconf.jobAuto {
-			// 如果不是第一次运行，并且不是自动管理
-			// 此时不主动启动
+		if !is1stRun && !m.mconf.JobAuto {
+			// 不是自主启动的程序，退出时候，不再自动启动
 			break
 		}
 		is1stRun = false
@@ -280,7 +280,7 @@ func (m *job) loop() {
 			continue
 		}
 
-		if !m.mconf.jobAuto {
+		if !m.mconf.JobAuto {
 			// 如果不是自动管理的，就不退避了
 			break
 		}
@@ -300,12 +300,12 @@ func (m *job) loop() {
 
 }
 
-func (m *job) run() (jobExitType, error) {
-	fun := "job.run"
+func (m *Job) run() (jobExitType, error) {
+	fun := "Job.run"
 
 	m.stampBegin = time.Now().Unix()
 
-	m.cmd = exec.Command(m.mconf.name, m.mconf.args...)
+	m.cmd = exec.Command(m.mconf.Name, m.mconf.Args...)
 	stdout, err := m.cmd.StdoutPipe()
 	if err != nil {
 		return Exit_Err_StdoutPipe, err
@@ -321,15 +321,15 @@ func (m *job) run() (jobExitType, error) {
 
 
 
-
-	buffer := make([]byte, 4096)
 	// StdoutPipe returns a pipe that will be connected to the command's standard output when the command starts.
 	// Wait will close the pipe after seeing the command exit,
 	// so most callers need not close the pipe themselves;
 	// however, an implication is that it is incorrect to call Wait before all reads from the pipe have completed.
 	// For the same reason, it is incorrect to call Run when using StdoutPipe. See the example for idiomatic usage.
+	stdbuff := bufio.NewReader(stdout)
 	for {
-		bytesRead, err := stdout.Read(buffer)
+		// log 按行输出，读取不到换行符号时候，会阻塞在这里哦
+		logline, err := stdbuff.ReadString('\n')
 		if err != nil {
 			if err.Error() != "EOF" {
 				slog.Warnf("%s %s stdout read err:%s", fun, m, err)
@@ -338,8 +338,7 @@ func (m *job) run() (jobExitType, error) {
 			}
 			break
 		}
-		// 不考虑截断log输出的问题
-		slog.Infof("%s %s >:%s", fun, m, buffer[:bytesRead])
+		slog.Infof("%s %s >:%s", fun, m, logline)
 		//time.Sleep(time.Second * 5)
 	}
 
@@ -367,7 +366,7 @@ type JobManager interface {
 
 
 type jobMan struct {
-	jobs map[string]*job
+	jobs map[string]*Job
 
 }
 

@@ -55,7 +55,12 @@ func (m *Monitor) agentTwoway(a *paconn.Agent, res []byte) []byte {
 
 func (m *Monitor) parseJobs(sjobs []byte) {
 	fun := "Monitor.parseJobs"
-	jobs := strings.Split(string(sjobs), ",")
+	jobs := make([]string, 0)
+	if len(sjobs) > 0 {
+		jobs = strings.Split(string(sjobs), ",")
+	} else {
+		slog.Infof("%s empty jobs", fun)
+	}
 	pids := make([]int, 0)
 	for _, j := range(jobs) {
 		pid, err := strconv.Atoi(j)
@@ -96,6 +101,8 @@ func (m *Monitor) checkMe() {
 	if ppid == 1 {
 		slog.Warnf("%s clear ppid:%d jobs:%s", fun, ppid, m.jobs)
 		for _, j := range(m.jobs) {
+			// 对不存在的pid FindProcess，不会出错
+			// 但是调用kill时候，会提示错误：no such process
 			p, err := os.FindProcess(j)
 			if err != nil {
 				slog.Errorf("%s FindProcess:%d err:s", fun, j, err)
@@ -117,7 +124,7 @@ func (m *Monitor) checkMe() {
 }
 
 func (m *Monitor) cronCommonJobs() {
-	ticker0 := time.NewTicker(time.Second * time.Duration(60))
+	ticker0 := time.NewTicker(time.Second * time.Duration(10))
 	ticker1 := time.NewTicker(time.Millisecond * time.Duration(500))
 
 	for {
@@ -140,8 +147,8 @@ func (m *Monitor) cronLive() {
 	for {
 		ag, err := paconn.NewAgentFromAddr(
 			fmt.Sprintf("127.0.0.1:%s", m.nodePort),
-			0,
 			time.Second*60*15,
+			0,
 			nil,
 			m.agentTwoway,
 			m.agentClose,
