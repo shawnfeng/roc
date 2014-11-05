@@ -118,6 +118,7 @@ func (m *Monitor) checkMe() {
 
 		// 清理完后，自己OVER
 		slog.Infof("%s BYE BYE", fun)
+		//time.Sleep(time.Second * 10)
 		os.Exit(0)
 	}
 
@@ -173,7 +174,7 @@ func (m *Monitor) cronLive() {
 
 
 func main() {
-	slog.Init("", "", "DEBUG")
+	slog.Init("./log", "node-monitor", "DEBUG")
 	// node 开启的端口
 	nodePort := os.Args[1]
 

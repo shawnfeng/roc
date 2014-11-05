@@ -128,11 +128,22 @@ type Job struct {
 
 	// exec.Command 的返回
 	cmd *exec.Cmd
+
+	// 管理的进程停止的回调
+	cbProcessStop func(*Job)
+	// 管理的进程启动的回调
+	cbProcessRun func(*Job)
 }
 
 
 //func Newjob(id string, name string, args []string, backoff int64) *job {
-func Newjob(conf *ManulConf) *Job {
+func Newjob(
+	conf *ManulConf,
+	cbprocstop func(*Job),
+	// 管理的进程启动的回调
+	cbprocrun func(*Job),
+
+) *Job {
 
 	j := &Job {
 		mconf: conf,
@@ -141,6 +152,11 @@ func Newjob(conf *ManulConf) *Job {
 		backOff: stime.NewBackOffCtrl(time.Millisecond * 100, conf.BackOffCeil),
 
 		loopState: Loop_STOP,
+
+		cbProcessStop: cbprocstop,
+	// 管理的进程启动的回调
+		cbProcessRun: cbprocrun,
+
 
 	}
 
@@ -152,6 +168,11 @@ func Newjob(conf *ManulConf) *Job {
 
 func (m *Job) String() string {
 	return fmt.Sprintf("%s@%s", m.mconf, m.loopState)
+
+}
+
+func (m *Job) Id() string {
+	return m.mconf.Id
 
 }
 
@@ -205,6 +226,24 @@ func (m *Job) updateConf(conf *ManulConf) bool {
 	return isup
 
 }
+
+func (m *Job) Pid() (int, error) {
+	//m.cmd.Process.Pid
+	//Loop_RUN
+
+	if m.loopState != Loop_RUN {
+		return 0, errors.New("job not run")
+	}
+
+	if m.cmd != nil && m.cmd.Process != nil {
+		return m.cmd.Process.Pid, nil
+	} else {
+		return 0, errors.New("process not run")
+	}
+
+}
+
+
 
 func (m *Job) Kill() error {
 	fun := "Job.Kill"
@@ -266,6 +305,9 @@ func (m *Job) loop() {
 		rtype, err := m.run()
 		slog.Infof("%s %s runtime:%d", fun, m, time.Now().UnixNano()/1000-bgtime)
 		m.loopStateChange(fun, Loop_RUNCHEACK)
+		if m.cbProcessStop != nil {
+			m.cbProcessStop(m)
+		}
 
 		if err != nil {
 			slog.Warnf("%s %s rtype:%s err:%s", fun, m, rtype, err)
@@ -319,6 +361,11 @@ func (m *Job) run() (jobExitType, error) {
 
 	slog.Infof("%s %s start PID:%d", fun, m, m.cmd.Process.Pid)
 
+	if m.cbProcessRun != nil {
+		m.cbProcessRun(m)
+	}
+
+
 
 
 	// StdoutPipe returns a pipe that will be connected to the command's standard output when the command starts.
@@ -354,30 +401,64 @@ func (m *Job) run() (jobExitType, error) {
 
 
 // 测试cmd.stdin 给sh执行的效果
-
-type JobManager interface {
-	//Add(name string, arg ...string) string
-	//Del(id string)
-	//Restart(id string)
-	//Stop(id string)
-	//Start(id string)
-	Update(confs map[string]*ManulConf)
-}
-
-
-type jobMan struct {
+type JobManager struct {
 	jobs map[string]*Job
 
+	cbProcessStop func(*Job)
+	cbProcessRun func(*Job)
+
 }
 
-func (m *jobMan) Update(confs map[string]*ManulConf) {
+func NewJobManager(
+	cbprocstop func(*Job),
+	// 管理的进程启动的回调
+	cbprocrun func(*Job),
+) *JobManager {
+
+	return &JobManager {
+		jobs: make(map[string]*Job),
+
+		cbProcessStop: cbprocstop,
+		cbProcessRun: cbprocrun,
+
+	}
+
+
+}
+
+func (m *JobManager) Runjobs() []string {
+	fun := "JobManager.Runjobs"
+	pids := make([]string, 0)
+	for _, j := range(m.jobs) {
+		if p, err := j.Pid(); err == nil {
+
+			pids = append(pids, fmt.Sprintf("%d", p))
+		} else {
+			slog.Warnf("%s job:%s pid err:%s", fun, j, err)
+		}
+	}
+
+	return pids
+
+}
+
+func (m *JobManager) Start(jobid string) error {
+	if j, ok := m.jobs[jobid]; ok {
+		return j.Start()
+	} else {
+		return errors.New("jobid not found")
+	}
+
+}
+
+func (m *JobManager) Update(confs map[string]*ManulConf) {
 
 	for k, v := range(confs) {
 		j, ok := m.jobs[k]
 		if ok {
 			j.updateConf(v)
 		} else {
-			m.jobs[k] = Newjob(v)
+			m.jobs[k] = Newjob(v, m.cbProcessStop, m.cbProcessRun)
 		}
 
 	}

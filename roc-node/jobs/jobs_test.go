@@ -32,7 +32,7 @@ func JobStart(t *testing.T) {
 	}
 
 
-	j := Newjob(mc)
+	j := Newjob(mc, nil, nil)
 
 	slog.Infoln(j)
 	if j.String() != "job0@60000@sh[c.sh]true@STOP" {
@@ -107,6 +107,7 @@ func JobKill2(t *testing.T) {
 			false,
 			time.Second*60,
 		},
+		nil, nil,
 	)
 
 	//go j.loop()
@@ -141,6 +142,7 @@ func JobLoop0(t *testing.T) {
 			true,
 			time.Second*20,
 		},
+		nil, nil,
 	)
 
 	j.loop()
@@ -158,6 +160,7 @@ func JobLoop1(t *testing.T) {
 			true,
 			time.Second*20,
 		},
+		nil, nil,
 	)
 
 	go j.loop()
@@ -176,6 +179,7 @@ func JobLoop2(t *testing.T) {
 			true,
 			time.Second*3,
 		},
+		nil, nil,
 	)
 
 	j.loop()
@@ -193,6 +197,7 @@ func JobKill(t *testing.T) {
 			true,
 			time.Second*20,
 		},
+		nil, nil,
 	)
 
 	err := j.Kill()
