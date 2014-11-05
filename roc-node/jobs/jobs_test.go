@@ -24,18 +24,18 @@ func JobStart(t *testing.T) {
 	fun := "JobStart"
 
 	mc := &ManulConf {
-			"job0",
-			"sh",
-			[]string{"c.sh"},
-			true,
-			60,
+		"job0",
+		"sh",
+		[]string{"c.sh"},
+		true,
+		time.Second*60,
 	}
 
 
 	j := Newjob(mc)
 
 	slog.Infoln(j)
-	if j.String() != "job0@60@sh[c.sh]true@STOP" {
+	if j.String() != "job0@60000@sh[c.sh]true@STOP" {
 		slog.Errorln(fun)
 		t.Errorf("%s", fun)
 	}
@@ -51,7 +51,7 @@ func JobStart(t *testing.T) {
 	j.start()
 	time.Sleep(time.Millisecond * 100)
 	slog.Infoln(j)
-	if j.String() != "job0@60@sh[c.sh]true@RUN" {
+	if j.String() != "job0@60000@sh[c.sh]true@RUN" {
 		slog.Errorln(fun)
 		t.Errorf("%s", fun)
 
@@ -64,7 +64,7 @@ func JobStart(t *testing.T) {
 
 	}
 	slog.Infoln(j)
-	if j.String() != "job0@60@sh[c.sh]true@RUN" {
+	if j.String() != "job0@60000@sh[c.sh]true@RUN" {
 		slog.Errorln(fun)
 		t.Errorf("%s", fun)
 
@@ -79,7 +79,7 @@ func JobStart(t *testing.T) {
 		t.Errorf("%s", fmt.Sprintf("job kill error %s", err))
 	}
 	slog.Infoln(j)
-	if j.String() != "job0@60@sh[c.sh]false@RUN" {
+	if j.String() != "job0@60000@sh[c.sh]false@RUN" {
 		slog.Errorln(fun)
 		t.Errorf("%s", fun)
 
@@ -87,7 +87,7 @@ func JobStart(t *testing.T) {
 	time.Sleep(time.Millisecond * 1000)
 
 	slog.Infoln(j)
-	if j.String() != "job0@60@sh[c.sh]false@STOP" {
+	if j.String() != "job0@60000@sh[c.sh]false@STOP" {
 		slog.Errorln(fun, j)
 		t.Errorf("%s %s", fun, j)
 
@@ -105,7 +105,7 @@ func JobKill2(t *testing.T) {
 			"sh",
 			[]string{"c.sh"},
 			false,
-			60,
+			time.Second*60,
 		},
 	)
 
@@ -139,7 +139,7 @@ func JobLoop0(t *testing.T) {
 			"sh",
 			[]string{"c_notexist.sh"},
 			true,
-			20,
+			time.Second*20,
 		},
 	)
 
@@ -156,7 +156,7 @@ func JobLoop1(t *testing.T) {
 			"sh",
 			[]string{"c_loop.sh"},
 			true,
-			20,
+			time.Second*20,
 		},
 	)
 
@@ -174,7 +174,7 @@ func JobLoop2(t *testing.T) {
 			"sh",
 			[]string{"c_exit1.sh"},
 			true,
-			3,
+			time.Second*3,
 		},
 	)
 
@@ -191,7 +191,7 @@ func JobKill(t *testing.T) {
 			"sh",
 			[]string{"c.sh"},
 			true,
-			20,
+			time.Second*20,
 		},
 	)
 

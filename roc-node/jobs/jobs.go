@@ -96,19 +96,19 @@ type ManulConf struct {
 	jobAuto bool
 
 	// 运行失败退避的最大值
-	backOffCeil int32
+	backOffCeil time.Duration
 
 
 }
 
 func (m *ManulConf) String() string {
-	return fmt.Sprintf("%s@%d@%s%s%t", m.id, m.backOffCeil, m.name, m.args, m.jobAuto)
+	return fmt.Sprintf("%s@%d@%s%s%t", m.id, m.backOffCeil/1000000, m.name, m.args, m.jobAuto)
 
 }
 
 
 type job struct {
-	ManulConf
+	mconf *ManulConf
 
 	// 运行开始时间
 	stampBegin int64
@@ -134,10 +134,10 @@ type job struct {
 func Newjob(conf *ManulConf) *job {
 
 	j := &job {
-		ManulConf: *conf,
+		mconf: conf,
 
 		stampBegin: 0,
-		backOff: stime.NewBackOffCtrl(conf.backOffCeil),
+		backOff: stime.NewBackOffCtrl(time.Second * 1, conf.backOffCeil),
 
 		loopState: Loop_STOP,
 
@@ -150,44 +150,44 @@ func Newjob(conf *ManulConf) *job {
 
 
 func (m *job) String() string {
-	return fmt.Sprintf("%s@%s", m.ManulConf.String(), m.loopState)
+	return fmt.Sprintf("%s@%s", m.mconf, m.loopState)
 
 }
 
 func (m *job) updateConf(conf *ManulConf) bool {
 	fun := "job.updateConf"
-	slog.Infof("%s %s:%s", fun, m.ManulConf.String(), conf)
+	slog.Infof("%s %s:%s", fun, m.mconf, conf)
 	isup := false
 
-	if conf.id != m.id {
-		m.id = conf.id
+	if conf.id != m.mconf.id {
+		m.mconf.id = conf.id
 		isup = true
 	}
 
 
-	if conf.name != m.name {
-		m.name = conf.name
+	if conf.name != m.mconf.name {
+		m.mconf.name = conf.name
 		isup = true
 	}
 
-	if conf.jobAuto != m.jobAuto {
-		m.jobAuto = conf.jobAuto
+	if conf.jobAuto != m.mconf.jobAuto {
+		m.mconf.jobAuto = conf.jobAuto
 		isup = true
 	}
 
-	if conf.backOffCeil != m.backOffCeil {
-		m.backOffCeil = conf.backOffCeil
+	if conf.backOffCeil != m.mconf.backOffCeil {
+		m.mconf.backOffCeil = conf.backOffCeil
 		isup = true
 	}
 
-	if len(conf.args) != len(m.args) {
-		m.args = conf.args
+	if len(conf.args) != len(m.mconf.args) {
+		m.mconf.args = conf.args
 		isup = true
 	} else {
 
 		for i := 0; i < len(conf.args); i++ {
-			if conf.args[i] != m.args[i] {
-				m.args = conf.args
+			if conf.args[i] != m.mconf.args[i] {
+				m.mconf.args = conf.args
 				isup = true
 				break
 			}
@@ -253,7 +253,7 @@ func (m *job) loop() {
 
 	for {
 
-		if !is1stRun && !m.jobAuto {
+		if !is1stRun && !m.mconf.jobAuto {
 			// 如果不是第一次运行，并且不是自动管理
 			// 此时不主动启动
 			break
@@ -280,7 +280,7 @@ func (m *job) loop() {
 			continue
 		}
 
-		if !m.jobAuto {
+		if !m.mconf.jobAuto {
 			// 如果不是自动管理的，就不退避了
 			break
 		}
@@ -305,7 +305,7 @@ func (m *job) run() (jobExitType, error) {
 
 	m.stampBegin = time.Now().Unix()
 
-	m.cmd = exec.Command(m.name, m.args...)
+	m.cmd = exec.Command(m.mconf.name, m.mconf.args...)
 	stdout, err := m.cmd.StdoutPipe()
 	if err != nil {
 		return Exit_Err_StdoutPipe, err
