@@ -9,6 +9,7 @@ import (
 
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/paconn"
+	"github.com/shawnfeng/sutil/sconf"
 )
 
 
@@ -43,13 +44,13 @@ func (m *Monitor) agentClose(a *paconn.Agent, data []byte, err error) {
 }
 
 
-func (m *Monitor) agentTwoway(a *paconn.Agent, res []byte) []byte {
+func (m *Monitor) agentTwoway(a *paconn.Agent, btype int32, res []byte) (int32, []byte) {
 	fun := "Monitor.agentTwoway"
 
 	slog.Infof("%s jobs:%s", fun, res)
 
 	m.parseJobs(res)
-	return []byte("OK")
+	return 0, []byte("OK")
 
 }
 
@@ -78,7 +79,7 @@ func (m *Monitor) parseJobs(sjobs []byte) {
 func (m *Monitor) syncJobs() {
 	fun := "Monitor.syncJobs"
 	if m.nodeAgent != nil {
-		res, err := m.nodeAgent.Twoway([]byte("GET JOBS"), 200)
+		_, res, err := m.nodeAgent.Twoway(0, []byte("GET JOBS"), 200*time.Millisecond)
 		if err != nil {
 			slog.Errorf("%s getjobs err:%s", fun, err)
 		} else {
@@ -174,9 +175,20 @@ func (m *Monitor) cronLive() {
 
 
 func main() {
-	slog.Init("./log", "node-monitor", "DEBUG")
+	conf := os.Args[1]
+	tconf := sconf.NewTierConf()
+	err := tconf.LoadFromFile(conf) 
+	if err != nil {
+		slog.Panicln(err)
+	}
+
+	// load log config
+	logdir := tconf.ToStringWithDefault("log", "dir", "")
+	loglevel := tconf.ToStringWithDefault("log", "level", "TRACE")
+	slog.Init(logdir, "node-monitor", loglevel)
+
 	// node 开启的端口
-	nodePort := os.Args[1]
+	nodePort := os.Args[2]
 
 	m := NewMonitor(nodePort)
 
