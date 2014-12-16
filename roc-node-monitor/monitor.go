@@ -83,7 +83,8 @@ func (m *Monitor) syncJobs() {
 		if err != nil {
 			slog.Errorf("%s getjobs err:%s", fun, err)
 		} else {
-			slog.Infof("%s jobs:%s", fun, res)
+			slog.Infof("%s ppid:%d jobs:%s", fun, os.Getppid(), res)
+
 			m.parseJobs(res)
 
 		}
@@ -98,7 +99,7 @@ func (m *Monitor) syncJobs() {
 func (m *Monitor) checkMe() {
 	fun := "Monitor.checkMe"
 	ppid := os.Getppid()
-	slog.Tracef("%s ppid:%d", fun, ppid)
+	//slog.Tracef("%s ppid:%d", fun, ppid)
 	if ppid == 1 {
 		slog.Warnf("%s clear ppid:%d jobs:%s", fun, ppid, m.jobs)
 		for _, j := range(m.jobs) {

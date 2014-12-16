@@ -3,6 +3,7 @@ package jobs
 import (
 	"os/exec"
 	"fmt"
+	"sync"
 	"errors"
 	"time"
 	"bufio"
@@ -176,6 +177,10 @@ func (m *Job) Id() string {
 
 }
 
+func (m *Job) AutoChange(isauto bool) {
+	m.mconf.JobAuto = isauto
+}
+
 func (m *Job) updateConf(conf *ManulConf) bool {
 	fun := "Job.updateConf"
 	slog.Infof("%s %s:%s", fun, m.mconf, conf)
@@ -250,19 +255,25 @@ func (m *Job) Kill() error {
 
 	slog.Warnf("%s %s", fun, m)
 	if m.loopState == Loop_STOP {
+		slog.Warnf("%s %s state not run", fun, m)
 		return errors.New("job loop not run")
 	}
 
 	if m.cmd != nil && m.cmd.Process != nil {
-		return m.cmd.Process.Kill()
+		err := m.cmd.Process.Kill()
+		if err != nil {
+			slog.Warnf("%s %s kill err:%s", fun, m, err)
+		}
+		return err
 	} else {
+		slog.Warnf("%s %s process not run", fun, m)
 		return errors.New("process not run")
 	}
 }
 
 func (m *Job) Start() error {
 	if m.loopState != Loop_STOP {
-		return errors.New(fmt.Sprintf("job start err loop state %d", m.loopState))
+		return fmt.Errorf("job start err loop state %s", m.loopState)
 	} else {
 		go m.loop()
 		return nil
@@ -271,12 +282,13 @@ func (m *Job) Start() error {
 }
 
 func (m *Job) loopStateChange(logkey string, newstate jobLoopType) {
+	fun := "Job.loopStateChange"
 	oldstate := m.loopState
 	if oldstate == newstate {
-		slog.Warnf("loopStateChange %s new eq old %s", logkey, oldstate)
+		slog.Warnf("%s %s %s new eq old %s", fun, m, logkey, oldstate)
 	} else {
 		m.loopState = newstate
-		slog.Infof("loopStateChange %s %s:%s", logkey, oldstate, m.loopState)
+		slog.Infof("%s %s %s %s:%s", fun, m, logkey, oldstate, m.loopState)
 	}
 
 
@@ -402,6 +414,7 @@ func (m *Job) run() (jobExitType, error) {
 
 // 测试cmd.stdin 给sh执行的效果
 type JobManager struct {
+	jobsLock sync.Mutex
 	jobs map[string]*Job
 
 	cbProcessStop func(*Job)
@@ -428,6 +441,9 @@ func NewJobManager(
 
 func (m *JobManager) Runjobs() []string {
 	fun := "JobManager.Runjobs"
+	m.jobsLock.Lock()
+	defer m.jobsLock.Unlock()
+
 	pids := make([]string, 0)
 	for _, j := range(m.jobs) {
 		if p, err := j.Pid(); err == nil {
@@ -443,7 +459,15 @@ func (m *JobManager) Runjobs() []string {
 }
 
 func (m *JobManager) Start(jobid string) error {
-	if j, ok := m.jobs[jobid]; ok {
+
+	j, ok := func() (*Job, bool) {
+		m.jobsLock.Lock()
+		defer m.jobsLock.Unlock()
+		j, ok := m.jobs[jobid]
+		return j, ok
+	}()
+
+	if ok {
 		return j.Start()
 	} else {
 		return errors.New("jobid not found")
@@ -452,15 +476,30 @@ func (m *JobManager) Start(jobid string) error {
 }
 
 func (m *JobManager) Update(confs map[string]*ManulConf) {
+	fun := "JobManager.Update"
+	m.jobsLock.Lock()
+	defer m.jobsLock.Unlock()
 
 	for k, v := range(confs) {
 		j, ok := m.jobs[k]
 		if ok {
-			j.updateConf(v)
+			isup := j.updateConf(v)
+			slog.Infof("%s update job:%s conf:%s isup:%t", fun, k, v, isup)
 		} else {
+			slog.Infof("%s new job:%s conf:%s", fun, k, v)
 			m.jobs[k] = Newjob(v, m.cbProcessStop, m.cbProcessRun)
 		}
 
+	}
+
+	for k, v := range m.jobs {
+		_, ok := confs[k]
+		if !ok {
+			slog.Warnf("%s del job:%s", fun, k)
+			delete(m.jobs, k)
+			v.AutoChange(false)
+			v.Kill()
+		}
 	}
 
 }

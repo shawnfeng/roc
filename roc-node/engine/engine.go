@@ -3,13 +3,14 @@ package engine
 import (
 	"time"
 	"strings"
-
+	"fmt"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/sconf"
 	"github.com/shawnfeng/sutil/paconn"
 
 	"roc/roc-node/jobs"
-
+    "net"
+    "net/http"
 
 )
 
@@ -80,7 +81,7 @@ func (m *nodeMon) StartJob(jobid string) error {
 }
 
 
-func (m *nodeMon) Init(monjob, monbin, monconf string) {
+func (m *nodeMon) Init() {
 
 	fun := "nodeMon.Init"
 
@@ -109,7 +110,19 @@ func (m *nodeMon) Init(monjob, monbin, monconf string) {
 	)
 	m.jobm = jobm
 
+}
 
+func NewnodeMon() *nodeMon {
+	nm := &nodeMon {
+	}
+
+	nm.Init()
+
+	return nm
+}
+
+func (m *nodeMon) AddMonitor(monjob, monbin, monconf string) {
+	// node monitor 没有放在jobmanager管理
 	if len(monjob) > 0 && len(monbin) > 0 && len(monconf) > 0 { 
 		// start node-monitor
 		mc := &jobs.ManulConf {
@@ -126,8 +139,18 @@ func (m *nodeMon) Init(monjob, monbin, monconf string) {
 
 }
 
-var node_monitor *nodeMon = &nodeMon {
+
+func (m *nodeMon) RemoveMonitor() {
+	fun := "nodeMon.RemoveMonitor"
+	slog.Infof("%s %v", fun, m.mon)
+	if m.mon != nil {
+		m.mon.AutoChange(false)
+		m.mon.Kill()
+		m.mon = nil
+	}
 }
+
+var node_monitor *nodeMon = NewnodeMon()
 
 
 func loadjob(tconf *sconf.TierConf, job string) (*jobs.ManulConf, error) {
@@ -136,7 +159,7 @@ func loadjob(tconf *sconf.TierConf, job string) (*jobs.ManulConf, error) {
 		return nil, err
 	}
 
-	args, err := tconf.ToSliceString(job, "args", ",")
+	args, err := tconf.ToSliceString(job, "args", " ")
 	if err != nil {
 		return nil, err
 	}
@@ -179,9 +202,10 @@ func reloadConf(conf string) error {
 
 	slog.Infof("%s conf:\n%s", fun, printconf)
 
-	job_list, err := tconf.ToSliceString("node", "job_list", ",")
+	job_list := make([]string, 0)
+	job_list, err = tconf.ToSliceString("node", "job_list", ",")
 	if err != nil {
-		return err
+		slog.Warnf("%s job_list empty", fun)
 	}
 
 	jobconfs := make(map[string]*jobs.ManulConf)
@@ -199,7 +223,9 @@ func reloadConf(conf string) error {
 	monbin := tconf.ToStringWithDefault("monitor", "bin", "")
 	monconf := tconf.ToStringWithDefault("monitor", "conf", "")
 
-	node_monitor.Init(monjob, monbin, monconf)
+	// 移除老的
+	node_monitor.RemoveMonitor()
+	node_monitor.AddMonitor(monjob, monbin, monconf)
 	node_monitor.UpdateJobs(jobconfs)
 
 	for _, j := range job_list {
@@ -214,15 +240,66 @@ func reloadConf(conf string) error {
 	return nil
 }
 
+var conffile string
+
+func reload(w http.ResponseWriter, r *http.Request) {
+	fun := "rest.reload"
+	slog.Infof("%s %s", fun, r.URL.Path)
+
+	err := reloadConf(conffile)
+	if err != nil {
+		slog.Fatalf("reload conf:%s err:%s", conffile, err)
+
+		http.Error(w, err.Error(), 501)
+		return
+
+	}
+
+	fmt.Fprintf(w, "load:%s ok", conffile)
+
+}
 
 func Power(conf string) {
+	fun := "engine.Power"
+	conffile = conf
 	err := reloadConf(conf)
 	if err != nil {
 		slog.Panicf("load conf:%s err:%s", conf, err)
 	}
 
-	pause := make(chan bool)
-	// pause here
-	<- pause
 
+	tcpAddr, err := net.ResolveTCPAddr("tcp", ":9999")
+	netListen, err := net.Listen(tcpAddr.Network(), tcpAddr.String())
+	if err != nil {
+		slog.Panicf("StartHttp Listen: %s", err)
+	}
+	slog.Infof("%s listen:%s", fun, netListen.Addr())
+
+
+	http.HandleFunc("/conf/reload", reload)
+	err = http.Serve(netListen, nil)
+	if err != nil {
+		slog.Panicf("HttpServ: %s", err)
+	}
+
+	//slog.Infoln("start http serv", restAddr)
+
+
+	//pause := make(chan bool)
+	// pause here
+	//<- pause
+/*
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, os.Kill)
+
+	// Block until a signal is received.
+	for {
+		s := <-c
+		slog.Infoln("engine.Power Got signal:", s)
+		err = reloadConf(conf)
+		if err != nil {
+			slog.Fatalf("reload conf:%s err:%s", conf, err)
+		}
+	}
+*/
 }
