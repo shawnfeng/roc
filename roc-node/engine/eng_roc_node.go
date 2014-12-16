@@ -4,9 +4,12 @@ import (
 	"time"
 	"strings"
 	"fmt"
+
+	"github.com/shawnfeng/sutil"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/sconf"
 	"github.com/shawnfeng/sutil/paconn"
+	"github.com/shawnfeng/sutil/snetutil"
 
 	"roc/roc-node/jobs"
     "net"
@@ -208,6 +211,14 @@ func reloadConf(conf string) error {
 		slog.Warnf("%s job_list empty", fun)
 	}
 
+	nport, err := tconf.ToString("node", "port")
+	if err != nil {
+		slog.Warnf("%s nport empty", fun)
+		return err
+	}
+	nodeRestPortFile = nport
+
+
 	jobconfs := make(map[string]*jobs.ManulConf)
 	for _, j := range job_list {
 		mc, err := loadjob(tconf, j)
@@ -241,6 +252,17 @@ func reloadConf(conf string) error {
 }
 
 var conffile string
+var nodeRestPort string
+var nodeRestPortFile string
+
+func writePortfile() {
+	fun := "engine.writePortfile"
+	slog.Infof("%s write:%s port:%s", fun, nodeRestPortFile, nodeRestPort)
+	err := sutil.WriteFile(nodeRestPortFile, []byte(fmt.Sprintf("%s\n",nodeRestPort)), 0600)
+	if err != nil {
+		slog.Errorf("%s write:%s port:%s err:%s", fun, nodeRestPortFile, nodeRestPort, err)
+	}
+}
 
 func reload(w http.ResponseWriter, r *http.Request) {
 	fun := "rest.reload"
@@ -253,11 +275,15 @@ func reload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 501)
 		return
 
+	} else {
+		writePortfile()
 	}
 
 	fmt.Fprintf(w, "load:%s ok", conffile)
 
 }
+
+
 
 func Power(conf string) {
 	fun := "engine.Power"
@@ -268,12 +294,15 @@ func Power(conf string) {
 	}
 
 
-	tcpAddr, err := net.ResolveTCPAddr("tcp", ":9999")
+	tcpAddr, err := net.ResolveTCPAddr("tcp", ":")
 	netListen, err := net.Listen(tcpAddr.Network(), tcpAddr.String())
 	if err != nil {
 		slog.Panicf("StartHttp Listen: %s", err)
 	}
 	slog.Infof("%s listen:%s", fun, netListen.Addr())
+	nodeRestPort = snetutil.IpAddrPort(netListen.Addr().String())
+
+	writePortfile()
 
 
 	http.HandleFunc("/conf/reload", reload)
