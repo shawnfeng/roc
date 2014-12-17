@@ -2,8 +2,10 @@ package jobs
 
 import (
 	"os/exec"
+	"os"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"errors"
 	"time"
 	"bufio"
@@ -13,78 +15,6 @@ import (
 
 )
 
-type jobLoopType int32
-
-const (
-	Loop_STOP    jobLoopType = 0
-
-	Loop_RUN    jobLoopType = 1
-	Loop_RUNCHEACK    jobLoopType = 2
-	Loop_BACKOFF    jobLoopType = 3
-
-)
-
-func (m jobLoopType) String() string {
-	s := "UNKNOWN"
-
-	if Loop_STOP == m {
-		s = "STOP"
-
-	} else if Loop_RUN == m {
-		s = "RUN"
-
-	} else if Loop_RUNCHEACK  == m {
-		s = "RUNCHEACK"
-
-	} else if Loop_BACKOFF == m {
-		s = "BACKOFF"
-
-	}
-
-
-	return s
-}
-
-
-
-type jobExitType int32
-
-const (
-	Exit_OK                 jobExitType = 0
-	Exit_Err_StdoutPipe     jobExitType = 1
-	Exit_Err_CmdStart       jobExitType = 2
-
-	Exit_Err_Kill           jobExitType = 3
-	Exit_Err_JobOtherErr    jobExitType = 4
-
-)
-
-
-
-
-func (m jobExitType) String() string {
-	s := "UNKNOWN"
-
-	if Exit_OK == m {
-		s = "OK"
-
-	} else if Exit_Err_StdoutPipe == m {
-		s = "Err_StdoutPipe"
-
-	} else if Exit_Err_CmdStart  == m {
-		s = "Err_CmdStart"
-
-	} else if Exit_Err_Kill == m {
-		s = "Err_Kill"
-
-	} else if Exit_Err_JobOtherErr == m {
-		s = "Err_JobOtherErr"
-
-	}
-
-
-	return s
-}
 
 
 type ManulConf struct {
@@ -127,8 +57,7 @@ type Job struct {
 
 
 
-	// exec.Command 的返回
-	cmd *exec.Cmd
+	pid int32
 
 	// 管理的进程停止的回调
 	cbProcessStop func(*Job)
@@ -233,19 +162,12 @@ func (m *Job) updateConf(conf *ManulConf) bool {
 }
 
 func (m *Job) Pid() (int, error) {
-	//m.cmd.Process.Pid
-	//Loop_RUN
-
-	if m.loopState != Loop_RUN {
+	pid := atomic.LoadInt32(&m.pid) 
+	if pid == 0 {
 		return 0, errors.New("job not run")
-	}
-
-	if m.cmd != nil && m.cmd.Process != nil {
-		return m.cmd.Process.Pid, nil
 	} else {
-		return 0, errors.New("process not run")
+		return int(pid), nil
 	}
-
 }
 
 
@@ -254,21 +176,27 @@ func (m *Job) Kill() error {
 	fun := "Job.Kill"
 
 	slog.Warnf("%s %s", fun, m)
-	if m.loopState == Loop_STOP {
+
+	pid := atomic.LoadInt32(&m.pid) 
+	if pid == 0 {
 		slog.Warnf("%s %s state not run", fun, m)
 		return errors.New("job loop not run")
-	}
-
-	if m.cmd != nil && m.cmd.Process != nil {
-		err := m.cmd.Process.Kill()
+	} else {
+		p, err := os.FindProcess(int(pid))
+		if err != nil {
+			slog.Warnf("%s %s find process err:%s", fun, m, err)
+			return err
+		}
+		err = p.Kill()
 		if err != nil {
 			slog.Warnf("%s %s kill err:%s", fun, m, err)
+			return err
 		}
-		return err
-	} else {
-		slog.Warnf("%s %s process not run", fun, m)
-		return errors.New("process not run")
+
+		return nil
+
 	}
+
 }
 
 func (m *Job) Start() error {
@@ -356,29 +284,30 @@ func (m *Job) loop() {
 
 func (m *Job) run() (jobExitType, error) {
 	fun := "Job.run"
-
+	defer send exittype chan
 	m.stampBegin = time.Now().Unix()
 
-	m.cmd = exec.Command(m.mconf.Name, m.mconf.Args...)
-	stdout, err := m.cmd.StdoutPipe()
+	cmd := exec.Command(m.mconf.Name, m.mconf.Args...)
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return Exit_Err_StdoutPipe, err
 	}
 
 
-	if err := m.cmd.Start(); err != nil {
+	if err := cmd.Start(); err != nil {
 		return Exit_Err_CmdStart, err
 	}
 
 
-	slog.Infof("%s %s start PID:%d", fun, m, m.cmd.Process.Pid)
+
+	slog.Infof("%s %s start PID:%d", fun, m, cmd.Process.Pid)
+
+	atomic.StoreInt32(&m.pid, int32(cmd.Process.Pid))
+	defer atomic.StoreInt32(&m.pid, 0)
 
 	if m.cbProcessRun != nil {
 		m.cbProcessRun(m)
 	}
-
-
-
 
 	// StdoutPipe returns a pipe that will be connected to the command's standard output when the command starts.
 	// Wait will close the pipe after seeing the command exit,
@@ -403,7 +332,7 @@ func (m *Job) run() (jobExitType, error) {
 
 
 	// 只要返回status不是0就会有err
-	if err := m.cmd.Wait(); err != nil {
+	if err := cmd.Wait(); err != nil {
 		return Exit_Err_JobOtherErr, err
 	}
 
