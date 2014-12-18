@@ -169,7 +169,7 @@ func (m *Job) live(ucmds chan *userCommand) {
 		// -----------------------
 		case est := <-exitst:
 			// run job 退出了 gorun over
-			slog.Warnf("%s exit job:%s exit:%s conf:%s pid:%d gorun:%t stop:%t", fun, m, est, &conf, beenGorun, setStop)
+			slog.Warnf("%s exit job:%s exit:%v conf:%s pid:%d gorun:%t stop:%t", fun, m, est, &conf, beenGorun, setStop)
 
 			atomic.StoreInt32(&m.pid, 0)
 			beenGorun = false

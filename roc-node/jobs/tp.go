@@ -4,6 +4,15 @@ import (
 	"time"
 )
 
+
+// 记录执行状态，主要是输出log
+type jobRunState int32
+const (
+	_                         = iota
+	JOBST_     jobRunState = iota
+)
+
+
 type jobCmdType int32
 const (
 	_                        = iota

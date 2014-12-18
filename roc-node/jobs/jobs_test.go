@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"testing"
+	"strings"
 	"fmt"
 	"time"
 
@@ -59,7 +60,7 @@ func JobStart(t *testing.T) {
 
 	}
 	slog.Infoln(j)
-	if j.String() != "job0@60000@sh[c.sh]true@RUN" {
+	if strings.Index(j.String(), "job0|60000|true|sh|[c.sh]") == -1 {
 		slog.Errorln(fun)
 		t.Errorf("%s", fun)
 
@@ -74,7 +75,7 @@ func JobStart(t *testing.T) {
 		t.Errorf("%s", fmt.Sprintf("job kill error %s", err))
 	}
 	slog.Infoln(j)
-	if j.String() != "job0@60000@sh[c.sh]false@RUN" {
+	if strings.Index(j.String(), "job0|60000|false|sh|[c.sh]") == -1 {
 		slog.Errorln(fun)
 		t.Errorf("%s", fun)
 
@@ -82,7 +83,7 @@ func JobStart(t *testing.T) {
 	time.Sleep(time.Millisecond * 1000)
 
 	slog.Infoln(j)
-	if j.String() != "job0@60000@sh[c.sh]false@STOP" {
+	if strings.Index(j.String(), "job0|60000|false|sh|[c.sh]") == -1 {
 		slog.Errorln(fun, j)
 		t.Errorf("%s %s", fun, j)
 
