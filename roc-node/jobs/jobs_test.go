@@ -11,11 +11,10 @@ import (
 
 
 func TestContrl(t *testing.T) {
-	slog.Init("", "", "TRACE")
 	JobStart(t)
 	//JobKill2(t)
 	//JobLoop0(t)
-	JobLoop1(t)
+	//JobLoop1(t)
 	//JobLoop2(t)
 	//JobKill(t)
 }
@@ -24,7 +23,6 @@ func JobStart(t *testing.T) {
 	fun := "JobStart"
 
 	mc := &ManulConf {
-		"job0",
 		"sh",
 		[]string{"c.sh"},
 		true,
@@ -32,30 +30,27 @@ func JobStart(t *testing.T) {
 	}
 
 
-	j := Newjob(mc, nil, nil)
+	j := Newjob("job0", mc, nil, nil)
 
 	slog.Infoln(j)
-	if j.String() != "job0@60000@sh[c.sh]true@STOP" {
+	if j.String() != "job0|60000|true|sh|[c.sh]|0" {
 		slog.Errorln(fun)
 		t.Errorf("%s", fun)
 	}
 
 	err := j.Kill()
 	if err != nil {
-		slog.Infof("job kill error:%s", err)
-	} else {
 		slog.Errorln("job kill error")
 		t.Errorf("%s", "job kill error")
 	}
 
-	j.Start()
-	time.Sleep(time.Millisecond * 100)
-	slog.Infoln(j)
-	if j.String() != "job0@60000@sh[c.sh]true@RUN" {
+	err = j.Start()
+	if err != nil {
 		slog.Errorln(fun)
 		t.Errorf("%s", fun)
-
 	}
+	time.Sleep(time.Millisecond * 100)
+	slog.Infoln(j)
 
 	err = j.Kill()
 	if err != nil {
@@ -69,7 +64,7 @@ func JobStart(t *testing.T) {
 		t.Errorf("%s", fun)
 
 	}
-
+	slog.Infoln("=======================")
 	// 停止自动重启
 	mc.JobAuto = false
 	j.updateConf(mc)
@@ -100,8 +95,8 @@ func JobStart(t *testing.T) {
 func JobKill2(t *testing.T) {
 
 	j := Newjob(
+		"0",
 		&ManulConf {
-			"0",
 			"sh",
 			[]string{"c.sh"},
 			false,
@@ -110,7 +105,6 @@ func JobKill2(t *testing.T) {
 		nil, nil,
 	)
 
-	//go j.loop()
 
 	time.Sleep(time.Second * 1)
 
@@ -134,9 +128,9 @@ func JobKill2(t *testing.T) {
 
 func JobLoop0(t *testing.T) {
 
-	j := Newjob(
-		&ManulConf {
+	_ = Newjob(
 			"0",
+		&ManulConf {
 			"sh",
 			[]string{"c_notexist.sh"},
 			true,
@@ -145,16 +139,14 @@ func JobLoop0(t *testing.T) {
 		nil, nil,
 	)
 
-	j.loop()
-	//time.Sleep(time.Second * 5)
 
 }
 
 func JobLoop1(t *testing.T) {
 
-	j := Newjob(
-		&ManulConf {
+	_ = Newjob(
 			"0",
+		&ManulConf {
 			"sh",
 			[]string{"c_loop.sh"},
 			true,
@@ -163,7 +155,6 @@ func JobLoop1(t *testing.T) {
 		nil, nil,
 	)
 
-	go j.loop()
 
 	time.Sleep(time.Second * 2)
 }
@@ -171,9 +162,9 @@ func JobLoop1(t *testing.T) {
 // 测试运行一段时间出错的情况，是否能够避免退避算法
 func JobLoop2(t *testing.T) {
 
-	j := Newjob(
-		&ManulConf {
+	_ = Newjob(
 			"0",
+		&ManulConf {
 			"sh",
 			[]string{"c_exit1.sh"},
 			true,
@@ -182,7 +173,6 @@ func JobLoop2(t *testing.T) {
 		nil, nil,
 	)
 
-	j.loop()
 	
 }
 
@@ -190,8 +180,8 @@ func JobLoop2(t *testing.T) {
 func JobKill(t *testing.T) {
 
 	j := Newjob(
-		&ManulConf {
 			"0",
+		&ManulConf {
 			"sh",
 			[]string{"c.sh"},
 			true,
@@ -207,7 +197,6 @@ func JobKill(t *testing.T) {
 
 	slog.Infof("%s", err)
 
-	go j.loop()
 
 	time.Sleep(time.Second * 5)
 

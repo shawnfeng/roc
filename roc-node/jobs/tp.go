@@ -1,13 +1,21 @@
 package jobs
 
+import (
+	"time"
+)
 
 type jobCmdType int32
 const (
 	_                        = iota
 	JOBCMD_START  jobCmdType = iota
 	JOBCMD_STOP
-
 	JOBCMD_KILL
+	// 更新配置
+	JOBCMD_UPCONF
+
+	// job移除
+	JOBCMD_REMOVE
+
 )
 
 func (m jobCmdType) String() string {
@@ -20,23 +28,18 @@ func (m jobCmdType) String() string {
 		s = "JOBCMD_STOP"
 	case JOBCMD_KILL:
 		s = "JOBCMD_KILL"
+	case JOBCMD_UPCONF:
+		s = "JOBCMD_UPCONF"
+
+	case JOBCMD_REMOVE:
+		s = "JOBCMD_REMOVE"
+
 	}
 
 
 	return s
 }
 
-type jobLoopType int32
-
-const (
-	_                        = iota
-	Loop_STOP    jobLoopType = iota
-
-	Loop_RUN
-	Loop_RUNCHEACK
-	Loop_BACKOFF
-
-)
 
 type jobExitType int32
 const (
@@ -74,45 +77,14 @@ func (m jobExitType) String() string {
 	return s
 }
 
-type jobLoopType int32
-
-const (
-	_                        = iota
-	Loop_STOP    jobLoopType = iota
-
-	Loop_RUN
-	Loop_RUNCHEACK
-	Loop_BACKOFF
-
-)
-
-func (m jobLoopType) String() string {
-	s := "UNKNOWN"
-
-	if Loop_STOP == m {
-		s = "STOP"
-
-	} else if Loop_RUN == m {
-		s = "RUN"
-
-	} else if Loop_RUNCHEACK  == m {
-		s = "RUNCHEACK"
-
-	} else if Loop_BACKOFF == m {
-		s = "BACKOFF"
-
-	}
-
-	return s
-}
-
 type runNotify struct {
-	pidJob int
+	jobPid int
 }
 
 type exitState struct {
 	runDuration time.Duration
 	exitType jobExitType
+	runErr error
 }
 
 
@@ -121,5 +93,8 @@ type userCommand struct {
 	cmd jobCmdType
 	// callback
 }
+
+
+
 
 
