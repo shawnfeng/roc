@@ -28,17 +28,15 @@ import (
 // 没有start时候remove
 // 测试remove后在start等操作
 
-
-// start start
-// 更新配置测试
-
-
-
-
 // backoff配置测试
+// start start
 // backoff时候，start是否立即
 // backoff时候kill
 // backoff时候stop
+
+
+// 更新配置测试
+
 
 
 
@@ -48,8 +46,119 @@ func TestContrl(t *testing.T) {
 	//JobStopKill(t)
 	//JobStart2(t)
 	//JobStart3(t)
-	JobStart4(t)
+	//JobStart4(t)
+
+	// start start | run backoff test
+	//JobStart5(t)
+	// backoff时候，start是否立即
+	JobStart6(t)
 }
+
+func JobStart6(t *testing.T) {
+	fun := "JobStart6"
+
+	mc := &ManulConf {
+		"sh",
+		[]string{"c_exit1.sh"},
+		true,
+		time.Second*60,
+	}
+
+	cbstart := func(pid int32, j *Job) {
+		slog.Infoln("@@callback job start:", pid, j)
+
+	}
+
+	cbstop := func(pid int32, j *Job) {
+		slog.Infoln("@@callback job stop:", pid, j)
+
+	}
+
+	j := Newjob("job0", mc, cbstop, cbstart)
+
+	err := j.Start()
+	if err != nil {
+		slog.Errorln(fun)
+		t.Errorf("%s", fun)
+	}
+
+	slog.Infoln(j)
+	if j.String() != "job0|0" {
+		slog.Errorln(fun)
+		t.Errorf("%s", fun)
+	}
+
+	time.Sleep(time.Second*45)
+	j.Stop()
+	time.Sleep(time.Second*20)
+	slog.Infof("@@@@@@@ start now")
+	err = j.Start()
+	if err != nil {
+		slog.Errorln(fun)
+		t.Errorf("%s", fun)
+	}
+
+
+	time.Sleep(time.Second*300)
+
+
+
+}
+
+
+
+
+func JobStart5(t *testing.T) {
+	fun := "JobStart5"
+
+	mc := &ManulConf {
+		"sh",
+		[]string{"c_exit1.sh"},
+		true,
+		time.Second*10,
+	}
+
+	cbstart := func(pid int32, j *Job) {
+		slog.Infoln("@@callback job start:", pid, j)
+
+	}
+
+	cbstop := func(pid int32, j *Job) {
+		slog.Infoln("@@callback job stop:", pid, j)
+
+	}
+
+	j := Newjob("job0", mc, cbstop, cbstart)
+
+	err := j.Start()
+	if err != nil {
+		slog.Errorln(fun)
+		t.Errorf("%s", fun)
+	}
+	for i := 0; i < 10; i++ {
+		go func() {
+			err := j.Start()
+			if err != nil {
+				slog.Errorln(fun)
+				t.Errorf("%s", fun)
+			}
+		}()
+	}
+
+
+	slog.Infoln(j)
+	if j.String() != "job0|0" {
+		slog.Errorln(fun)
+		t.Errorf("%s", fun)
+	}
+
+
+	time.Sleep(time.Second*120)
+
+
+
+}
+
 
 func JobStart4(t *testing.T) {
 	fun := "JobStart4"

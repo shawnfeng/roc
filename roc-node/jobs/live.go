@@ -129,15 +129,18 @@ func (m *Job) live() {
 	for {
 		m.runCtrlMu.Lock()
 		if m.runCtrl == RUNCTRL_REMOVE {
-			m.runCtrlMu.Unlock()
 			// LOG
+			slog.Infof("%s remove job:%s %s", fun, m, m.runCtrl)
+			m.runCtrlMu.Unlock()
 			return
 
 		} else if m.runCtrl == RUNCTRL_STOP {
-			m.runCtrlMu.Unlock()
 			slog.Infof("%s stop state backoff job:%s %s", fun, m, m.runCtrl)
+			m.runCtrlMu.Unlock()
 			m.stopBackOff.BackOff()
+			m.runCtrlMu.Lock()
 			slog.Infof("%s stop backoff over job:%s %s", fun, m, m.runCtrl)
+			m.runCtrlMu.Unlock()
 		} else if m.runCtrl == RUNCTRL_START {
 			// very ugly,but what can i do?
 			// in liveRun to unlock
@@ -150,6 +153,7 @@ func (m *Job) live() {
 
 			m.runCtrlMu.Lock()
 			atomic.StoreInt32(&m.pid, 0)
+			slog.Infof("%s check config job:%s conf:%s ctrl:%s", fun, m, &m.mconf, m.runCtrl)
 			if !m.mconf.JobAuto {
 				// 用户设置了非自动控制，不再启动
 				m.runCtrl = RUNCTRL_STOP
@@ -184,6 +188,7 @@ func (m *Job) live() {
 func (m *Job) run(mu *sync.Mutex, cmdname string, cmdargs ...string) error {
 	fun := "Job.run"
 
+	slog.Infof("%s exec cmd job:%s name:%s args:%s", fun, m, cmdname, cmdargs)
 	cmd := exec.Command(cmdname, cmdargs...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -193,6 +198,7 @@ func (m *Job) run(mu *sync.Mutex, cmdname string, cmdargs ...string) error {
 	}
 
 
+	slog.Infof("%s start cmd job:%s name:%s args:%s", fun, m, cmdname, cmdargs)
 	if err := cmd.Start(); err != nil {
 		slog.Errorf("%s over done cmdstart job:%s err:%s", fun, m, err)
 		mu.Unlock()
@@ -213,6 +219,8 @@ func (m *Job) run(mu *sync.Mutex, cmdname string, cmdargs ...string) error {
 	// so most callers need not close the pipe themselves;
 	// however, an implication is that it is incorrect to call Wait before all reads from the pipe have completed.
 	// For the same reason, it is incorrect to call Run when using StdoutPipe. See the example for idiomatic usage.
+
+	slog.Infof("%s readstdout job:%s name:%s args:%s", fun, m, cmdname, cmdargs)
 	stdbuff := bufio.NewReader(stdout)
 	for {
 		// log 按行输出，读取不到换行符号时候，会阻塞在这里哦
@@ -230,6 +238,7 @@ func (m *Job) run(mu *sync.Mutex, cmdname string, cmdargs ...string) error {
 	}
 
 
+	slog.Infof("%s wait job:%s name:%s args:%s", fun, m, cmdname, cmdargs)
 	// 只要返回status不是0就会有err
 	if err := cmd.Wait(); err != nil {
 		slog.Warnf("%s exit job:%s err:%s", fun, m, err)
