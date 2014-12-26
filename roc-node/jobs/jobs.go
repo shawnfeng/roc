@@ -7,7 +7,7 @@ import (
 	"errors"
 	"time"
 
-
+	"github.com/shawnfeng/sutil/stime"
 	"github.com/shawnfeng/sutil/slog"
 
 )
@@ -34,55 +34,56 @@ func (m *ManulConf) String() string {
 type Job struct {
 	// 运行job唯一标识
 	id string
-
-	mconfMu sync.Mutex
-	mconf ManulConf
-
-	userCmd chan *userCommand
-
 	pid int32
 	// 管理的进程停止的回调
-	cbProcessStop func(*Job)
+	cbProcessStop func(int32, *Job)
 	// 管理的进程启动的回调
-	cbProcessRun func(*Job)
+	cbProcessRun func(int32, *Job)
 
-	removeFlagMu sync.Mutex
-	removeFlag bool
+	// job运行失败重启退避
+	runBackOff *stime.BackOffCtrl
+	// job没有运行等待退避
+	stopBackOff *stime.BackOffCtrl
+
+
+	runCtrlMu sync.Mutex
+	runCtrl jobRunCtrl
+	mconf ManulConf
+
 }
 
 func Newjob(
 	id string,
 	conf *ManulConf,
-	cbprocstop func(*Job),
+	cbprocstop func(int32, *Job),
 	// 管理的进程启动的回调
-	cbprocrun func(*Job),
+	cbprocrun func(int32, *Job),
 
 ) *Job {
 
 	j := &Job {
 		id: id,
-		mconf: *conf,
+
 		cbProcessStop: cbprocstop,
 		cbProcessRun: cbprocrun,
-		removeFlag: false,
-		userCmd: make(chan *userCommand),
+
+		runBackOff: stime.NewBackOffCtrl(time.Millisecond * 100, conf.BackOffCeil),
+		// 固定10s
+		stopBackOff: stime.NewBackOffCtrl(time.Second * 10, time.Second * 10),
+
+		runCtrl: RUNCTRL_STOP,
+		mconf: *conf,
 	}
 
-	go j.live(j.userCmd)
+	go j.live()
 
 	return j
 
 }
 
-func (m *Job) getConf() ManulConf {
-	m.mconfMu.Lock()
-	defer m.mconfMu.Unlock()
-	return m.mconf
-}
 
 func (m *Job) String() string {
-	conf := m.getConf()
-	return fmt.Sprintf("%s|%s|%d", m.id, &conf, atomic.LoadInt32(&m.pid))
+	return fmt.Sprintf("%s|%d", m.id, atomic.LoadInt32(&m.pid))
 
 }
 
@@ -100,73 +101,21 @@ func (m *Job) Pid() (int, error) {
 	}
 }
 
-func (m *Job) doUserCmd(c jobCmdType) error {
-	fun := "Job.doUserCmd"
-	slog.Infof("%s job:%s do cmd:%s", fun, m, c)
-
-	m.removeFlagMu.Lock()
-	defer m.removeFlagMu.Unlock()
-
-	if m.removeFlag {
-		return fmt.Errorf("job been remove")
-	} else {
-		if c == JOBCMD_REMOVE {
-			m.removeFlag = true
-		}
-		m.userCmd <-&userCommand{cmd: c}
-		return nil
-	}
-
-}
-
-func (m *Job) Start() error {
-	return m.doUserCmd(JOBCMD_START)
-}
-
-
-func (m *Job) Stop() error {
-	return m.doUserCmd(JOBCMD_STOP)
-}
-
-
-func (m *Job) Kill() error {
-	return m.doUserCmd(JOBCMD_KILL)
-
-}
-
-func (m *Job) Remove() error {
-	return m.doUserCmd(JOBCMD_REMOVE)
-}
-
-
-func (m *Job) updateConf(conf *ManulConf) error {
-	//fun := "Job.updateConf"
-	func() {
-		m.mconfMu.Lock()
-		defer m.mconfMu.Unlock()
-		m.mconf = *conf
-	}()
-
-	return m.doUserCmd(JOBCMD_UPCONF)
-
-}
-
-
 
 // 测试cmd.stdin 给sh执行的效果
 type JobManager struct {
 	jobsLock sync.Mutex
 	jobs map[string]*Job
 
-	cbProcessStop func(*Job)
-	cbProcessRun func(*Job)
+	cbProcessStop func(int32, *Job)
+	cbProcessRun func(int32, *Job)
 
 }
 
 func NewJobManager(
-	cbprocstop func(*Job),
+	cbprocstop func(int32, *Job),
 	// 管理的进程启动的回调
-	cbprocrun func(*Job),
+	cbprocrun func(int32, *Job),
 ) *JobManager {
 
 	return &JobManager {

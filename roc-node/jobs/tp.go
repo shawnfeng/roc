@@ -1,47 +1,32 @@
 package jobs
 
-import (
-	"time"
-)
 
-
-// 记录执行状态，主要是输出log
-type jobRunState int32
+type jobRunCtrl int32
 const (
 	_                         = iota
-	JOBST_     jobRunState = iota
-)
+	RUNCTRL_START  jobRunCtrl = iota
+	RUNCTRL_STOP
 
-
-type jobCmdType int32
-const (
-	_                        = iota
-	JOBCMD_START  jobCmdType = iota
-	JOBCMD_STOP
-	JOBCMD_KILL
-	// 更新配置
-	JOBCMD_UPCONF
-
+	RUNCTRL_KILL
 	// job移除
-	JOBCMD_REMOVE
+	RUNCTRL_REMOVE
 
 )
 
-func (m jobCmdType) String() string {
-	s := "UNKNOWN"
+func (m jobRunCtrl) String() string {
+	s := "RUNCTRL_UNKNOWN"
 
 	switch m {
-	case JOBCMD_START:
-		s = "JOBCMD_START"
-	case JOBCMD_STOP:
-		s = "JOBCMD_STOP"
-	case JOBCMD_KILL:
-		s = "JOBCMD_KILL"
-	case JOBCMD_UPCONF:
-		s = "JOBCMD_UPCONF"
+	case RUNCTRL_START:
+		s = "RUNCTRL_START"
+	case RUNCTRL_STOP:
+		s = "RUNCTRL_STOP"
 
-	case JOBCMD_REMOVE:
-		s = "JOBCMD_REMOVE"
+	case RUNCTRL_KILL:
+		s = "RUNCTRL_KILL"
+
+	case RUNCTRL_REMOVE:
+		s = "RUNCTRL_REMOVE"
 
 	}
 
@@ -50,58 +35,6 @@ func (m jobCmdType) String() string {
 }
 
 
-type jobExitType int32
-const (
-	_                     = iota
-	Exit_OK   jobExitType = iota
-	Exit_Err_StdoutPipe
-	Exit_Err_CmdStart
-
-	Exit_Err_Kill
-	Exit_Err_JobOtherErr
-
-)
-
-
-
-func (m jobExitType) String() string {
-	s := "UNKNOWN"
-
-	switch m {
-	case Exit_OK:
-		s = "OK"
-
-	case Exit_Err_StdoutPipe:
-		s = "Err_StdoutPipe"
-	case Exit_Err_CmdStart:
-		s = "Err_CmdStart"
-
-	case Exit_Err_Kill:
-		s = "Err_Kill"
-
-	case Exit_Err_JobOtherErr:
-		s = "Err_JobOtherErr"
-	}
-
-	return s
-}
-
-type runNotify struct {
-	jobPid int
-}
-
-type exitState struct {
-	runDuration time.Duration
-	exitType jobExitType
-	runErr error
-}
-
-
-type userCommand struct {
-
-	cmd jobCmdType
-	// callback
-}
 
 
 
