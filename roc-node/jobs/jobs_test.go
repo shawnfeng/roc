@@ -16,32 +16,120 @@ import (
 // kill 后是否会重启
 // start 马上stop能起到作用不
 // stop 后start
-
+// callback测试
 // start 马上remove能起到作用不
+
+// 测试获取到pid时候，进程ps状态
+// start 后  15430  0.0  0.0   4444   652 pts/13   S+   12:43   0:00 sh c.sh
+
+// 
+//   15430  0.0  0.0      0     0 pts/13   Z+   12:43   0:00 [sh] <defunct>
+
 // 没有start时候remove
 // 测试remove后在start等操作
 
 
 // start start
+// 更新配置测试
 
-// 测试获取到pid时候，进程ps状态
+
+
 
 // backoff配置测试
 // backoff时候，start是否立即
 // backoff时候kill
 // backoff时候stop
-// pid 获取
-// 更新配置测试
-// callback测试
+
+
 
 
 func TestContrl(t *testing.T) {
 	//JobStart(t)
 	//JobStopKill(t)
 	//JobStart2(t)
-	JobStart3(t)
+	//JobStart3(t)
+	JobStart4(t)
+}
+
+func JobStart4(t *testing.T) {
+	fun := "JobStart4"
+
+	mc := &ManulConf {
+		"sh",
+		[]string{"c.sh"},
+		true,
+		time.Second*60,
+	}
+
+	cbstart := func(pid int32, j *Job) {
+		slog.Infoln("@@callback job start:", pid, j)
+
+	}
+
+	cbstop := func(pid int32, j *Job) {
+		slog.Infoln("@@callback job stop:", pid, j)
+
+	}
+
+	j := Newjob("job0", mc, cbstop, cbstart)
+
+	err := j.Start()
+	if err != nil {
+		slog.Errorln(fun)
+		t.Errorf("%s", fun)
+	}
+
+	slog.Infoln(j)
+	if j.String() != "job0|0" {
+		slog.Errorln(fun)
+		t.Errorf("%s", fun)
+	}
+
+	err = j.Remove()
+	// 此时应该job还没有来得及start
+	if err != nil {
+		t.Errorf("here")
+	}
+
+	err = j.Remove()
+	// 此时应该job还没有来得及start
+	if err == nil {
+		t.Errorf("here")
+	}
+
+	err = j.Remove()
+	// 此时应该job还没有来得及start
+	if err == nil {
+		t.Errorf("here")
+	}
+
+	// 看看start 后马上stop，job应该不能启动
+	time.Sleep(time.Second * 2)
+	if j.String() != "job0|0" {
+		slog.Errorln(fun)
+		t.Errorf("%s", fun)
+	} else {
+		slog.Infoln("ok not start")
+	}
+
+	err = j.Start()
+	if err == nil {
+		slog.Errorln(fun)
+		t.Errorf("%s", fun)
+	}
+
+	time.Sleep(time.Second * 1)
+	// 应该启动
+	if j.String() != "job0|0" {
+		t.Errorf("%s", fun)
+	} else {
+		slog.Infoln("ok not start", j.String())
+	}
+
+
 
 }
+
 
 func JobStart3(t *testing.T) {
 	fun := "JobStart3"
