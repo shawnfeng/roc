@@ -40,7 +40,7 @@ func (m *nodeMon) allJobs() []byte {
 	return []byte(sall)
 }
 
-func (m *nodeMon) jobChanges(j *jobs.Job) {
+func (m *nodeMon) jobChanges(pid int32, j *jobs.Job) {
 
 	fun := "nodeMon.jobChanges"
 
@@ -50,11 +50,11 @@ func (m *nodeMon) jobChanges(j *jobs.Job) {
 	for _, ag := range(agents) {
 		_, res, err := ag.Twoway(0, sall, 200*time.Millisecond)
 		if err != nil {
-			slog.Errorf("%s notify ag:%s err:%s", fun, ag, err)
+			slog.Errorf("%s notify pid:%d ag:%s err:%s", fun, pid, ag, err)
 		}
 
 		if string(res) != "OK" {
-			slog.Errorf("%s notify ag:%s res:%s", fun, ag, res)
+			slog.Errorf("%s notify pid:%d ag:%s res:%s", fun, pid, ag, res)
 		}
 		
 	}
@@ -129,14 +129,13 @@ func (m *nodeMon) AddMonitor(monjob, monbin, monconf string) {
 	if len(monjob) > 0 && len(monbin) > 0 && len(monconf) > 0 { 
 		// start node-monitor
 		mc := &jobs.ManulConf {
-			monjob,
 			monbin,
 			[]string{monconf, m.agm.Listenport()},
 			true,
 			time.Millisecond*100,
 		}
 
-		m.mon = jobs.Newjob(mc, nil, nil)
+		m.mon = jobs.Newjob(monjob, mc, nil, nil)
 		m.mon.Start()
 	}
 
@@ -147,8 +146,8 @@ func (m *nodeMon) RemoveMonitor() {
 	fun := "nodeMon.RemoveMonitor"
 	slog.Infof("%s %v", fun, m.mon)
 	if m.mon != nil {
-		m.mon.AutoChange(false)
-		m.mon.Kill()
+		err := m.mon.Remove()
+		slog.Infof("%s remove %s err:%v", fun, &m.mon, err)
 		m.mon = nil
 	}
 }
@@ -172,7 +171,6 @@ func loadjob(tconf *sconf.TierConf, job string) (*jobs.ManulConf, error) {
 	backoffceil := tconf.ToIntWithDefault(job, "backoffceil", 20)
 
 	m := &jobs.ManulConf {
-		job,
 		cmd,
 		args,
 		auto,
