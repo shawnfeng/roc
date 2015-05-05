@@ -40,7 +40,10 @@ type ServBase interface {
 	// 服务副本名称, servename + servid
 	Copyname() string
 
-	Config(cfg interface{}) error
+	// 获取服务的配置
+	ServConfig(cfg interface{}) error
+	// 任意路径的配置信息
+	ArbiConfig(location string) (string, error)
 
 	// id生成逻辑
 	GenSnowFlakeId() (uint64, error)
