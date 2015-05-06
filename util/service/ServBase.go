@@ -16,6 +16,8 @@ import (
 
 	"github.com/shawnfeng/sutil"
 	"github.com/shawnfeng/sutil/slog"
+
+	"github.com/shawnfeng/roc/util/dbrouter"
 )
 
 
@@ -43,13 +45,16 @@ type ServBase interface {
 	// 获取服务的配置
 	ServConfig(cfg interface{}) error
 	// 任意路径的配置信息
-	ArbiConfig(location string) (string, error)
+	//ArbiConfig(location string) (string, error)
 
 	// id生成逻辑
 	GenSnowFlakeId() (uint64, error)
 	GenUuid() string
 	GenUuidSha1() string
 	GenUuidMd5() string
+
+	// db router
+	Dbrouter() *dbrouter.Router
 }
 
 //====================
@@ -83,6 +88,20 @@ func (m *IdGenerator) GenUuidMd5() string {
 
 
 //====================================
+func getValue(client *etcd.Client, path string) ([]byte, error) {
+    r, err := client.Get(path, false, false)
+	if err != nil {
+		return nil, err
+	}
+
+	if r.Node == nil || r.Node.Dir {
+		return nil, fmt.Errorf("etcd node value err location:%s", path)
+	}
+
+	return []byte(r.Node.Value), nil
+
+
+}
 
 func genSid(client *etcd.Client, path, skey string) (int, error) {
 	fun := "genSid"
