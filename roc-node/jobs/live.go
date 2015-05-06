@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"bufio"
 
+	"github.com/shawnfeng/sutil"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/stime"
 )
@@ -145,7 +146,21 @@ func (m *Job) live() {
 			// very ugly,but what can i do?
 			// in liveRun to unlock
 			stat := stime.NewTimeStat()
-			err := m.run(&m.runCtrlMu, m.mconf.Name, m.mconf.Args...)
+
+			jobkeyargs := make([]string, 0)
+			if m.mconf.NeedJobkey {
+				if len(m.mconf.Jobkey) > 0 {
+					m.jobKey = m.mconf.Jobkey
+				}
+				if len(m.jobKey) == 0 {
+					m.jobKey = sutil.GetUUID()
+				}
+
+				jobkeyargs = append(jobkeyargs, "--skey")
+				jobkeyargs = append(jobkeyargs, m.jobKey)
+			}
+
+			err := m.run(&m.runCtrlMu, m.mconf.Name, append(m.mconf.Args, jobkeyargs...)...)
 			if m.cbProcessStop != nil {
 				go m.cbProcessStop(atomic.LoadInt32(&m.pid), m)
 			}

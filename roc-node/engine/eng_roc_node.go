@@ -4,6 +4,9 @@ import (
 	"time"
 	"strings"
 	"fmt"
+    "net"
+    "net/http"
+
 
 	"github.com/shawnfeng/sutil"
 	"github.com/shawnfeng/sutil/slog"
@@ -11,9 +14,7 @@ import (
 	"github.com/shawnfeng/sutil/paconn"
 	"github.com/shawnfeng/sutil/snetutil"
 
-	"roc/roc-node/jobs"
-    "net"
-    "net/http"
+	"github.com/shawnfeng/roc/roc-node/jobs"
 
 )
 
@@ -129,10 +130,10 @@ func (m *nodeMon) AddMonitor(monjob, monbin, monconf string) {
 	if len(monjob) > 0 && len(monbin) > 0 && len(monconf) > 0 { 
 		// start node-monitor
 		mc := &jobs.ManulConf {
-			monbin,
-			[]string{monconf, m.agm.Listenport()},
-			true,
-			time.Millisecond*100,
+			Name: monbin,
+			Args: []string{monconf, m.agm.Listenport()},
+			JobAuto: true,
+			BackOffCeil: time.Millisecond*100,
 		}
 
 		m.mon = jobs.Newjob(monjob, mc, nil, nil)
@@ -166,15 +167,21 @@ func loadjob(tconf *sconf.TierConf, job string) (*jobs.ManulConf, error) {
 		return nil, err
 	}
 
+	needjobkey := tconf.ToBoolWithDefault(job, "needjobkey", false)
+	jobkey := tconf.ToStringWithDefault(job, "jobkey", "")
+
 	auto := tconf.ToBoolWithDefault(job, "auto", true)
+
 
 	backoffceil := tconf.ToIntWithDefault(job, "backoffceil", 20)
 
 	m := &jobs.ManulConf {
-		cmd,
-		args,
-		auto,
-		time.Second * time.Duration(backoffceil),
+		Name: cmd,
+		Args: args,
+		NeedJobkey: needjobkey,
+		Jobkey: jobkey,
+		JobAuto: auto,
+		BackOffCeil: time.Second * time.Duration(backoffceil),
 	}
 
 

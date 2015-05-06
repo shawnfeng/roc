@@ -19,6 +19,11 @@ type ManulConf struct {
 	Name string
 	Args []string
 
+	NeedJobkey bool
+	// 可以不指定，不指定程序会自动生成
+	// node会保证程序发生重启后，该值不改变
+	Jobkey string
+
 	// 是否自动控制
 	JobAuto bool
 
@@ -49,6 +54,8 @@ type Job struct {
 	runCtrlMu sync.Mutex
 	runCtrl jobRunCtrl
 	mconf ManulConf
+
+	jobKey string
 
 }
 

@@ -2,7 +2,7 @@ package main
 
 import (
 	"os"
-	"roc/roc-node/engine"
+	"github.com/shawnfeng/roc/roc-node/engine"
 )
 
 
