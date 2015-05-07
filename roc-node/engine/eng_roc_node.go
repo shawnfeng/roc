@@ -169,6 +169,7 @@ func loadjob(tconf *sconf.TierConf, job string) (*jobs.ManulConf, error) {
 
 	needjobkey := tconf.ToBoolWithDefault(job, "needjobkey", false)
 	jobkey := tconf.ToStringWithDefault(job, "jobkey", "")
+	stdlog := tconf.ToStringWithDefault(job, "stdlog", "")
 
 	auto := tconf.ToBoolWithDefault(job, "auto", true)
 
@@ -178,6 +179,7 @@ func loadjob(tconf *sconf.TierConf, job string) (*jobs.ManulConf, error) {
 	m := &jobs.ManulConf {
 		Name: cmd,
 		Args: args,
+		Stdlog: stdlog,
 		NeedJobkey: needjobkey,
 		Jobkey: jobkey,
 		JobAuto: auto,

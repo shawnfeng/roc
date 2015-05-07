@@ -27,6 +27,8 @@ type ManulConf struct {
 	// 是否自动控制
 	JobAuto bool
 
+	Stdlog string
+
 	// 运行失败退避的最大值
 	BackOffCeil time.Duration
 }

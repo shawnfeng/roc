@@ -3,6 +3,7 @@ package jobs
 import (
 	"os"
 	"fmt"
+	"strings"
 	"os/exec"
 	"sync"
 	"sync/atomic"
@@ -160,7 +161,9 @@ func (m *Job) live() {
 				jobkeyargs = append(jobkeyargs, m.jobKey)
 			}
 
-			err := m.run(&m.runCtrlMu, m.mconf.Name, append(m.mconf.Args, jobkeyargs...)...)
+			err := m.run(&m.runCtrlMu, m.mconf.Stdlog, m.mconf.Name, append(m.mconf.Args, jobkeyargs...)...)
+
+
 			if m.cbProcessStop != nil {
 				go m.cbProcessStop(atomic.LoadInt32(&m.pid), m)
 			}
@@ -200,14 +203,48 @@ func (m *Job) live() {
 }
 
 
-func (m *Job) run(mu *sync.Mutex, cmdname string, cmdargs ...string) error {
+func (m *Job) run(mu *sync.Mutex, stdlog string, cmdname string, cmdargs ...string) error {
 	fun := "Job.run"
 
+
+	var stdlogw *bufio.Writer
+	if len(stdlog) > 0 {
+		var stdlogf *os.File
+		var err error
+		pos := strings.LastIndex(stdlog, "/")
+		if pos != -1 {
+			err = os.MkdirAll(stdlog[:pos], 0777)
+		}
+
+		if err != nil {
+			slog.Errorf("%s mkdir:%s err:%s", fun, stdlog, err)
+
+		} else {
+			stdlogf, err = os.OpenFile(stdlog, os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
+			if err != nil {
+				slog.Errorf("%s open file:%s err:%s", fun, stdlog, err)
+			} else {
+				defer stdlogf.Close()
+				stdlogw = bufio.NewWriter(stdlogf)
+			}
+		}
+
+	}
+
+
+	// =================================
 	slog.Infof("%s exec cmd job:%s name:%s args:%s", fun, m, cmdname, cmdargs)
 	cmd := exec.Command(cmdname, cmdargs...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		slog.Errorf("%s over done stdio job:%s err:%s", fun, m, err)
+		slog.Errorf("%s over done stdout job:%s err:%s", fun, m, err)
+		mu.Unlock()
+		return err
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		slog.Errorf("%s over done stderr job:%s err:%s", fun, m, err)
 		mu.Unlock()
 		return err
 	}
@@ -248,8 +285,34 @@ func (m *Job) run(mu *sync.Mutex, cmdname string, cmdargs ...string) error {
 			}
 			break
 		}
-		slog.Infof("%s %s >:%s", fun, m, logline)
-		//time.Sleep(time.Second * 5)
+		if stdlogw != nil {
+			stdlogw.WriteString(logline)
+			stdlogw.Flush()
+
+		} else {
+			slog.Infof("%s STDO %s >:%s", fun, m, logline)
+		}
+	}
+
+	stder := bufio.NewReader(stderr)
+	for {
+		// log 按行输出，读取不到换行符号时候，会阻塞在这里哦
+		logline, err := stder.ReadString('\n')
+		if err != nil {
+			if err.Error() != "EOF" {
+				slog.Warnf("%s %s stderr read err:%s", fun, m, err)
+			} else {
+				slog.Infof("%s %s >:EOF", fun, m)
+			}
+			break
+		}
+		if stdlogw != nil {
+			stdlogw.WriteString(logline)
+			stdlogw.Flush()
+
+		} else {
+			slog.Infof("%s STDE %s >:%s", fun, m, logline)
+		}
 	}
 
 
