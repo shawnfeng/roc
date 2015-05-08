@@ -34,10 +34,14 @@ type ServInfo struct {
 	//Processor string    `json:"processor"`
 }
 
+func (m *ServInfo) String() string {
+	return fmt.Sprintf("type:%s addr:%s", m.Type, m.Addr)
+}
+
 // ServBase Interface
 type ServBase interface {
 	// key is processor to ServInfo
-	UpdateService(servs map[string]*ServInfo)
+	RegisterService(servs map[string]*ServInfo)
 	Servid() int
 	// 服务副本名称, servename + servid
 	Copyname() string

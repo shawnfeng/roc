@@ -32,8 +32,9 @@ type ServBaseV2 struct {
 }
 
 // {type:http/thrift, addr:10.3.3.3:23233, processor:fuck}
-func (m *ServBaseV2) UpdateService(servs map[string]*ServInfo) {
-
+func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) {
+	fun := "ServBaseV2.RegisterService -->"
+	slog.Infof("%s servs:%s", fun, servs)
 }
 
 func (m *ServBaseV2) Servid() int {
