@@ -17,6 +17,10 @@ import (
 func powerHttp(addr string, router *httprouter.Router) (string, error) {
 	fun := "powerHttp"
 
+	if len(addr) == 0 {
+		addr = ":"
+	}
+
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		return "", err
@@ -47,6 +51,10 @@ func powerHttp(addr string, router *httprouter.Router) (string, error) {
 
 func powerThrift(addr string, processor thrift.TProcessor) (string, error) {
 	fun := "powerThrift"
+
+	if len(addr) == 0 {
+		addr = ":"
+	}
 
 	transportFactory := thrift.NewTFramedTransportFactory(thrift.NewTTransportFactory())
 	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
