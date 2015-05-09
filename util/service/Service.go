@@ -141,7 +141,7 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) error {
 }
 
 
-func (m *Service) Serve(procs map[string]Processor) error {
+func (m *Service) Serve(initfn func (ServBase) error, procs map[string]Processor) error {
 	fun := "Service.Serve"
 
 	args, err := m.parseFlag()
@@ -185,13 +185,21 @@ func (m *Service) Serve(procs map[string]Processor) error {
 	slog.Init(logdir, args.servName, logLevel.Log.Level)
 
 
+	// init callback
+	err = initfn(sb)
+	if err != nil {
+		slog.Panicf("%s --> serv init err:%s", fun, err)
+		return err
+	}
+
+
 	// init processor
 	for n, p := range procs {
 		if p == nil {
 			slog.Panicf("%s --> processor:%s is nil", fun, n)
 			return fmt.Errorf("processor:%s is nil", n)
 		} else {
-			err := p.Init(sb)
+			err := p.Init()
 			if err != nil {
 				slog.Panicf("%s --> processor:%s init err:%s", fun, err)
 				return err
@@ -216,6 +224,6 @@ func (m *Service) Serve(procs map[string]Processor) error {
 
 
 
-func Serve(procs map[string]Processor) error {
-	return service.Serve(procs)
+func Serve(initfn func (ServBase) error, procs map[string]Processor) error {
+	return service.Serve(initfn, procs)
 }

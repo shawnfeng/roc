@@ -3,7 +3,7 @@ package rocserv
 
 type Processor interface {
 	// init
-	Init(sb ServBase) error
+	Init() error
 	// interace driver
 	Driver() (string, interface{})
 }
