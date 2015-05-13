@@ -9,7 +9,7 @@ import (
 )
 
 
-type ClientBase interface {
+type ClientLookup interface {
 
 	GetServAddr(processor, key string) *ServInfo
 
@@ -17,7 +17,7 @@ type ClientBase interface {
 
 
 
-func NewClientEtcd(etcdaddrs[]string, servlocation, servname string) (*ClientEtcdV2, error) {
+func NewClientLookup(etcdaddrs[]string, servlocation, servname string) (*ClientEtcdV2, error) {
 	return NewClientEtcdV2(etcdaddrs, servlocation, servname)
 }
 
@@ -25,7 +25,7 @@ func NewClientEtcd(etcdaddrs[]string, servlocation, servname string) (*ClientEtc
 
 type ClientThrift struct {
 
-	clientBase ClientBase
+	clientLookup ClientLookup
 	processor string
 	fnFactory func(thrift.TTransport, thrift.TProtocolFactory) interface{}
 
@@ -40,10 +40,10 @@ type ClientThrift struct {
 
 
 
-func NewClientThrift(cb ClientBase, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, poollen int) *ClientThrift{
+func NewClientThrift(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, poollen int) *ClientThrift{
 
 	ct := &ClientThrift {
-		clientBase: cb,
+		clientLookup: cb,
 		processor: processor,
 		fnFactory: fn,
 		poolLen: poollen,
@@ -104,7 +104,7 @@ func (m *ClientThrift) printPool() {
 func (m *ClientThrift) Get(key string) (*ServInfo, interface{}) {
 	fun := "ClientThrift.Get -->"
 
-	s := m.clientBase.GetServAddr(m.processor, key)
+	s := m.clientLookup.GetServAddr(m.processor, key)
 	if s == nil {
 		return nil, nil
 	}
@@ -129,7 +129,7 @@ func (m *ClientThrift) Get(key string) (*ServInfo, interface{}) {
 
 
 func (m *ClientThrift) Payback(si *ServInfo, client interface{}) {
-	fun := "ClientThrift.Payback"
+	fun := "ClientThrift.Payback -->"
 
 	po := m.getPool(si.Addr)
 

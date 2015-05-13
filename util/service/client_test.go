@@ -14,7 +14,7 @@ import (
 func TestClient(t *testing.T) {
     etcds := []string{"http://127.0.0.1:20002"}
 
-	cli, err := NewClientEtcd(etcds, "/disp/service/niubi", "fuck")
+	cli, err := NewClientLookup(etcds, "/disp/service/niubi", "fuck")
 
 	slog.Infof("Test client:%s err:%v", cli, err)
 
