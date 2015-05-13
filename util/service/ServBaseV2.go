@@ -89,7 +89,7 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 	if err != nil {
 		slog.Warnf("%s --> serv config value err:%s", fun, err)
 	}
-
+	slog.Infof("%s cfg:%s %s %s", fun, scfg, m.etcLocation, m.servName)
 	tf := sconf.NewTierConf()
 	err = tf.Load(scfg)
 	if err != nil {

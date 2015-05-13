@@ -63,10 +63,11 @@ func (m *Service) parseFlag() (*cmdArgs, error) {
 		return nil, fmt.Errorf("buss args need!")
 	}
 
-
+	/*
 	if len(logdir) == 0 {
 		return nil, fmt.Errorf("log args need!")
 	}
+   */
 
 	if len(skey) == 0 {
 		return nil, fmt.Errorf("skey args need!")
@@ -176,8 +177,10 @@ func (m *Service) Serve(initfn func (ServBase) error, procs map[string]Processor
 		return err
 	}
 
-
-	logdir := fmt.Sprintf("%s/%s", args.logDir, sb.Copyname())
+	var logdir string
+	if len(args.logDir) > 0 {
+		logdir = fmt.Sprintf("%s/%s", args.logDir, sb.Copyname())
+	}
 
 	slog.Infof("%s --> init log dir:%s name:%s level:%s", fun, logdir, args.servName, logLevel.Log.Level)
 
