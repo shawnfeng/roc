@@ -134,9 +134,8 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) error {
 
 	}
 
-	sb.RegisterService(infos)
+	return sb.RegisterService(infos)
 
-	return nil
 
 }
 

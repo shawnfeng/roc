@@ -26,6 +26,7 @@ import (
 
 const (
 	BASE_SESSION_KEY = "skey"
+	BASE_ROUTE_KEY = "route"
 )
 
 type ServInfo struct {
@@ -41,7 +42,7 @@ func (m *ServInfo) String() string {
 // ServBase Interface
 type ServBase interface {
 	// key is processor to ServInfo
-	RegisterService(servs map[string]*ServInfo)
+	RegisterService(servs map[string]*ServInfo) error
 	Servid() int
 	// 服务副本名称, servename + servid
 	Copyname() string

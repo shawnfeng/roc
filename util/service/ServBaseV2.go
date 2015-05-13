@@ -2,6 +2,7 @@ package rocserv
 
 import (
 	"fmt"
+	"time"
 	"encoding/json"
 	// now use 73a8ef737e8ea002281a28b4cb92a1de121ad4c6
     "github.com/coreos/go-etcd/etcd"
@@ -32,9 +33,40 @@ type ServBaseV2 struct {
 }
 
 // {type:http/thrift, addr:10.3.3.3:23233, processor:fuck}
-func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) {
+func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) error {
 	fun := "ServBaseV2.RegisterService -->"
-	slog.Infof("%s servs:%s", fun, servs)
+
+
+	js, err := json.Marshal(servs)
+	if err != nil {
+		return err
+	}
+
+	slog.Infof("%s servs:%s", fun, js)
+
+	path := fmt.Sprintf("%s/%s/%s/%d", m.servLocation, BASE_ROUTE_KEY, m.servName, m.servId)
+
+
+	go func() {
+
+		for {
+			// 节点超时时间为120秒
+			r, err := m.etcdClient.Set(path, string(js), 120)
+			if err != nil {
+				slog.Errorf("%s reg err:%s", fun, err)
+			} else {
+				jr, _ := json.Marshal(r)
+				slog.Infof("%s reg ok:%s", fun, jr)
+			}
+
+			// 每分发起一次注册
+			time.Sleep(time.Second * 60)
+		}
+
+	}()
+
+	return nil
+
 }
 
 func (m *ServBaseV2) Servid() int {
