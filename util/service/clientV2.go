@@ -192,7 +192,6 @@ func (m *ClientEtcdV2) GetServAddr(processor, key string) *ServInfo {
 	m.muServlist.Lock()
 	defer m.muServlist.Unlock()
 
-
 	if p, ok := m.servList[processor]; ok {
 		if len(p) > 0 {
 			h := crc32.ChecksumIEEE([]byte(key))
@@ -203,6 +202,5 @@ func (m *ClientEtcdV2) GetServAddr(processor, key string) *ServInfo {
 	}
 	return nil
 }
-
 
 
