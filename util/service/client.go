@@ -40,7 +40,7 @@ type ClientThrift struct {
 
 
 
-func NewClientThrift(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, poollen int) *ClientThrift{
+func NewClientThrift(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, poollen int) *ClientThrift {
 
 	ct := &ClientThrift {
 		clientLookup: cb,
