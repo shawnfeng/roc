@@ -84,10 +84,10 @@ func (m *ServBaseV2) Dbrouter() *dbrouter.Router {
 }
 
 func (m *ServBaseV2) ServConfig(cfg interface{}) error {
-	fun := "ServBaseV2.ServConfig"
+	fun := "ServBaseV2.ServConfig -->"
 	scfg, err := getValue(m.etcdClient, fmt.Sprintf("%s/%s", m.etcLocation, m.servName))
 	if err != nil {
-		slog.Warnf("%s --> serv config value err:%s", fun, err)
+		slog.Warnf("%s serv config value err:%s", fun, err)
 	}
 	slog.Infof("%s cfg:%s %s %s", fun, scfg, m.etcLocation, m.servName)
 	tf := sconf.NewTierConf()
@@ -107,7 +107,7 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 
 // etcd v2 接口
 func NewServBaseV2(etcdaddrs[]string, location, etcloc, dbloc, name, skey string) (*ServBaseV2, error) {
-	fun := "NewServBaseV2"
+	fun := "NewServBaseV2 -->"
 
     client := etcd.NewClient(etcdaddrs)
 	if client == nil {
@@ -121,7 +121,7 @@ func NewServBaseV2(etcdaddrs[]string, location, etcloc, dbloc, name, skey string
 		return nil, err
 	}
 
-	slog.Infof("%s --> path:%s sid:%d skey:%s", fun, path, sid, skey)
+	slog.Infof("%s path:%s sid:%d skey:%s", fun, path, sid, skey)
 
 
 	var dr *dbrouter.Router

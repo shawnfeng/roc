@@ -15,7 +15,7 @@ import (
 
 
 func powerHttp(addr string, router *httprouter.Router) (string, error) {
-	fun := "powerHttp"
+	fun := "powerHttp -->"
 
 	if len(addr) == 0 {
 		addr = ":"
@@ -40,7 +40,7 @@ func powerHttp(addr string, router *httprouter.Router) (string, error) {
 	go func() {
 		err := http.Serve(netListen, router)
 		if err != nil {
-			slog.Panicf("%s --> laddr[%s]", fun, laddr)
+			slog.Panicf("%s laddr[%s]", fun, laddr)
 		}
 	}()
 
@@ -50,7 +50,7 @@ func powerHttp(addr string, router *httprouter.Router) (string, error) {
 
 
 func powerThrift(addr string, processor thrift.TProcessor) (string, error) {
-	fun := "powerThrift"
+	fun := "powerThrift -->"
 
 	if len(addr) == 0 {
 		addr = ":"
@@ -82,7 +82,7 @@ func powerThrift(addr string, processor thrift.TProcessor) (string, error) {
 	go func() {
 		err := server.Serve()
 		if err != nil {
-			slog.Panicf("%s --> laddr[%s]", fun, laddr)
+			slog.Panicf("%s laddr[%s]", fun, laddr)
 		}
 	}()
 

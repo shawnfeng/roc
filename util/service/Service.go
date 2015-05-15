@@ -86,7 +86,7 @@ func (m *Service) parseFlag() (*cmdArgs, error) {
 
 
 func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) error {
-	fun := "Service.loadDriver"
+	fun := "Service.loadDriver -->"
 
 	infos := make(map[string]*ServInfo)
 
@@ -94,12 +94,12 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) error {
 	for n, p := range procs {
 		addr, driver := p.Driver()
 		if driver == nil {
-			slog.Infof("%s --> processor:%s no driver", fun, n)
+			slog.Infof("%s processor:%s no driver", fun, n)
 			continue
 		}
 
 
-		slog.Infof("%s --> processor:%s type:%s addr:%s", fun, n, reflect.TypeOf(driver), addr)
+		slog.Infof("%s processor:%s type:%s addr:%s", fun, n, reflect.TypeOf(driver), addr)
 
 		switch d := driver.(type) {
 		case *httprouter.Router:
@@ -108,7 +108,7 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) error {
 				return err
 			}
 
-			slog.Infof("%s --> load ok processor:%s serv addr:%s", fun, n, sa)
+			slog.Infof("%s load ok processor:%s serv addr:%s", fun, n, sa)
 			infos[n] = &ServInfo {
 				Type: PROCESSOR_HTTP,
 				Addr: sa,
@@ -121,7 +121,7 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) error {
 				return err
 			}
 
-			slog.Infof("%s --> load ok processor:%s serv addr:%s", fun, n, sa)
+			slog.Infof("%s load ok processor:%s serv addr:%s", fun, n, sa)
 			infos[n] = &ServInfo {
 				Type: PROCESSOR_THRIFT,
 				Addr: sa,
@@ -142,11 +142,11 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) error {
 
 
 func (m *Service) Serve(initfn func (ServBase) error, procs map[string]Processor) error {
-	fun := "Service.Serve"
+	fun := "Service.Serve -->"
 
 	args, err := m.parseFlag()
 	if err != nil {
-		slog.Panicf("%s --> parse arg err:%s", fun, err)
+		slog.Panicf("%s parse arg err:%s", fun, err)
 		return err
 	}
 
@@ -157,7 +157,7 @@ func (m *Service) Serve(initfn func (ServBase) error, procs map[string]Processor
 	dbLocation := "/etc/db/route"
 	sb, err := NewServBaseV2(args.etcdAddr, servLocation, etcLocation, dbLocation, args.servName, args.sessKey)
 	if err != nil {
-		slog.Panicf("%s --> init servbase args:%s err:%s", fun, args, err)
+		slog.Panicf("%s init servbase args:%s err:%s", fun, args, err)
 		return err
 	}
 
@@ -173,7 +173,7 @@ func (m *Service) Serve(initfn func (ServBase) error, procs map[string]Processor
 
 	err = sb.ServConfig(&logLevel)
 	if err != nil {
-		slog.Panicf("%s --> serv config err:%s", fun, err)
+		slog.Panicf("%s serv config err:%s", fun, err)
 		return err
 	}
 
@@ -182,7 +182,7 @@ func (m *Service) Serve(initfn func (ServBase) error, procs map[string]Processor
 		logdir = fmt.Sprintf("%s/%s", args.logDir, sb.Copyname())
 	}
 
-	slog.Infof("%s --> init log dir:%s name:%s level:%s", fun, logdir, args.servName, logLevel.Log.Level)
+	slog.Infof("%s init log dir:%s name:%s level:%s", fun, logdir, args.servName, logLevel.Log.Level)
 
 	slog.Init(logdir, args.servName, logLevel.Log.Level)
 
@@ -190,7 +190,7 @@ func (m *Service) Serve(initfn func (ServBase) error, procs map[string]Processor
 	// init callback
 	err = initfn(sb)
 	if err != nil {
-		slog.Panicf("%s --> serv init err:%s", fun, err)
+		slog.Panicf("%s serv init err:%s", fun, err)
 		return err
 	}
 
@@ -198,12 +198,12 @@ func (m *Service) Serve(initfn func (ServBase) error, procs map[string]Processor
 	// init processor
 	for n, p := range procs {
 		if p == nil {
-			slog.Panicf("%s --> processor:%s is nil", fun, n)
+			slog.Panicf("%s processor:%s is nil", fun, n)
 			return fmt.Errorf("processor:%s is nil", n)
 		} else {
 			err := p.Init()
 			if err != nil {
-				slog.Panicf("%s --> processor:%s init err:%s", fun, err)
+				slog.Panicf("%s processor:%s init err:%s", fun, err)
 				return err
 			}
 		}
@@ -211,7 +211,7 @@ func (m *Service) Serve(initfn func (ServBase) error, procs map[string]Processor
 
 
 	if err := m.loadDriver(sb, procs); err != nil {
-		slog.Panicf("%s --> load driver err:%s", fun, err)
+		slog.Panicf("%s load driver err:%s", fun, err)
 		return err
 	}
 
