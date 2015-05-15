@@ -24,6 +24,9 @@ func TestClient(t *testing.T) {
 	}
 	time.Sleep(time.Second * 2)
 
+	allserv := cli.GetAllServAddr()
+	slog.Infoln("ALL", allserv)
+
 
 	s := cli.GetServAddr("noexit", "key")
 	if s != nil {

@@ -12,6 +12,7 @@ import (
 type ClientLookup interface {
 
 	GetServAddr(processor, key string) *ServInfo
+	GetAllServAddr() map[string][]*ServInfo
 
 }
 

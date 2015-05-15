@@ -204,3 +204,17 @@ func (m *ClientEtcdV2) GetServAddr(processor, key string) *ServInfo {
 }
 
 
+func (m *ClientEtcdV2) GetAllServAddr() map[string][]*ServInfo {
+	m.muServlist.Lock()
+	defer m.muServlist.Unlock()
+
+	rv := make(map[string][]*ServInfo)
+	for k, v := range m.servList {
+		n := make([]*ServInfo, len(v))
+		copy(n, v)
+		rv[k] = n
+	}
+
+
+	return rv
+}
