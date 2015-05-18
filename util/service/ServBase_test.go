@@ -11,7 +11,7 @@ func TestIt(t *testing.T) {
 	//skey = "beauty"
 	var sb ServBase
 	var err error
-	sb, err = NewServBaseV2(etcds, "/disp/service/niubi", "/etc/service/niubi", "/etc/db/route", "fuck", skey)
+	sb, err = NewServBaseV2(etcds, "niubi/fuck", skey)
 
 	if err != nil {
 		t.Errorf("create err:%s", err)

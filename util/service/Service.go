@@ -3,7 +3,6 @@ package rocserv
 import (
     "flag"
 	"fmt"
-	"strings"
     "reflect"
 
     "github.com/julienschmidt/httprouter"
@@ -23,6 +22,7 @@ const (
 
 
 
+
 type Service struct {
 
 
@@ -33,34 +33,22 @@ var service Service
 //func NewService
 
 type cmdArgs struct {
-	etcdAddr []string
-	bussType string
-	servName string
+	servLoc string
 	logDir   string
 	sessKey  string     
 
 }
 
 func (m *Service) parseFlag() (*cmdArgs, error) {
-	var etcda, serv, buss, logdir, skey string
-    flag.StringVar(&etcda, "etcd", "", "etcd address")
+	var serv, logdir, skey string
     flag.StringVar(&serv, "serv", "", "servic name")
-    flag.StringVar(&buss, "buss", "", "bussiness type")
 	flag.StringVar(&logdir, "log", "", "serice log dir")
 	flag.StringVar(&skey, "skey", "", "service session key")
  
     flag.Parse()
 
-	if len(etcda) == 0 {
-		return nil, fmt.Errorf("etcd args need!")
-	}
-
 	if len(serv) == 0 {
 		return nil, fmt.Errorf("serv args need!")
-	}
-
-	if len(buss) == 0 {
-		return nil, fmt.Errorf("buss args need!")
 	}
 
 	/*
@@ -75,9 +63,7 @@ func (m *Service) parseFlag() (*cmdArgs, error) {
 
 
 	return &cmdArgs {
-		etcdAddr: strings.Split(etcda, ","),
-		bussType: buss,
-		servName: serv,
+		servLoc: serv,
 		logDir: logdir,
 		sessKey: skey,
 	}, nil
@@ -141,7 +127,7 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) error {
 }
 
 
-func (m *Service) Serve(initfn func (ServBase) error, procs map[string]Processor) error {
+func (m *Service) Serve(etcds []string, initfn func (ServBase) error, procs map[string]Processor) error {
 	fun := "Service.Serve -->"
 
 	args, err := m.parseFlag()
@@ -152,10 +138,8 @@ func (m *Service) Serve(initfn func (ServBase) error, procs map[string]Processor
 
 
 	// Init ServBase
-	servLocation := fmt.Sprintf("/disp/service/%s", args.bussType)
-	etcLocation := fmt.Sprintf("/etc/service/%s", args.bussType)
-	dbLocation := "/etc/db/route"
-	sb, err := NewServBaseV2(args.etcdAddr, servLocation, etcLocation, dbLocation, args.servName, args.sessKey)
+
+	sb, err := NewServBaseV2(etcds, args.servLoc, args.sessKey)
 	if err != nil {
 		slog.Panicf("%s init servbase args:%s err:%s", fun, args, err)
 		return err
@@ -182,9 +166,9 @@ func (m *Service) Serve(initfn func (ServBase) error, procs map[string]Processor
 		logdir = fmt.Sprintf("%s/%s", args.logDir, sb.Copyname())
 	}
 
-	slog.Infof("%s init log dir:%s name:%s level:%s", fun, logdir, args.servName, logLevel.Log.Level)
+	slog.Infof("%s init log dir:%s name:%s level:%s", fun, logdir, args.servLoc, logLevel.Log.Level)
 
-	slog.Init(logdir, args.servName, logLevel.Log.Level)
+	slog.Init(logdir, "serv", logLevel.Log.Level)
 
 
 	// init callback
@@ -226,6 +210,6 @@ func (m *Service) Serve(initfn func (ServBase) error, procs map[string]Processor
 
 
 
-func Serve(initfn func (ServBase) error, procs map[string]Processor) error {
-	return service.Serve(initfn, procs)
+func Serve(etcds []string, initfn func (ServBase) error, procs map[string]Processor) error {
+	return service.Serve(etcds, initfn, procs)
 }

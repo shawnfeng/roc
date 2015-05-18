@@ -18,12 +18,9 @@ import (
 
 type ClientEtcdV2 struct {
 	etcdAddrs []string
-	servLocation string
-	servName string
+	servPath string
 
 	etcdClient *etcd.Client
-
-	servPath string
 
 	// 缓存地址列表，按照service id 降序的顺序存储
 	// 按照processor 进行分组
@@ -34,7 +31,7 @@ type ClientEtcdV2 struct {
 }
 
 
-func NewClientEtcdV2(etcdaddrs[]string, servlocation, servname string) (*ClientEtcdV2, error) {
+func NewClientEtcdV2(etcdaddrs []string, servlocation string) (*ClientEtcdV2, error) {
 
     client := etcd.NewClient(etcdaddrs)
 	if client == nil {
@@ -44,10 +41,7 @@ func NewClientEtcdV2(etcdaddrs[]string, servlocation, servname string) (*ClientE
 
 	cli := &ClientEtcdV2 {
 		etcdAddrs: etcdaddrs,
-		servLocation: servlocation,
-		servName: servname,
-
-		servPath: fmt.Sprintf("%s/%s/%s",servlocation, BASE_ROUTE_KEY, servname),
+		servPath: fmt.Sprintf("/%s/%s", BASE_LOC_DIST, servlocation),
 
 		etcdClient: client,
 

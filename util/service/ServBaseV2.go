@@ -13,15 +13,22 @@ import (
 	"github.com/shawnfeng/roc/util/dbrouter"
 )
 
+const (
+	BASE_LOC_DIST = "roc/dist"
+	BASE_LOC_ETC = "roc/etc"
+	BASE_LOC_SKEY = "roc/skey"
+	BASE_LOC_OP = "roc/op"
+	BASE_LOC_DB = "roc/db/route"
+)
+
 
 type ServBaseV2 struct {
 	IdGenerator
 
 	etcdAddrs []string
-	servLocation string
 	etcLocation string
 	dbLocation string
-	servName string
+	servLocation string
 	copyName string
 	sessKey string
 
@@ -44,7 +51,7 @@ func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) error {
 
 	slog.Infof("%s servs:%s", fun, js)
 
-	path := fmt.Sprintf("%s/%s/%s/%d", m.servLocation, BASE_ROUTE_KEY, m.servName, m.servId)
+	path := fmt.Sprintf("/%s/%s/%d", BASE_LOC_DIST, m.servLocation, m.servId)
 
 
 	go func() {
@@ -75,7 +82,7 @@ func (m *ServBaseV2) Servid() int {
 
 
 func (m *ServBaseV2) Copyname() string {
-	return m.copyName
+	return fmt.Sprintf("%s%d", m.servLocation, m.servId)
 
 }
 
@@ -85,11 +92,11 @@ func (m *ServBaseV2) Dbrouter() *dbrouter.Router {
 
 func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 	fun := "ServBaseV2.ServConfig -->"
-	scfg, err := getValue(m.etcdClient, fmt.Sprintf("%s/%s", m.etcLocation, m.servName))
+	scfg, err := getValue(m.etcdClient, fmt.Sprintf("/%s/%s", BASE_LOC_ETC, m.servLocation))
 	if err != nil {
 		slog.Warnf("%s serv config value err:%s", fun, err)
 	}
-	slog.Infof("%s cfg:%s %s %s", fun, scfg, m.etcLocation, m.servName)
+	slog.Infof("%s cfg:%s %s %s", fun, scfg, BASE_LOC_ETC, m.servLocation)
 	tf := sconf.NewTierConf()
 	err = tf.Load(scfg)
 	if err != nil {
@@ -106,7 +113,7 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 
 
 // etcd v2 接口
-func NewServBaseV2(etcdaddrs[]string, location, etcloc, dbloc, name, skey string) (*ServBaseV2, error) {
+func NewServBaseV2(etcdaddrs[]string, servLocation, skey string) (*ServBaseV2, error) {
 	fun := "NewServBaseV2 -->"
 
     client := etcd.NewClient(etcdaddrs)
@@ -114,7 +121,7 @@ func NewServBaseV2(etcdaddrs[]string, location, etcloc, dbloc, name, skey string
 		return nil, fmt.Errorf("create etchd client error")
 	}
 
-	path := fmt.Sprintf("%s/%s/%s", location, BASE_SESSION_KEY, name)
+	path := fmt.Sprintf("/%s/%s", BASE_LOC_SKEY, servLocation)
 
 	sid, err := retryGenSid(client, path, skey, 3)
 	if err != nil {
@@ -124,6 +131,7 @@ func NewServBaseV2(etcdaddrs[]string, location, etcloc, dbloc, name, skey string
 	slog.Infof("%s path:%s sid:%d skey:%s", fun, path, sid, skey)
 
 
+	dbloc := BASE_LOC_DB
 	var dr *dbrouter.Router
 	if len(dbloc) > 0 {
 		jscfg, err := getValue(client, dbloc)
@@ -147,11 +155,8 @@ func NewServBaseV2(etcdaddrs[]string, location, etcloc, dbloc, name, skey string
 
 	reg := &ServBaseV2 {
 		etcdAddrs: etcdaddrs,
-		servLocation: location,
-		etcLocation: etcloc,
 		dbLocation: dbloc,
-		servName: name,
-		copyName: fmt.Sprintf("%s%d", name, sid),
+		servLocation: servLocation,
 		sessKey: skey,
 		etcdClient: client,
 		servId: sid,

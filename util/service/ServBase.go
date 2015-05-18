@@ -24,11 +24,6 @@ import (
 // id生成器
 // 服务注册
 
-const (
-	BASE_SESSION_KEY = "skey"
-	BASE_ROUTE_KEY = "route"
-)
-
 type ServInfo struct {
 	Type string         `json:"type"`
 	Addr string         `json:"addr"`
