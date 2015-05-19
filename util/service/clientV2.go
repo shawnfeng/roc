@@ -179,7 +179,7 @@ func (m *ClientEtcdV2) upServlist(slist map[string][]*ServInfo) {
 
 	m.servList = slist
 
-	slog.Infof("%s update:%s", fun, m.servList)
+	slog.Infof("%s serv:%s update:%s", fun, m.servPath, m.servList)
 }
 
 func (m *ClientEtcdV2) GetServAddr(processor, key string) *ServInfo {

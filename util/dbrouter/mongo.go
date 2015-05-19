@@ -219,21 +219,21 @@ func (m *dbMongo) getSession(consistency mode) (*mgo.Session, error) {
 
 
 
-func (m *Router) mongoExec(consistency mode, cluster, table string, query func (*mgo.Collection)) error {
+func (m *Router) mongoExec(consistency mode, cluster, table string, query func (*mgo.Collection) error) error {
 
 	ins_name := m.dbCls.getInstance(cluster, table)
 	if ins_name == "" {
-		return fmt.Errorf("cluster instance not find: cluster%s table:%s", cluster, table)
+		return fmt.Errorf("cluster instance not find: cluster:%s table:%s", cluster, table)
 	}
 
 	ins := m.dbIns.get(ins_name)
 	if ins == nil {
-		return fmt.Errorf("db instance not find: cluster%s table:%s", cluster, table)
+		return fmt.Errorf("db instance not find: cluster:%s table:%s", cluster, table)
 	}
 
 	db, ok := ins.(*dbMongo)
 	if !ok {
-		return fmt.Errorf("db instance type error: cluster%s table:%s type:%s", cluster, table, ins.getType())
+		return fmt.Errorf("db instance type error: cluster:%s table:%s type:%s", cluster, table, ins.getType())
 	}
 	
 	sess, err := db.getSession(consistency)
@@ -242,7 +242,7 @@ func (m *Router) mongoExec(consistency mode, cluster, table string, query func (
 	}
 
 	if sess == nil {
-		return fmt.Errorf("db instance session empty: cluster%s table:%s type:%s", cluster, table, ins.getType())
+		return fmt.Errorf("db instance session empty: cluster:%s table:%s type:%s", cluster, table, ins.getType())
 	}
 
 
@@ -251,20 +251,18 @@ func (m *Router) mongoExec(consistency mode, cluster, table string, query func (
 	defer sessionCopy.Close()
 	c := sessionCopy.DB("").C(table)
 
-	query(c)
-
-	return nil
+	return query(c)
 }
 
-func (m *Router) MongoExecEventual(cluster, table string, query func (*mgo.Collection)) error {
+func (m *Router) MongoExecEventual(cluster, table string, query func (*mgo.Collection) error) error {
 	return m.mongoExec(eventual, cluster, table, query)
 }
 
-func (m *Router) MongoExecMonotonic(cluster, table string, query func (*mgo.Collection)) error {
+func (m *Router) MongoExecMonotonic(cluster, table string, query func (*mgo.Collection) error) error {
 	return m.mongoExec(monotonic, cluster, table, query)
 }
 
-func (m *Router) MongoExecStrong(cluster, table string, query func (*mgo.Collection)) error {
+func (m *Router) MongoExecStrong(cluster, table string, query func (*mgo.Collection) error) error {
 	return m.mongoExec(strong, cluster, table, query)
 }
 
