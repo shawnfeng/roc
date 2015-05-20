@@ -132,6 +132,13 @@ func NewnodeMon() *nodeMon {
 
 func (m *nodeMon) AddMonitor(monjob, monbin, monconf string) {
 	// node monitor 没有放在jobmanager管理
+	fun := "nodeMon.AddMonitor"
+
+	if m.mon != nil {
+		slog.Infof("%s been add", fun)
+		return
+	}
+
 	if len(monjob) > 0 && len(monbin) > 0 && len(monconf) > 0 { 
 		// start node-monitor
 		mc := &jobs.ManulConf {
@@ -247,7 +254,7 @@ func reloadConf(conf string) error {
 	monconf := tconf.ToStringWithDefault("monitor", "conf", "")
 
 	// 移除老的
-	node_monitor.RemoveMonitor()
+	//node_monitor.RemoveMonitor()
 	node_monitor.AddMonitor(monjob, monbin, monconf)
 	node_monitor.UpdateJobs(jobconfs)
 
