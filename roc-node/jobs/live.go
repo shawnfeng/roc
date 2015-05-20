@@ -6,7 +6,9 @@
 package jobs
 
 import (
+	"syscall"
 	"os"
+	"os/user"
 	"fmt"
 	"time"
 	"strings"
@@ -14,6 +16,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"bufio"
+	"strconv"
 
 	"github.com/shawnfeng/sutil"
 	"github.com/shawnfeng/sutil/slog"
@@ -167,7 +170,7 @@ func (m *Job) live() {
 				jobkeyargs = append(jobkeyargs, m.jobKey)
 			}
 
-			err := m.run(&m.runCtrlMu, m.mconf.Stdlog, m.mconf.Name, append(m.mconf.Args, jobkeyargs...)...)
+			err := m.run(&m.runCtrlMu, m.mconf.User, m.mconf.Stdlog, m.mconf.Name, append(m.mconf.Args, jobkeyargs...)...)
 
 
 			if m.cbProcessStop != nil {
@@ -218,8 +221,49 @@ func (m *Job) live() {
 	}
 }
 
+func (m *Job) setRunuser(cmd *exec.Cmd, ruser string) {
+	fun := "Job.setRunuser"
+	if len(ruser) == 0 {
+		return
+	}
+	// 检查当前用户是否是root，不是root不支持
+	u, err := user.Current()
+	if err != nil {
+		slog.Warnf("%s user:%s current check err:%s", fun, ruser, err)
+		return
+	}
 
-func (m *Job) run(mu *sync.Mutex, stdlog string, cmdname string, cmdargs ...string) error {
+	if u.Uid != "0" {
+		slog.Warnf("%s user:%s current user not root %s", fun, ruser, u)
+		return
+	}
+
+	u, err = user.Lookup(ruser)
+	if err != nil {
+		slog.Warnf("%s user:%s not found err:%s", fun, ruser, err)
+		return
+	}
+
+	uid, err := strconv.Atoi(u.Uid)
+	if err != nil {
+		slog.Warnf("%s user:%s uinfo:%s uid not int err:%s", fun, ruser, u, err)
+		return
+	}
+
+	gid, err := strconv.Atoi(u.Gid)
+	if err != nil {
+		slog.Warnf("%s user:%s uinfo:%s gid not int err:%s", fun, ruser, u, err)
+		return
+	}
+
+	cmd.SysProcAttr = &syscall.SysProcAttr{}
+	slog.Infof("%s user:%s info:%s", fun, ruser, u)
+	cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)}
+
+
+}
+
+func (m *Job) run(mu *sync.Mutex, ruser, stdlog string, cmdname string, cmdargs ...string) error {
 	fun := "Job.run"
 
 
@@ -251,6 +295,10 @@ func (m *Job) run(mu *sync.Mutex, stdlog string, cmdname string, cmdargs ...stri
 	// =================================
 	slog.Infof("%s exec cmd job:%s name:%s args:%s", fun, m, cmdname, cmdargs)
 	cmd := exec.Command(cmdname, cmdargs...)
+
+	m.setRunuser(cmd, ruser)
+
+
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		slog.Errorf("%s over done stdout job:%s err:%s", fun, m, err)

@@ -34,6 +34,9 @@ type ManulConf struct {
 
 	Stdlog string
 
+	// 启动的用户
+	User string
+
 	// 运行失败退避的最大值
 	BackOffCeil time.Duration
 }
