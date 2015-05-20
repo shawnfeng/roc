@@ -8,6 +8,7 @@ package jobs
 import (
 	"os"
 	"fmt"
+	"time"
 	"strings"
 	"os/exec"
 	"sync"
@@ -183,12 +184,12 @@ func (m *Job) live() {
 				slog.Infof("%s not auto set job:%s %s", fun, m, RUNCTRL_STOP)
 			}
 			m.runCtrlMu.Unlock()
-
+			/*
 			if err == nil {
 				slog.Infof("%s exitok call backoffRun job:%s", fun, m)
 				m.runBackOff.Reset()
 			} else {
-				if runDuration < 60*1000*1000*1000 {
+				if runDuration < 60*time.Second {
 					slog.Infof("%s exit short call backoffRun job:%s err:%s", fun, m, err)
 					m.runBackOff.BackOff()
 				} else {
@@ -196,6 +197,16 @@ func (m *Job) live() {
 					m.runBackOff.Reset()
 				}
 			}
+            */
+			// 修改为对成功和失败的都执行退避
+			if runDuration < 60*time.Second {
+				slog.Infof("%s exit short call backoffRun job:%s err:%v", fun, m, err)
+				m.runBackOff.BackOff()
+			} else {
+				slog.Infof("%s exit long call backoffRun job:%s err:%v", fun, m, err)
+				m.runBackOff.Reset()
+			}
+
 
 
 		} else {
