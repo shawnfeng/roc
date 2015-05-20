@@ -143,16 +143,15 @@ func NewJobManager(
 
 }
 
-func (m *JobManager) Runjobs() []string {
+func (m *JobManager) Runjobs() map[string]string {
 	fun := "JobManager.Runjobs"
 	m.jobsLock.Lock()
 	defer m.jobsLock.Unlock()
 
-	pids := make([]string, 0)
+	pids := make(map[string]string)
 	for _, j := range(m.jobs) {
 		if p, err := j.Pid(); err == nil {
-
-			pids = append(pids, fmt.Sprintf("%d", p))
+			pids[j.Id()] = fmt.Sprintf("%d", p)
 		} else {
 			slog.Warnf("%s job:%s pid err:%s", fun, j, err)
 		}

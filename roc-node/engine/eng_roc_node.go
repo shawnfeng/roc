@@ -10,6 +10,7 @@ import (
 	"strings"
 	"fmt"
     "net"
+	"sync"
     "net/http"
 
 
@@ -28,7 +29,45 @@ type nodeMon struct {
 	mon *jobs.Job
 	jobm *jobs.JobManager
 
+	// 关闭monitor监控的job
+	muMond sync.Mutex
+	monDisable map[string]bool
+
 }
+
+func (m *nodeMon) upMonitorDisableList(list []string) {
+	fun := "nodeMon.upMonitorDisableList"
+	slog.Infof("%s list:%s", fun, list)
+
+	nmon := make(map[string]bool)
+	for _, d := range list {
+		nmon[d] = true
+	}
+
+	m.muMond.Lock()
+	defer m.muMond.Unlock()
+
+	m.monDisable = nmon
+}
+
+
+func (m *nodeMon) filtMonitorDisable(jobs map[string]string) []string {
+
+	m.muMond.Lock()
+	defer m.muMond.Unlock()
+
+	rv := make([]string, 0)
+	for id, pid := range jobs {
+		if _, ok := m.monDisable[id]; !ok {
+			rv = append(rv, pid)
+		}
+	}
+
+	return rv
+
+}
+
+
 
 func (m *nodeMon) cbNew(a *paconn.Agent) {
 	fun := "nodeMon.cbNew"
@@ -39,7 +78,11 @@ func (m *nodeMon) allJobs() []byte {
 	fun := "nodeMon.allJobs"
 
 	allrunjobs := m.jobm.Runjobs()
-	sall := strings.Join(allrunjobs, ",")
+
+	filtjobs := m.filtMonitorDisable(allrunjobs)
+
+
+	sall := strings.Join(filtjobs, ",")
 
 	slog.Infof("%s alljobs:%s", fun, sall)
 
@@ -123,6 +166,7 @@ func (m *nodeMon) Init() {
 
 func NewnodeMon() *nodeMon {
 	nm := &nodeMon {
+		monDisable: make(map[string]bool),
 	}
 
 	nm.Init()
@@ -252,9 +296,14 @@ func reloadConf(conf string) error {
 	monjob := tconf.ToStringWithDefault("monitor", "jobname", "")
 	monbin := tconf.ToStringWithDefault("monitor", "bin", "")
 	monconf := tconf.ToStringWithDefault("monitor", "conf", "")
+	mondisable := tconf.ToSliceStringWithDefault("monitor", "disable_list", ",", nil)
+
+	node_monitor.upMonitorDisableList(mondisable)
 
 	// 移除老的
-	//node_monitor.RemoveMonitor()
+	//  移除老的原因是，这里面没有做monitor的配置对比
+	// 如果monitor的配置发生更新的话，不重启monitor怎么知道
+	node_monitor.RemoveMonitor()
 	node_monitor.AddMonitor(monjob, monbin, monconf)
 	node_monitor.UpdateJobs(jobconfs)
 
