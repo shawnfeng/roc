@@ -39,15 +39,15 @@ var service Service
 
 type cmdArgs struct {
 	servLoc string
-	logDir   string
+	//logDir   string
 	sessKey  string     
 
 }
 
 func (m *Service) parseFlag() (*cmdArgs, error) {
-	var serv, logdir, skey string
+	var serv, skey string
     flag.StringVar(&serv, "serv", "", "servic name")
-	flag.StringVar(&logdir, "log", "", "serice log dir")
+	//flag.StringVar(&logdir, "log", "", "serice log dir")
 	flag.StringVar(&skey, "skey", "", "service session key")
  
     flag.Parse()
@@ -69,7 +69,7 @@ func (m *Service) parseFlag() (*cmdArgs, error) {
 
 	return &cmdArgs {
 		servLoc: serv,
-		logDir: logdir,
+		//logDir: logdir,
 		sessKey: skey,
 	}, nil
 
@@ -152,28 +152,29 @@ func (m *Service) Serve(etcds []string, initfn func (ServBase) error, procs map[
 
 
 	// Init slog
-	var logLevel struct {
+	var logConfig struct {
 		Log struct {
 			Level string
+			Dir string
 		}
 	}
 	// default use level INFO
-	logLevel.Log.Level = "INFO"
+	logConfig.Log.Level = "INFO"
 
-	err = sb.ServConfig(&logLevel)
+	err = sb.ServConfig(&logConfig)
 	if err != nil {
 		slog.Panicf("%s serv config err:%s", fun, err)
 		return err
 	}
 
 	var logdir string
-	if len(args.logDir) > 0 {
-		logdir = fmt.Sprintf("%s/%s", args.logDir, sb.Copyname())
+	if len(logConfig.Log.Dir) > 0 {
+		logdir = fmt.Sprintf("%s/%s", logConfig.Log.Dir, sb.Copyname())
 	}
 
-	slog.Infof("%s init log dir:%s name:%s level:%s", fun, logdir, args.servLoc, logLevel.Log.Level)
+	slog.Infof("%s init log dir:%s name:%s level:%s", fun, logdir, args.servLoc, logConfig.Log.Level)
 
-	slog.Init(logdir, "serv", logLevel.Log.Level)
+	slog.Init(logdir, "serv", logConfig.Log.Level)
 
 
 	// init callback

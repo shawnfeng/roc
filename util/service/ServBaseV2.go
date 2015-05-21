@@ -21,6 +21,7 @@ import (
 const (
 	BASE_LOC_DIST = "roc/dist"
 	BASE_LOC_ETC = "roc/etc"
+	BASE_LOC_ETC_GLOBAL = "roc/etc/global"
 	BASE_LOC_SKEY = "roc/skey"
 	BASE_LOC_OP = "roc/op"
 	BASE_LOC_DB = "roc/db/route"
@@ -97,12 +98,27 @@ func (m *ServBaseV2) Dbrouter() *dbrouter.Router {
 
 func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 	fun := "ServBaseV2.ServConfig -->"
-	scfg, err := getValue(m.etcdClient, fmt.Sprintf("/%s/%s", BASE_LOC_ETC, m.servLocation))
+	// 获取全局配置
+	path := fmt.Sprintf("/%s", BASE_LOC_ETC_GLOBAL)
+	scfg_global, err := getValue(m.etcdClient, path)
 	if err != nil {
-		slog.Warnf("%s serv config value err:%s", fun, err)
+		slog.Warnf("%s serv config global value path:%s err:%s", fun, path, err)
 	}
+
+	path = fmt.Sprintf("/%s/%s", BASE_LOC_ETC, m.servLocation)
+	scfg, err := getValue(m.etcdClient, path)
+	if err != nil {
+		slog.Warnf("%s serv config value path:%s err:%s", fun, path, err)
+	}
+
 	slog.Infof("%s cfg:%s %s %s", fun, scfg, BASE_LOC_ETC, m.servLocation)
 	tf := sconf.NewTierConf()
+	err = tf.Load(scfg_global)
+	if err != nil {
+		return err
+	}
+
+
 	err = tf.Load(scfg)
 	if err != nil {
 		return err
