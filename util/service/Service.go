@@ -132,7 +132,7 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) error {
 }
 
 
-func (m *Service) Serve(etcds []string, initfn func (ServBase) error, procs map[string]Processor) error {
+func (m *Service) Serve(confEtcd configEtcd, initfn func (ServBase) error, procs map[string]Processor) error {
 	fun := "Service.Serve -->"
 
 	args, err := m.parseFlag()
@@ -144,7 +144,7 @@ func (m *Service) Serve(etcds []string, initfn func (ServBase) error, procs map[
 
 	// Init ServBase
 
-	sb, err := NewServBaseV2(etcds, args.servLoc, args.sessKey)
+	sb, err := NewServBaseV2(confEtcd, args.servLoc, args.sessKey)
 	if err != nil {
 		slog.Panicf("%s init servbase args:%s err:%s", fun, args, err)
 		return err
@@ -216,6 +216,6 @@ func (m *Service) Serve(etcds []string, initfn func (ServBase) error, procs map[
 
 
 
-func Serve(etcds []string, initfn func (ServBase) error, procs map[string]Processor) error {
-	return service.Serve(etcds, initfn, procs)
+func Serve(etcds []string, baseLoc string, initfn func (ServBase) error, procs map[string]Processor) error {
+	return service.Serve(configEtcd{etcds, baseLoc}, initfn, procs)
 }

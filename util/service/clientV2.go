@@ -22,7 +22,7 @@ import (
 
 
 type ClientEtcdV2 struct {
-	etcdAddrs []string
+	confEtcd configEtcd
 	servPath string
 
 	etcdClient *etcd.Client
@@ -36,17 +36,17 @@ type ClientEtcdV2 struct {
 }
 
 
-func NewClientEtcdV2(etcdaddrs []string, servlocation string) (*ClientEtcdV2, error) {
+func NewClientEtcdV2(confEtcd configEtcd, servlocation string) (*ClientEtcdV2, error) {
 
-    client := etcd.NewClient(etcdaddrs)
+    client := etcd.NewClient(confEtcd.etcdAddrs)
 	if client == nil {
 		return nil, fmt.Errorf("create etchd client error")
 	}
 
 
 	cli := &ClientEtcdV2 {
-		etcdAddrs: etcdaddrs,
-		servPath: fmt.Sprintf("/%s/%s", BASE_LOC_DIST, servlocation),
+		confEtcd: confEtcd,
+		servPath: fmt.Sprintf("%s/%s/%s", confEtcd.useBaseloc, BASE_LOC_DIST, servlocation),
 
 		etcdClient: client,
 

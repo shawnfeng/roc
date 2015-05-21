@@ -23,8 +23,8 @@ type ClientLookup interface {
 
 
 
-func NewClientLookup(etcdaddrs[]string, servlocation string) (*ClientEtcdV2, error) {
-	return NewClientEtcdV2(etcdaddrs, servlocation)
+func NewClientLookup(etcdaddrs[]string, baseLoc string, servlocation string) (*ClientEtcdV2, error) {
+	return NewClientEtcdV2(configEtcd{etcdaddrs, baseLoc}, servlocation)
 }
 
 
