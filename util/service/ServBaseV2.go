@@ -160,13 +160,12 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey string) (*ServBaseV2,
 
 
 	dbloc := fmt.Sprintf("%s/%s", confEtcd.useBaseloc, BASE_LOC_DB)
-	var dr *dbrouter.Router
-	if len(dbloc) > 0 {
-		jscfg, err := getValue(client, dbloc)
-		if err != nil {
-			return nil, err
-		}
 
+	var dr *dbrouter.Router
+	jscfg, err := getValue(client, dbloc)
+	if err != nil {
+		slog.Warnf("%s db:%s config notfound", fun, dbloc)
+	} else {
 		var dbcfg dbrouter.Config
 		err = json.Unmarshal(jscfg, &dbcfg)
 		if err != nil {
@@ -179,6 +178,7 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey string) (*ServBaseV2,
 			return nil, err
 		}
 	}
+
 
 
 	reg := &ServBaseV2 {
