@@ -55,8 +55,9 @@ func newrouter(t *testing.T) {
 	log.Println(r, r.dbCls, r.dbIns)
 
 
-	qf := func(c *mgo.Collection) {
+	qf := func(c *mgo.Collection) error {
 		log.Printf("do c:%s", c)
+		return nil
 
 	}
 
@@ -98,7 +99,7 @@ func newrouter(t *testing.T) {
 
 
 	// ===============================
-	qf1 := func(c *mgo.Collection) {
+	qf1 := func(c *mgo.Collection) error {
 		log.Printf("do c:%s", c)
 
 		_, err := c.Upsert(bson.M{"_id": 3},
@@ -108,6 +109,7 @@ func newrouter(t *testing.T) {
 		if err != nil {
 			t.Errorf("update error:%s", err)
 		}
+		return err
 	}
 
 

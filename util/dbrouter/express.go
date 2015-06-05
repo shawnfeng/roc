@@ -6,6 +6,7 @@
 package dbrouter
 
 import (
+	"fmt"
 	//"sync"
 	"regexp"
 )
@@ -19,10 +20,14 @@ type dbCluster struct {
 	clusters map[string][]*dbExpress
 }
 
-
 type dbExpress struct {
 	ins string
+	exp string
 	reg *regexp.Regexp
+}
+
+func (m *dbExpress) String() string {
+	return fmt.Sprintf("express:%s ins:%s", m.exp, m.ins)
 }
 
 
@@ -39,7 +44,7 @@ func (m *dbCluster) addInstance(cluster, ins, expr string) error {
 		m.clusters[cluster] = make([]*dbExpress, 0)
 	}
 
-	m.clusters[cluster] = append(m.clusters[cluster], &dbExpress{ins, reg})
+	m.clusters[cluster] = append(m.clusters[cluster], &dbExpress{ins, expr, reg})
 
 	return nil
 }

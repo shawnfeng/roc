@@ -73,7 +73,7 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response) {
 	} else {
 		chg <- r
 	}
-
+	// !!! 这地方可能会丢掉变更， 后面需要调整
 	_, err = m.etcdClient.Watch(path, 0, true, chg, nil)
 	// etcd 关闭时候会返回
 	if err != nil {

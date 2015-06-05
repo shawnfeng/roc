@@ -6,6 +6,7 @@
 package dbrouter
 
 import (
+	"fmt"
 	//"sync"
 	"encoding/json"
 )
@@ -33,6 +34,10 @@ type Config struct {
 type Router struct {
 	dbCls *dbCluster
 	dbIns *dbInstanceManager
+}
+
+func (m *Router) String() string {
+	return fmt.Sprintf("%s", m.dbCls.clusters)
 }
 
 

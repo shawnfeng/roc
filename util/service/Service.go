@@ -141,12 +141,16 @@ func (m *Service) Serve(confEtcd configEtcd, initfn func (ServBase) error, procs
 		return err
 	}
 
+	return m.Init(confEtcd, args.servLoc, args.sessKey, initfn, procs)
+}
 
+func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey string, initfn func (ServBase) error, procs map[string]Processor) error {
+	fun := "Service.Init -->"
 	// Init ServBase
 
-	sb, err := NewServBaseV2(confEtcd, args.servLoc, args.sessKey)
+	sb, err := NewServBaseV2(confEtcd, servLoc, sessKey)
 	if err != nil {
-		slog.Panicf("%s init servbase args:%s err:%s", fun, args, err)
+		slog.Panicf("%s init servbase loc:%s key:%s err:%s", fun, servLoc, sessKey, err)
 		return err
 	}
 
@@ -172,7 +176,7 @@ func (m *Service) Serve(confEtcd configEtcd, initfn func (ServBase) error, procs
 		logdir = fmt.Sprintf("%s/%s", logConfig.Log.Dir, sb.Copyname())
 	}
 
-	slog.Infof("%s init log dir:%s name:%s level:%s", fun, logdir, args.servLoc, logConfig.Log.Level)
+	slog.Infof("%s init log dir:%s name:%s level:%s", fun, logdir, servLoc, logConfig.Log.Level)
 
 	slog.Init(logdir, "serv", logConfig.Log.Level)
 
@@ -218,4 +222,9 @@ func (m *Service) Serve(confEtcd configEtcd, initfn func (ServBase) error, procs
 
 func Serve(etcds []string, baseLoc string, initfn func (ServBase) error, procs map[string]Processor) error {
 	return service.Serve(configEtcd{etcds, baseLoc}, initfn, procs)
+}
+
+
+func Init(etcds []string, baseLoc string, servLoc, servKey string, initfn func (ServBase) error, procs map[string]Processor) error {
+	return service.Init(configEtcd{etcds, baseLoc}, servLoc, servKey, initfn, procs)
 }
