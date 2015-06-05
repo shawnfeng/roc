@@ -8,6 +8,7 @@ package jobs
 import (
 	"syscall"
 	"os"
+	"io"
 	"os/user"
 	"fmt"
 	"time"
@@ -263,6 +264,27 @@ func (m *Job) setRunuser(cmd *exec.Cmd, ruser string) {
 
 }
 
+func (m *Job) makeStdReadChan(r io.Reader) (chan string) {
+	fun := "Job.makeStdReadChan"
+    read := make(chan string)
+	go func() {
+		stdbuff := bufio.NewReader(r)
+		for {
+			line, err := stdbuff.ReadString('\n')
+			if err != nil {
+				close(read)
+				slog.Warnf("%s %s read err:%s", fun, m, err)
+				return
+			} else {
+				read <- line
+			}
+		}
+
+	}()
+	return read
+
+}
+
 func (m *Job) run(mu *sync.Mutex, ruser, stdlog string, cmdname string, cmdargs ...string) error {
 	fun := "Job.run"
 
@@ -337,6 +359,41 @@ func (m *Job) run(mu *sync.Mutex, ruser, stdlog string, cmdname string, cmdargs 
 	// For the same reason, it is incorrect to call Run when using StdoutPipe. See the example for idiomatic usage.
 
 	slog.Infof("%s readstdout job:%s name:%s args:%s", fun, m, cmdname, cmdargs)
+
+	stdoutchan := m.makeStdReadChan(stdout)
+	stderrchan := m.makeStdReadChan(stderr)
+
+	for {
+		var ln string
+		var ok bool
+		select {
+		case ln, ok = <-stdoutchan:
+			if !ok {
+				stdoutchan = nil
+			}
+		case ln, ok = <-stderrchan:
+			if !ok {
+				stderrchan = nil
+			}
+		}
+
+		if stdoutchan == nil &&
+			stderrchan == nil {
+			break
+		}
+
+		if stdlogw != nil {
+			stdlogw.WriteString(ln)
+			stdlogw.Flush()
+
+		} else {
+			slog.Infof("%s STDE %s >:%s", fun, m, ln)
+		}
+
+	}
+
+	/*
+
 	stdbuff := bufio.NewReader(stdout)
 	for {
 		// log 按行输出，读取不到换行符号时候，会阻塞在这里哦
@@ -379,7 +436,7 @@ func (m *Job) run(mu *sync.Mutex, ruser, stdlog string, cmdname string, cmdargs 
 		}
 	}
 
-
+    */
 	slog.Infof("%s wait job:%s name:%s args:%s", fun, m, cmdname, cmdargs)
 	// 只要返回status不是0就会有err
 	if err := cmd.Wait(); err != nil {
