@@ -110,8 +110,8 @@ func (m *ClientThrift) printPool() {
 }
 
 
-func (m *ClientThrift) Get(key string) (*ServInfo, interface{}) {
-	fun := "ClientThrift.Get -->"
+func (m *ClientThrift) hash(key string) (*ServInfo, interface{}) {
+	fun := "ClientThrift.hash -->"
 
 	s := m.clientLookup.GetServAddr(m.processor, key)
 	if s == nil {
@@ -154,7 +154,7 @@ func (m *ClientThrift) Payback(si *ServInfo, client interface{}) {
 
 
 func (m *ClientThrift) Rpc(haskkey string, fnrpc func(interface {}) error) error {
-	si, c := m.Get(haskkey)
+	si, c := m.hash(haskkey)
 	if c == nil {
 		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
 	}
