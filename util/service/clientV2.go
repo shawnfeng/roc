@@ -23,6 +23,7 @@ import (
 
 type ClientEtcdV2 struct {
 	confEtcd configEtcd
+	servKey string
 	servPath string
 
 	etcdClient *etcd.Client
@@ -46,6 +47,7 @@ func NewClientEtcdV2(confEtcd configEtcd, servlocation string) (*ClientEtcdV2, e
 
 	cli := &ClientEtcdV2 {
 		confEtcd: confEtcd,
+		servKey: servlocation,
 		servPath: fmt.Sprintf("%s/%s/%s", confEtcd.useBaseloc, BASE_LOC_DIST, servlocation),
 
 		etcdClient: client,
@@ -216,4 +218,14 @@ func (m *ClientEtcdV2) GetAllServAddr() map[string][]*ServInfo {
 
 
 	return rv
+}
+
+
+func (m *ClientEtcdV2) ServKey() string {
+	return m.servKey
+}
+
+
+func (m *ClientEtcdV2) ServPath() string {
+	return m.servPath
 }

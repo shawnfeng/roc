@@ -6,6 +6,7 @@
 package rocserv
 
 import (
+	"fmt"
 	"sync"
 
 	"git.apache.org/thrift.git/lib/go/thrift"
@@ -18,6 +19,8 @@ type ClientLookup interface {
 
 	GetServAddr(processor, key string) *ServInfo
 	GetAllServAddr() map[string][]*ServInfo
+	ServKey() string
+	ServPath() string
 
 }
 
@@ -147,4 +150,18 @@ func (m *ClientThrift) Payback(si *ServInfo, client interface{}) {
 	}
 
 	//m.printPool()
+}
+
+
+func (m *ClientThrift) Rpc(haskkey string, fnrpc func(interface {}) error) error {
+	si, c := m.Get(haskkey)
+	if c == nil {
+		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
+	}
+
+	err := fnrpc(c)
+	if err == nil {
+		m.Payback(si, c)
+	}
+	return err
 }
