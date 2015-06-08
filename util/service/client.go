@@ -7,6 +7,7 @@ package rocserv
 
 import (
 	"fmt"
+	"time"
 	"sync"
 
 	"git.apache.org/thrift.git/lib/go/thrift"
@@ -43,9 +44,34 @@ type ClientThrift struct {
 
 
 	muPool sync.Mutex
-	poolClient map[string]chan interface{}
+	poolClient map[string]chan rpcClient
 
 }
+
+type rpcClient interface {
+	Close() error
+	SetTimeout(timeout time.Duration) error
+	GetServiceClient() interface{}
+}
+
+type rpcClient1 struct {
+	tsock *thrift.TSocket
+	trans thrift.TTransport
+	serviceClient interface{}
+}
+
+func (m *rpcClient1) SetTimeout(timeout time.Duration) error {
+	return m.tsock.SetTimeout(timeout)
+}
+
+func (m *rpcClient1) Close() error {
+	return m.trans.Close()
+}
+
+func (m *rpcClient1) GetServiceClient() interface{} {
+	return m.serviceClient
+}
+
 
 
 
@@ -56,13 +82,13 @@ func NewClientThrift(cb ClientLookup, processor string, fn func(thrift.TTranspor
 		processor: processor,
 		fnFactory: fn,
 		poolLen: poollen,
-		poolClient: make(map[string]chan interface{}),
+		poolClient: make(map[string]chan rpcClient),
 	}
 
 	return ct
 }
 
-func (m *ClientThrift) newClient(addr string) interface{} {
+func (m *ClientThrift) newClient(addr string) rpcClient {
 	fun := "ClientThrift.newClient -->"
 
 	transportFactory := thrift.NewTFramedTransportFactory(thrift.NewTTransportFactory())
@@ -83,16 +109,20 @@ func (m *ClientThrift) newClient(addr string) interface{} {
 	//useTransport.Close()
 
 	slog.Infof("%s new client addr:%s", fun, addr)
-	return m.fnFactory(useTransport, protocolFactory)
+	return &rpcClient1{
+		tsock: transport,
+		trans: useTransport,
+		serviceClient: m.fnFactory(useTransport, protocolFactory),
+	}
 
 }
 
-func (m *ClientThrift) getPool(addr string) chan interface{} {
+func (m *ClientThrift) getPool(addr string) chan rpcClient {
 	m.muPool.Lock()
 	defer m.muPool.Unlock()
 	tmp, ok := m.poolClient[addr]
 	if !ok {
-		tmp = make(chan interface{}, m.poolLen)
+		tmp = make(chan rpcClient, m.poolLen)
 		m.poolClient[addr] = tmp
 
 	}
@@ -110,7 +140,7 @@ func (m *ClientThrift) printPool() {
 }
 
 
-func (m *ClientThrift) hash(key string) (*ServInfo, interface{}) {
+func (m *ClientThrift) hash(key string) (*ServInfo, rpcClient) {
 	fun := "ClientThrift.hash -->"
 
 	s := m.clientLookup.GetServAddr(m.processor, key)
@@ -123,7 +153,7 @@ func (m *ClientThrift) hash(key string) (*ServInfo, interface{}) {
 
 	po := m.getPool(addr)
 
-	var c interface{}
+	var c rpcClient
 	select {
 	case c = <-po:
 		slog.Tracef("%s get:%s len:%d", fun, addr, len(po))
@@ -137,7 +167,7 @@ func (m *ClientThrift) hash(key string) (*ServInfo, interface{}) {
 
 
 
-func (m *ClientThrift) Payback(si *ServInfo, client interface{}) {
+func (m *ClientThrift) Payback(si *ServInfo, client rpcClient) {
 	fun := "ClientThrift.Payback -->"
 
 	po := m.getPool(si.Addr)
@@ -153,15 +183,21 @@ func (m *ClientThrift) Payback(si *ServInfo, client interface{}) {
 }
 
 
-func (m *ClientThrift) Rpc(haskkey string, fnrpc func(interface {}) error) error {
-	si, c := m.hash(haskkey)
-	if c == nil {
+func (m *ClientThrift) Rpc(haskkey string, timeout time.Duration, fnrpc func(interface {}) error) error {
+	fun := "ClientThrift.Rpc -->"
+	si, rc := m.hash(haskkey)
+	if rc == nil {
 		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
 	}
+	rc.SetTimeout(timeout)
+	c := rc.GetServiceClient()
 
 	err := fnrpc(c)
 	if err == nil {
-		m.Payback(si, c)
+		m.Payback(si, rc)
+	} else {
+		slog.Warnf("%s close rpcclient s:%s", fun, si)
+		rc.Close()
 	}
 	return err
 }
