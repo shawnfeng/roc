@@ -93,22 +93,22 @@ func (m *ClientEtcdV2) watch() {
 	var chg chan *etcd.Response
 
 	go func() {
-		slog.Infof("%s start watch", fun)
+		slog.Infof("%s start watch:%s", fun, m.servPath)
 		for {
-			slog.Infof("%s loop watch", fun)
+			//slog.Infof("%s loop watch", fun)
 			if chg == nil {
-				slog.Infof("%s loop watch new receiver", fun)
+				slog.Infof("%s loop watch new receiver:%s", fun, m.servPath)
 				chg = make(chan *etcd.Response)
 				go m.startWatch(chg)
 			}
 
 			r, ok := <-chg
 			if !ok {
-				slog.Errorf("%s chg info nil", fun)
+				slog.Errorf("%s chg info nil:%s", fun, m.servPath)
 				chg = nil
 				backoff.BackOff()
 			} else {
-				slog.Infof("%s update v:%s", fun, r.Node.Key)
+				slog.Infof("%s update v:%s serv:%s", fun, r.Node.Key, m.servPath)
 				m.parseResponse()
 				backoff.Reset()
 			}
