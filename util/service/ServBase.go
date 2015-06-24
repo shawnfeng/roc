@@ -53,7 +53,7 @@ type ServBase interface {
 	//ArbiConfig(location string) (string, error)
 
 	// id生成逻辑
-	GenSnowFlakeId() (uint64, error)
+	GenSnowFlakeId() (int64, error)
 	GenUuid() string
 	GenUuidSha1() string
 	GenUuidMd5() string
@@ -68,8 +68,9 @@ type IdGenerator struct {
 	snow *gosnow.SnowFlake
 }
 
-func (m *IdGenerator) GenSnowFlakeId() (uint64, error) {
-	return m.snow.Next()
+func (m *IdGenerator) GenSnowFlakeId() (int64, error) {
+	id, err := m.snow.Next()
+	return int64(id), err
 }
 
 
