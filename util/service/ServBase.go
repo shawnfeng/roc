@@ -56,6 +56,9 @@ type ServBase interface {
 	GenSnowFlakeId() (int64, error)
 	// 获取snowflakeid生成时间戳，单位ms
 	GetSnowFlakeIdStamp(sid int64) int64
+	// 按给定的时间点构造一个起始snowflakeid，一般用于区域判断
+	GetSnowFlakeIdWithStamp(stamp int64) int64
+
 	GenUuid() string
 	GenUuidSha1() string
 	GenUuidMd5() string
@@ -77,6 +80,10 @@ func (m *IdGenerator) GenSnowFlakeId() (int64, error) {
 
 func (m *IdGenerator) GetSnowFlakeIdStamp(sid int64) int64 {
 	return gosnow.Since+sid>>22
+}
+
+func (m *IdGenerator) GetSnowFlakeIdWithStamp(stamp int64) int64 {
+	return (stamp - gosnow.Since) << 22
 }
 
 
