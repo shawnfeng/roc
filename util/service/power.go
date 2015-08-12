@@ -22,14 +22,19 @@ import (
 func powerHttp(addr string, router *httprouter.Router) (string, error) {
 	fun := "powerHttp -->"
 
-	if len(addr) == 0 {
-		addr = ":"
-	}
-
-	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
+	paddr, err := snetutil.GetListenAddr(addr)
 	if err != nil {
 		return "", err
 	}
+
+	slog.Infof("%s config addr[%s]", fun, paddr)
+
+
+	tcpAddr, err := net.ResolveTCPAddr("tcp", paddr)
+	if err != nil {
+		return "", err
+	}
+
 
 	netListen, err := net.Listen(tcpAddr.Network(), tcpAddr.String())
 	if err != nil {
@@ -41,6 +46,8 @@ func powerHttp(addr string, router *httprouter.Router) (string, error) {
 		netListen.Close()
 		return "", err
 	}
+
+	slog.Infof("%s listen addr[%s]", fun, laddr)
 
 	go func() {
 		err := http.Serve(netListen, router)
@@ -57,15 +64,19 @@ func powerHttp(addr string, router *httprouter.Router) (string, error) {
 func powerThrift(addr string, processor thrift.TProcessor) (string, error) {
 	fun := "powerThrift -->"
 
-	if len(addr) == 0 {
-		addr = ":"
+	paddr, err := snetutil.GetListenAddr(addr)
+	if err != nil {
+		return "", err
 	}
+
+	slog.Infof("%s config addr[%s]", fun, paddr)
+
 
 	transportFactory := thrift.NewTFramedTransportFactory(thrift.NewTTransportFactory())
 	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
 	//protocolFactory := thrift.NewTCompactProtocolFactory()
 
-	serverTransport, err := thrift.NewTServerSocket(addr)
+	serverTransport, err := thrift.NewTServerSocket(paddr)
 	if err != nil {
 		return "", err
 	}
@@ -79,10 +90,14 @@ func powerThrift(addr string, processor thrift.TProcessor) (string, error) {
 		return "", err
 	}
 
+
 	laddr, err := snetutil.GetServAddr(serverTransport.Addr())
 	if err != nil {
 		return "", err
 	}
+
+	slog.Infof("%s listen addr[%s]", fun, laddr)
+
 
 	go func() {
 		err := server.Serve()
