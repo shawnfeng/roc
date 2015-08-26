@@ -15,7 +15,7 @@ import (
 	"github.com/shawnfeng/sutil/sconf"
 	"github.com/shawnfeng/sutil/slog"
 
-	"github.com/shawnfeng/roc/util/dbrouter"
+	"github.com/shawnfeng/dbrouter"
 )
 
 const (
@@ -166,14 +166,7 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey string) (*ServBaseV2,
 	if err != nil {
 		slog.Warnf("%s db:%s config notfound", fun, dbloc)
 	} else {
-		var dbcfg dbrouter.Config
-		err = json.Unmarshal(jscfg, &dbcfg)
-		if err != nil {
-			return nil, err
-		}
-
-
-		dr, err = dbrouter.NewRouter(&dbcfg)
+		dr, err = dbrouter.NewRouter(jscfg)
 		if err != nil {
 			return nil, err
 		}

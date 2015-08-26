@@ -22,7 +22,7 @@ import (
 	"github.com/shawnfeng/sutil"
 	"github.com/shawnfeng/sutil/slog"
 
-	"github.com/shawnfeng/roc/util/dbrouter"
+	"github.com/shawnfeng/dbrouter"
 )
 
 
