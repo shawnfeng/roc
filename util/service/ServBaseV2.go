@@ -98,6 +98,11 @@ func (m *ServBaseV2) Copyname() string {
 
 }
 
+func (m *ServBaseV2) Servname() string {
+	return m.servLocation
+}
+
+
 func (m *ServBaseV2) Dbrouter() *dbrouter.Router {
 	return m.dbRouter
 }
