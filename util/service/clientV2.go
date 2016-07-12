@@ -131,8 +131,6 @@ func (m *ClientEtcdV2) parseResponse() {
 		return
 	}
 
-	slog.Infof("%s chg action:%s nodes:%d etcdindex:%d raftindex:%d raftterm:%d", fun, r.Action, len(r.Node.Nodes), r.EtcdIndex, r.RaftIndex, r.RaftTerm )
-
 	if !r.Node.Dir {
 		slog.Errorf("%s not dir %s", fun, r.Node.Key)
 		return
@@ -152,6 +150,13 @@ func (m *ClientEtcdV2) parseResponse() {
 	}
 	sort.Ints(ids)
 
+	slog.Infof("%s chg action:%s nodes:%d etcdindex:%d raftindex:%d raftterm:%d servPath:%s len:%d", fun, r.Action, len(r.Node.Nodes), r.EtcdIndex, r.RaftIndex, r.RaftTerm, m.servPath, len(ids))
+	if len(ids) == 0 {
+		slog.Errorf("%s not found service path:%s please check deploy", fun, m.servPath)
+	}
+
+	//slog.Infof("%s chg servpath:%s ids:%v", fun, r.Action, len(r.Node.Nodes), r.EtcdIndex, r.RaftIndex, r.RaftTerm, m.servPath, ids)
+
 	vs := make([]string, 0)
 	for _, i := range ids {
 		vs = append(vs, idServ[i])
@@ -163,7 +168,11 @@ func (m *ClientEtcdV2) parseResponse() {
 		var servs map[string]*ServInfo
 		err = json.Unmarshal([]byte(s), &servs)
 		if err != nil {
-			slog.Errorf("%s json:%s error:%s", fun, s, err)
+			slog.Errorf("%s servpath:%s json:%s error:%s", fun, m.servPath, s, err)
+		}
+
+		if len(servs) == 0 {
+			slog.Errorf("%s not found copy path:%s info:%s please check deploy", fun, m.servPath, s)
 		}
 
 		for k, v := range servs {
