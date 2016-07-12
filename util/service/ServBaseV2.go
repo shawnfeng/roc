@@ -10,12 +10,15 @@ import (
 	"time"
 	"encoding/json"
 	// now use 73a8ef737e8ea002281a28b4cb92a1de121ad4c6
-    "github.com/coreos/go-etcd/etcd"
+    //"github.com/coreos/go-etcd/etcd"
+    etcd "github.com/coreos/etcd/client"
 
 	"github.com/shawnfeng/sutil/sconf"
 	"github.com/shawnfeng/sutil/slog"
 
 	"github.com/shawnfeng/dbrouter"
+
+	"golang.org/x/net/context"
 )
 
 const (
@@ -44,7 +47,7 @@ type ServBaseV2 struct {
 	copyName string
 	sessKey string
 
-	etcdClient *etcd.Client
+	etcdClient etcd.KeysAPI
 	servId int
 
 	dbRouter *dbrouter.Router
@@ -64,18 +67,38 @@ func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) error {
 	slog.Infof("%s servs:%s", fun, js)
 
 	path := fmt.Sprintf("%s/%s/%s/%d", m.confEtcd.useBaseloc, BASE_LOC_DIST, m.servLocation, m.servId)
-
+	// 创建完成标志
+	var iscreate bool
 
 	go func() {
 
-		for {
-			// 节点超时时间为120秒
-			r, err := m.etcdClient.Set(path, string(js), 120)
-			if err != nil {
-				slog.Errorf("%s reg err:%s", fun, err)
+		for i := 0; ; i++ {
+			var r *etcd.Response
+			if !iscreate {
+				slog.Warnf("%s create idx:%d servs:%s", fun, i, js)
+				r, err = m.etcdClient.Set(context.Background(), path, string(js), &etcd.SetOptions {
+					TTL: time.Second*120,
+				})
 			} else {
+				// 在刷新ttl时候，不允许变更value
+				// 节点超时时间为120秒
+				slog.Infof("%s refresh ttl idx:%d servs:%s", fun, i, js)
+				r, err = m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions {
+					PrevExist: etcd.PrevExist,
+					TTL: time.Second*120,
+					Refresh: true,
+				})
+
+			}
+
+			if err != nil {
+				iscreate = false
+				slog.Errorf("%s reg idx:%d err:%s", fun, i, err)
+
+			} else {
+				iscreate = true
 				jr, _ := json.Marshal(r)
-				slog.Infof("%s reg ok:%s", fun, jr)
+				slog.Infof("%s reg idx:%d ok:%s", fun, i, jr)
 			}
 
 			// 每分发起一次注册
@@ -149,9 +172,19 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 func NewServBaseV2(confEtcd configEtcd, servLocation, skey string) (*ServBaseV2, error) {
 	fun := "NewServBaseV2 -->"
 
-    client := etcd.NewClient(confEtcd.etcdAddrs)
+	cfg := etcd.Config{
+		Endpoints: confEtcd.etcdAddrs,
+		Transport: etcd.DefaultTransport,
+	}
+
+	c, err := etcd.New(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("create etchd client cfg error")
+	}
+
+    client := etcd.NewKeysAPI(c)
 	if client == nil {
-		return nil, fmt.Errorf("create etchd client error")
+		return nil, fmt.Errorf("create etchd api error")
 	}
 
 	path := fmt.Sprintf("%s/%s/%s", confEtcd.useBaseloc, BASE_LOC_SKEY, servLocation)

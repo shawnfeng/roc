@@ -15,7 +15,9 @@ import (
 	"crypto/md5"
 
 	// now use 73a8ef737e8ea002281a28b4cb92a1de121ad4c6
-    "github.com/coreos/go-etcd/etcd"
+    //"github.com/coreos/go-etcd/etcd"
+
+    etcd "github.com/coreos/etcd/client"
 
 	"github.com/sdming/gosnow"
 
@@ -23,6 +25,8 @@ import (
 	"github.com/shawnfeng/sutil/slog"
 
 	"github.com/shawnfeng/dbrouter"
+
+	"golang.org/x/net/context"
 )
 
 
@@ -109,8 +113,8 @@ func (m *IdGenerator) GenUuidMd5() string {
 
 
 //====================================
-func getValue(client *etcd.Client, path string) ([]byte, error) {
-    r, err := client.Get(path, false, false)
+func getValue(client etcd.KeysAPI, path string) ([]byte, error) {
+    r, err := client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
 	if err != nil {
 		return nil, err
 	}
@@ -124,9 +128,9 @@ func getValue(client *etcd.Client, path string) ([]byte, error) {
 
 }
 
-func genSid(client *etcd.Client, path, skey string) (int, error) {
+func genSid(client etcd.KeysAPI, path, skey string) (int, error) {
 	fun := "genSid -->"
-    r, err := client.Get(path, false, false)
+    r, err := client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
 	if err != nil {
 		return -1, err
 	}
@@ -169,7 +173,7 @@ func genSid(client *etcd.Client, path, skey string) (int, error) {
 	}
 
 	nserv := fmt.Sprintf("%s/%d", r.Node.Key, sid)
-	r, err = client.Create(nserv, skey, 0)
+	r, err = client.Create(context.Background(), nserv, skey)
 	if err != nil {
 		return -1, err
 	}
@@ -181,7 +185,7 @@ func genSid(client *etcd.Client, path, skey string) (int, error) {
 
 }
 
-func retryGenSid(client *etcd.Client, path, skey string, try int) (int, error) {
+func retryGenSid(client etcd.KeysAPI, path, skey string, try int) (int, error) {
 	fun := "retryGenSid -->"
 	for i := 0; i < try; i++ {
 		// 重试3次

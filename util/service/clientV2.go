@@ -14,10 +14,12 @@ import (
 	"encoding/json"
 	"hash/crc32"
 
-    "github.com/coreos/go-etcd/etcd"
+    etcd "github.com/coreos/etcd/client"
 
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/stime"
+
+	"golang.org/x/net/context"
 )
 
 
@@ -26,7 +28,7 @@ type ClientEtcdV2 struct {
 	servKey string
 	servPath string
 
-	etcdClient *etcd.Client
+	etcdClient etcd.KeysAPI
 
 	// 缓存地址列表，按照service id 降序的顺序存储
 	// 按照processor 进行分组
@@ -39,9 +41,19 @@ type ClientEtcdV2 struct {
 
 func NewClientEtcdV2(confEtcd configEtcd, servlocation string) (*ClientEtcdV2, error) {
 
-    client := etcd.NewClient(confEtcd.etcdAddrs)
+	cfg := etcd.Config{
+		Endpoints: confEtcd.etcdAddrs,
+		Transport: etcd.DefaultTransport,
+	}
+
+	c, err := etcd.New(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("create etchd client cfg error")
+	}
+
+    client := etcd.NewKeysAPI(c)
 	if client == nil {
-		return nil, fmt.Errorf("create etchd client error")
+		return nil, fmt.Errorf("create etchd api error")
 	}
 
 
@@ -51,8 +63,6 @@ func NewClientEtcdV2(confEtcd configEtcd, servlocation string) (*ClientEtcdV2, e
 		servPath: fmt.Sprintf("%s/%s/%s", confEtcd.useBaseloc, BASE_LOC_DIST, servlocation),
 
 		etcdClient: client,
-
-
 	}
 
 	cli.watch()
@@ -67,7 +77,7 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response) {
 	path := m.servPath
 	// 先get获取value，watch不能获取到现有的
 
-    r, err := m.etcdClient.Get(path, false, true)
+    r, err := m.etcdClient.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
 	if err != nil {
 		slog.Errorf("%s get err:%s", fun, err)
 		close(chg)
@@ -75,12 +85,31 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response) {
 	} else {
 		chg <- r
 	}
-	// !!! 这地方可能会丢掉变更， 后面需要调整
-	_, err = m.etcdClient.Watch(path, 0, true, chg, nil)
-	// etcd 关闭时候会返回
-	if err != nil {
-		slog.Errorf("%s watch err:%s", fun, err)
 
+	slog.Infof("%s init get action:%s nodes:%d index:%d servPath:%s", fun, r.Action, len(r.Node.Nodes), r.Index, path)
+
+
+	// !!! 这地方可能会丢掉变更， 后面需要调整
+	wop := &etcd.WatcherOptions{
+		Recursive: true,
+	}
+	watcher := m.etcdClient.Watcher(path, wop)
+	if watcher == nil {
+		slog.Errorf("%s new watcher", fun)
+		return
+	}
+
+	for i := 0; ; i++ {
+		resp, err := watcher.Next(context.Background())
+		// etcd 关闭时候会返回
+		if err != nil {
+			slog.Errorf("%s watch err:%s", fun, err)
+			close(chg)
+			return
+		} else {
+			slog.Infof("%s next get idx:%d action:%s nodes:%d index:%d servPath:%s", fun, i, resp.Action, len(resp.Node.Nodes), resp.Index, path)
+			chg <- resp
+		}
 	}
 
 }
@@ -120,8 +149,7 @@ func (m *ClientEtcdV2) watch() {
 
 func (m *ClientEtcdV2) parseResponse() {
 	fun := "ClientEtcdV2.parseResponse -->"
-
-    r, err := m.etcdClient.Get(m.servPath, false, true)
+    r, err := m.etcdClient.Get(context.Background(), m.servPath, &etcd.GetOptions{Recursive: true, Sort: false})
 	if err != nil {
 		slog.Errorf("%s get err:%s", fun, err)
 	}
@@ -150,7 +178,7 @@ func (m *ClientEtcdV2) parseResponse() {
 	}
 	sort.Ints(ids)
 
-	slog.Infof("%s chg action:%s nodes:%d etcdindex:%d raftindex:%d raftterm:%d servPath:%s len:%d", fun, r.Action, len(r.Node.Nodes), r.EtcdIndex, r.RaftIndex, r.RaftTerm, m.servPath, len(ids))
+	slog.Infof("%s chg action:%s nodes:%d index:%d servPath:%s len:%d", fun, r.Action, len(r.Node.Nodes), r.Index, m.servPath, len(ids))
 	if len(ids) == 0 {
 		slog.Errorf("%s not found service path:%s please check deploy", fun, m.servPath)
 	}
