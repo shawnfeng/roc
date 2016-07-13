@@ -10,6 +10,7 @@ import (
 	"time"
 	"encoding/json"
 	"strconv"
+	"strings"
 	"sort"
 	"crypto/sha1"
 	"crypto/md5"
@@ -37,12 +38,21 @@ type ServInfo struct {
 }
 
 func (m *ServInfo) String() string {
-	return fmt.Sprintf("type:%s addr:%s", m.Type, m.Addr)
+	return fmt.Sprintf("%s://%s", m.Type, m.Addr)
 }
 
 type RegData struct {
 	Servs map[string]*ServInfo   `json:"servs"`
 }
+
+func (m *RegData) String() string {
+	var procs []string
+	for k, v := range m.Servs {
+		procs = append(procs,  fmt.Sprintf("%s@%s", v, k))
+	}
+	return strings.Join(procs, "|")
+}
+
 
 // ServBase Interface
 type ServBase interface {

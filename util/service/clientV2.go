@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 	"strconv"
+	"strings"
 	"sort"
 	"sync"
 	"encoding/json"
@@ -23,10 +24,35 @@ import (
 )
 
 
+type servCopyStr struct {
+	servId int
+	reg string
+}
+
+type servCopyData struct {
+	servId int
+	reg *RegData
+}
+
+
+type servCopyCollect map[int]*servCopyData
+
+func (m servCopyCollect) String() string {
+	var copys []string
+	for _, v := range m {
+		copys = append(copys, fmt.Sprintf("%d[%s]", v.servId, v.reg))
+	}
+
+	return strings.Join(copys, ";")
+}
+
 type ClientEtcdV2 struct {
 	confEtcd configEtcd
 	servKey string
 	servPath string
+	// 使用的注册器位置，不同版本会注册到不同版本的dist目录
+	// 但是会保持多版本的兼容，客户端优先使用最新版本的
+	distLoc  string
 
 	etcdClient etcd.KeysAPI
 
@@ -35,11 +61,40 @@ type ClientEtcdV2 struct {
 
 	muServlist sync.Mutex
 	servList map[string][]*ServInfo
+	servCopy servCopyCollect
 
 }
 
 
+func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string {
+	fun := "checkDistVersion -->"
+
+	path := fmt.Sprintf("%s/%s/%s", prefloc, BASE_LOC_DIST_V2, servlocation)
+
+    _, err := client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
+	if err == nil {
+		slog.Infof("%s check dist v2 ok path:%s", fun, path)
+		return BASE_LOC_DIST_V2
+	}
+
+	slog.Warnf("%s check dist v2 path:%s err:%s", fun, path, err)
+
+
+	path = fmt.Sprintf("%s/%s/%s", prefloc, BASE_LOC_DIST, servlocation)
+
+    _, err = client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
+	if err == nil {
+		slog.Infof("%s check dist v1 ok path:%s", fun, path)
+		return BASE_LOC_DIST
+	}
+
+	slog.Warnf("%s user v2 if check dist v1 path:%s err:%s", fun, path, err)
+
+	return BASE_LOC_DIST_V2
+}
+
 func NewClientEtcdV2(confEtcd configEtcd, servlocation string) (*ClientEtcdV2, error) {
+	//fun := "NewClientEtcdV2 -->"
 
 	cfg := etcd.Config{
 		Endpoints: confEtcd.etcdAddrs,
@@ -56,11 +111,13 @@ func NewClientEtcdV2(confEtcd configEtcd, servlocation string) (*ClientEtcdV2, e
 		return nil, fmt.Errorf("create etchd api error")
 	}
 
+	distloc := checkDistVersion(client, confEtcd.useBaseloc, servlocation)
 
 	cli := &ClientEtcdV2 {
 		confEtcd: confEtcd,
 		servKey: servlocation,
-		servPath: fmt.Sprintf("%s/%s/%s", confEtcd.useBaseloc, BASE_LOC_DIST, servlocation),
+		distLoc: distloc,
+		servPath: fmt.Sprintf("%s/%s/%s", confEtcd.useBaseloc, distloc, servlocation),
 
 		etcdClient: client,
 	}
@@ -164,6 +221,93 @@ func (m *ClientEtcdV2) parseResponse() {
 		return
 	}
 
+	if m.distLoc == BASE_LOC_DIST {
+		m.parseResponseV1(r)
+	} else if m.distLoc == BASE_LOC_DIST_V2 {
+		m.parseResponseV2(r)
+	} else {
+		slog.Errorf("%s not support:%s dir:%s", fun, m.distLoc, r.Node.Key)
+	}
+
+}
+
+func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
+	fun := "ClientEtcdV2.parseResponseV2 -->"
+
+	idServ := make(map[int]*servCopyStr)
+	ids := make([]int, 0)
+	for _, n := range r.Node.Nodes {
+		if !n.Dir {
+			slog.Errorf("%s not dir %s", fun, n.Key)
+			return
+		}
+
+		sid := n.Key[len(r.Node.Key)+1:]
+		id, err := strconv.Atoi(sid)
+		if err != nil || id < 0 {
+			slog.Errorf("%s sid error key:%s", fun, n.Key)
+			continue
+		}
+		ids = append(ids, id)
+
+
+		for _, nc := range n.Nodes {
+			slog.Infof("%s dist key:%s value:%s", fun, nc.Key, nc.Value)
+			if nc.Key == n.Key+"/reg" {
+				idServ[id] = &servCopyStr {
+					servId: id,
+					reg: nc.Value,
+				}
+			}
+		}
+
+	}
+	sort.Ints(ids)
+
+	slog.Infof("%s chg action:%s nodes:%d index:%d servPath:%s len:%d", fun, r.Action, len(r.Node.Nodes), r.Index, m.servPath, len(ids))
+	if len(ids) == 0 {
+		slog.Errorf("%s not found service path:%s please check deploy", fun, m.servPath)
+	}
+
+	//slog.Infof("%s chg servpath:%s ids:%v", fun, r.Action, len(r.Node.Nodes), r.EtcdIndex, r.RaftIndex, r.RaftTerm, m.servPath, ids)
+
+	servCopy := make(servCopyCollect)
+	servList := make(map[string][]*ServInfo)
+	//for _, s := range vs {
+	for _, i := range ids {
+		s := idServ[i].reg
+
+		var regd RegData
+		err := json.Unmarshal([]byte(s), &regd)
+		if err != nil {
+			slog.Errorf("%s servpath:%s json:%s error:%s", fun, m.servPath, s, err)
+		}
+
+		if len(regd.Servs) == 0 {
+			slog.Errorf("%s not found copy path:%s info:%s please check deploy", fun, m.servPath, s)
+		}
+
+		servCopy[i] = &servCopyData {
+			servId: i,
+			reg: &regd,
+		}
+
+		for k, v := range regd.Servs {
+			_, ok := servList[k]
+			if !ok {
+				servList[k] = make([]*ServInfo, 0)
+			}
+			servList[k] = append(servList[k], v)
+		}
+
+	}
+
+	m.upServlist(servCopy, servList)
+}
+
+func (m *ClientEtcdV2) parseResponseV1(r *etcd.Response) {
+	fun := "ClientEtcdV2.parseResponseV1 -->"
+
 	idServ := make(map[int]string)
 	ids := make([]int, 0)
 	for _, n := range r.Node.Nodes {
@@ -172,6 +316,7 @@ func (m *ClientEtcdV2) parseResponse() {
 		if err != nil || id < 0 {
 			slog.Errorf("%s sid error key:%s", fun, n.Key)
 		} else {
+			slog.Infof("%s dist key:%s value:%s", fun, n.Key, n.Value)
 			ids = append(ids, id)
 			idServ[id] = n.Value
 		}
@@ -185,22 +330,27 @@ func (m *ClientEtcdV2) parseResponse() {
 
 	//slog.Infof("%s chg servpath:%s ids:%v", fun, r.Action, len(r.Node.Nodes), r.EtcdIndex, r.RaftIndex, r.RaftTerm, m.servPath, ids)
 
-	vs := make([]string, 0)
-	for _, i := range ids {
-		vs = append(vs, idServ[i])
-	}
-
-
+	servCopy := make(servCopyCollect)
 	servList := make(map[string][]*ServInfo)
-	for _, s := range vs {
+	//for _, s := range vs {
+	for _, i := range ids {
+		s := idServ[i]
+
 		var servs map[string]*ServInfo
-		err = json.Unmarshal([]byte(s), &servs)
+		err := json.Unmarshal([]byte(s), &servs)
 		if err != nil {
 			slog.Errorf("%s servpath:%s json:%s error:%s", fun, m.servPath, s, err)
 		}
 
 		if len(servs) == 0 {
 			slog.Errorf("%s not found copy path:%s info:%s please check deploy", fun, m.servPath, s)
+		}
+
+		servCopy[i] = &servCopyData {
+			servId: i,
+			reg: &RegData{
+				Servs: servs,
+			},
 		}
 
 		for k, v := range servs {
@@ -213,17 +363,18 @@ func (m *ClientEtcdV2) parseResponse() {
 
 	}
 
-	m.upServlist(servList)
+	m.upServlist(servCopy, servList)
 }
 
-func (m *ClientEtcdV2) upServlist(slist map[string][]*ServInfo) {
+func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData, slist map[string][]*ServInfo) {
 	fun := "ClientEtcdV2.upServlist -->"
 	m.muServlist.Lock()
 	defer m.muServlist.Unlock()
 
 	m.servList = slist
+	m.servCopy = scopy
 
-	slog.Infof("%s serv:%s update:%s", fun, m.servPath, m.servList)
+	slog.Infof("%s serv:%s servcopy:%s servlist:%s", fun, m.servPath, m.servCopy, m.servList)
 }
 
 func (m *ClientEtcdV2) GetServAddr(processor, key string) *ServInfo {
