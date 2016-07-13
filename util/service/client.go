@@ -177,6 +177,7 @@ func (m *ClientThrift) Payback(si *ServInfo, client rpcClient) {
 		slog.Tracef("%s payback:%s len:%d", fun, si, len(po))
 	default:
 		slog.Infof("%s full not payback:%s len:%d", fun, si, len(po))
+		client.Close()
 	}
 
 	//m.printPool()
