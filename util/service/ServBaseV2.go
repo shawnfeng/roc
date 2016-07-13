@@ -23,6 +23,9 @@ import (
 
 const (
 	BASE_LOC_DIST = "dist"
+	// 调整了服务注册结构，为兼容老版本，BASE_LOC_DIST下也要完成之前方式的注册
+	// dist2 2为版本2
+	BASE_LOC_DIST_V2 = "dist2"
 	BASE_LOC_ETC = "etc"
 	BASE_LOC_ETC_GLOBAL = "etc/global"
 	BASE_LOC_SKEY = "skey"
@@ -57,6 +60,49 @@ type ServBaseV2 struct {
 // {type:http/thrift, addr:10.3.3.3:23233, processor:fuck}
 func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) error {
 	fun := "ServBaseV2.RegisterService -->"
+	err :=  m.RegisterServiceV2(servs)
+	if err != nil {
+		slog.Errorf("%s reg v2 err:%s", fun, err)
+		return err
+	}
+
+
+	err = m.RegisterServiceV1(servs)
+	if err != nil {
+		slog.Errorf("%s reg v1 err:%s", fun, err)
+		return err
+	}
+
+
+	slog.Errorf("%s regist ok", fun)
+
+	return nil
+}
+
+func (m *ServBaseV2) RegisterServiceV2(servs map[string]*ServInfo) error {
+	fun := "ServBaseV2.RegisterServiceV2 -->"
+
+	rd := &RegData {
+		Servs: servs,
+	}
+
+	js, err := json.Marshal(rd)
+	if err != nil {
+		return err
+	}
+
+	slog.Infof("%s servs:%s", fun, js)
+
+	path := fmt.Sprintf("%s/%s/%s/%d/reg", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId)
+
+	return m.doRegister(path, string(js))
+}
+
+
+
+// 为兼容老的client发现服务，保留的
+func (m *ServBaseV2) RegisterServiceV1(servs map[string]*ServInfo) error {
+	fun := "ServBaseV2.RegisterServiceV1 -->"
 
 
 	js, err := json.Marshal(servs)
@@ -67,16 +113,23 @@ func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) error {
 	slog.Infof("%s servs:%s", fun, js)
 
 	path := fmt.Sprintf("%s/%s/%s/%d", m.confEtcd.useBaseloc, BASE_LOC_DIST, m.servLocation, m.servId)
+
+	return m.doRegister(path, string(js))
+}
+
+func (m *ServBaseV2) doRegister(path, js string) error {
+	fun := "ServBaseV2.doRegister -->"
 	// 创建完成标志
 	var iscreate bool
 
 	go func() {
 
 		for i := 0; ; i++ {
+			var err error
 			var r *etcd.Response
 			if !iscreate {
 				slog.Warnf("%s create idx:%d servs:%s", fun, i, js)
-				r, err = m.etcdClient.Set(context.Background(), path, string(js), &etcd.SetOptions {
+				r, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions {
 					TTL: time.Second*120,
 				})
 			} else {
@@ -108,7 +161,6 @@ func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) error {
 	}()
 
 	return nil
-
 }
 
 func (m *ServBaseV2) Servid() int {

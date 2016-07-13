@@ -30,9 +30,6 @@ import (
 )
 
 
-// id生成器
-// 服务注册
-
 type ServInfo struct {
 	Type string         `json:"type"`
 	Addr string         `json:"addr"`
@@ -41,6 +38,10 @@ type ServInfo struct {
 
 func (m *ServInfo) String() string {
 	return fmt.Sprintf("type:%s addr:%s", m.Type, m.Addr)
+}
+
+type RegData struct {
+	Servs map[string]*ServInfo   `json:"servs"`
 }
 
 // ServBase Interface
