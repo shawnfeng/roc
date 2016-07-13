@@ -393,6 +393,22 @@ func (m *ClientEtcdV2) GetServAddr(processor, key string) *ServInfo {
 }
 
 
+func (m *ClientEtcdV2) GetServAddrWithServid(servid int, processor, key string) *ServInfo {
+	m.muServlist.Lock()
+	defer m.muServlist.Unlock()
+
+	if c := m.servCopy[servid]; c != nil {
+		if c.reg != nil {
+			if p := c.reg.Servs[processor]; p != nil {
+				return p
+			}
+		}
+	}
+
+	return nil
+}
+
+
 func (m *ClientEtcdV2) GetAllServAddr() map[string][]*ServInfo {
 	m.muServlist.Lock()
 	defer m.muServlist.Unlock()
