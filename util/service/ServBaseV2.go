@@ -35,6 +35,12 @@ const (
 	BASE_LOC_SERV_DIST_LOCK = "lock/local"
 	// 全局分布式锁，跨服务使用
 	BASE_LOC_GLOBAL_DIST_LOCK = "lock/global"
+
+
+	// 服务注册的位置
+	BASE_LOC_REG_SERV = "serve"
+	// 后门注册的位置
+	BASE_LOC_REG_BACKDOOR = "backdoor"
 )
 
 
@@ -74,7 +80,7 @@ func (m *ServBaseV2) RegisterBackDoor(servs map[string]*ServInfo) error {
 
 	slog.Infof("%s servs:%s", fun, js)
 
-	path := fmt.Sprintf("%s/%s/%s/%d/backdoor", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId)
+	path := fmt.Sprintf("%s/%s/%s/%d/%s", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId, BASE_LOC_REG_BACKDOOR)
 
 	return m.doRegister(path, string(js))
 
@@ -116,7 +122,7 @@ func (m *ServBaseV2) RegisterServiceV2(servs map[string]*ServInfo) error {
 
 	slog.Infof("%s servs:%s", fun, js)
 
-	path := fmt.Sprintf("%s/%s/%s/%d/reg", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId)
+	path := fmt.Sprintf("%s/%s/%s/%d/%s", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId, BASE_LOC_REG_SERV)
 
 	return m.doRegister(path, string(js))
 }

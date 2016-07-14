@@ -253,7 +253,7 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 
 		for _, nc := range n.Nodes {
 			slog.Infof("%s dist key:%s value:%s", fun, nc.Key, nc.Value)
-			if nc.Key == n.Key+"/reg" {
+			if nc.Key == n.Key+"/"+BASE_LOC_REG_SERV {
 				idServ[id] = &servCopyStr {
 					servId: id,
 					reg: nc.Value,
