@@ -275,7 +275,12 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 	servList := make(map[string][]*ServInfo)
 	//for _, s := range vs {
 	for _, i := range ids {
-		s := idServ[i].reg
+		is := idServ[i]
+		if is == nil {
+			slog.Errorf("%s serv not found idx:%d servpath:%s", fun, i, m.servPath)
+			continue
+		}
+		s := is.reg
 
 		var regd RegData
 		err := json.Unmarshal([]byte(s), &regd)
