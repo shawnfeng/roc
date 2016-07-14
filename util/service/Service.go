@@ -76,7 +76,7 @@ func (m *Service) parseFlag() (*cmdArgs, error) {
 }
 
 
-func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) error {
+func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) (map[string]*ServInfo, error) {
 	fun := "Service.loadDriver -->"
 
 	infos := make(map[string]*ServInfo)
@@ -96,7 +96,7 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) error {
 		case *httprouter.Router:
 			sa, err := powerHttp(addr, d)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			slog.Infof("%s load ok processor:%s serv addr:%s", fun, n, sa)
@@ -109,7 +109,7 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) error {
 		case thrift.TProcessor:
 			sa, err := powerThrift(addr, d)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			slog.Infof("%s load ok processor:%s serv addr:%s", fun, n, sa)
@@ -120,13 +120,14 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) error {
 
 
 		default:
-			return fmt.Errorf("processor:%s driver not recognition", n)
+			return nil, fmt.Errorf("processor:%s driver not recognition", n)
 
 		}
 
 	}
 
-	return sb.RegisterService(infos)
+
+	return infos, nil
 
 
 }
@@ -191,6 +192,16 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey string, initfn func
 
 	// init processor
 	for n, p := range procs {
+		if len(n) == 0 {
+			slog.Panicf("%s processor name empty", fun)
+			return err
+		}
+
+		if n[0] == '_' {
+			slog.Panicf("%s processor name can not prefix '_'", fun)
+			return err
+		}
+
 		if p == nil {
 			slog.Panicf("%s processor:%s is nil", fun, n)
 			return fmt.Errorf("processor:%s is nil", n)
@@ -204,10 +215,42 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey string, initfn func
 	}
 
 
-	if err := m.loadDriver(sb, procs); err != nil {
+
+	infos, err := m.loadDriver(sb, procs)
+	if err != nil {
 		slog.Panicf("%s load driver err:%s", fun, err)
 		return err
 	}
+
+
+	err = sb.RegisterService(infos)
+	if err != nil {
+		slog.Panicf("%s regist service err:%s", fun, err)
+		return err
+	}
+
+
+	// 后门接口 ==================
+	backdoor := &backDoorHttp{}
+	err = backdoor.Init()
+	if err != nil {
+		slog.Panicf("%s init backdoor err:%s", fun, err)
+		return err
+	}
+
+	binfos, err := m.loadDriver(sb, map[string]Processor{"_PROC_BACKDOOR": backdoor})
+	if err != nil {
+		slog.Panicf("%s load backdoor driver err:%s", fun, err)
+		return err
+	}
+
+	err = sb.RegisterBackDoor(binfos)
+
+	if err != nil {
+		slog.Panicf("%s regist backdoor err:%s", fun, err)
+		return err
+	}
+	//==============================
 
 
 	// pause here

@@ -58,6 +58,9 @@ func (m *RegData) String() string {
 type ServBase interface {
 	// key is processor to ServInfo
 	RegisterService(servs map[string]*ServInfo) error
+	RegisterBackDoor(servs map[string]*ServInfo) error
+
+
 	Servname() string
 	Servid() int
 	// 服务副本名称, servename + servid

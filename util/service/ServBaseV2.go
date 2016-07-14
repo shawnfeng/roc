@@ -31,6 +31,10 @@ const (
 	BASE_LOC_SKEY = "skey"
 	BASE_LOC_OP = "op"
 	BASE_LOC_DB = "db/route"
+	// 服务内分布式锁，只在单个服务副本之间使用
+	BASE_LOC_SERV_DIST_LOCK = "lock/local"
+	// 全局分布式锁，跨服务使用
+	BASE_LOC_GLOBAL_DIST_LOCK = "lock/global"
 )
 
 
@@ -54,6 +58,25 @@ type ServBaseV2 struct {
 	servId int
 
 	dbRouter *dbrouter.Router
+
+}
+
+func (m *ServBaseV2) RegisterBackDoor(servs map[string]*ServInfo) error {
+	fun := "ServBaseV2.RegisterBackDoor -->"
+	rd := &RegData {
+		Servs: servs,
+	}
+
+	js, err := json.Marshal(rd)
+	if err != nil {
+		return err
+	}
+
+	slog.Infof("%s servs:%s", fun, js)
+
+	path := fmt.Sprintf("%s/%s/%s/%d/backdoor", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId)
+
+	return m.doRegister(path, string(js))
 
 }
 
