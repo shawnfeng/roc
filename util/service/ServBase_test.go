@@ -6,6 +6,7 @@
 package rocserv
 
 import (
+	"time"
 	"log"
 	"testing"
 )
@@ -79,6 +80,26 @@ func TestIt(t *testing.T) {
 
 	log.Println(svconf)
 
+
+	sb.Lock("testlock")
+	isl, err := sb.Trylock("testlock")
+	log.Println("trylock", isl ,err)
+	time.Sleep(time.Second*50)
+	sb.Unlock("testlock")
+	//time.Sleep(time.Second*2)
+	//sb.Unlock("testlock")
+
+	// =================
+
+	sb.LockGlobal("testlock")
+	isl, err = sb.TrylockGlobal("testlock")
+	log.Println("trylock", isl ,err)
+	time.Sleep(time.Second*2)
+	sb.UnlockGlobal("testlock")
+
+	time.Sleep(time.Second*50)
+	sb.Lock("testlock")
+	time.Sleep(time.Second*50)
 }
 
 

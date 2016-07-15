@@ -15,6 +15,7 @@ import (
 
 	"github.com/shawnfeng/sutil/sconf"
 	"github.com/shawnfeng/sutil/slog"
+	"github.com/shawnfeng/sutil/ssync"
 
 	"github.com/shawnfeng/dbrouter"
 
@@ -32,7 +33,7 @@ const (
 	BASE_LOC_OP = "op"
 	BASE_LOC_DB = "db/route"
 	// 服务内分布式锁，只在单个服务副本之间使用
-	BASE_LOC_SERV_DIST_LOCK = "lock/local"
+	BASE_LOC_LOCAL_DIST_LOCK = "lock/local"
 	// 全局分布式锁，跨服务使用
 	BASE_LOC_GLOBAL_DIST_LOCK = "lock/global"
 
@@ -65,6 +66,11 @@ type ServBaseV2 struct {
 
 	dbRouter *dbrouter.Router
 
+	muLocks ssync.Mutex
+	locks map[string]*ssync.Mutex
+
+	muHearts ssync.Mutex
+	hearts map[string]*distLockHeart
 }
 
 func (m *ServBaseV2) RegisterBackDoor(servs map[string]*ServInfo) error {
@@ -192,6 +198,8 @@ func (m *ServBaseV2) doRegister(path, js string) error {
 	return nil
 }
 
+
+
 func (m *ServBaseV2) Servid() int {
 	return m.servId
 }
@@ -300,6 +308,8 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey string) (*ServBaseV2,
 		sessKey: skey,
 		etcdClient: client,
 		servId: sid,
+		locks: make(map[string]*ssync.Mutex),
+		hearts: make(map[string]*distLockHeart),
 
 		dbRouter: dr,
 

@@ -82,6 +82,23 @@ type ServBase interface {
 	GenUuidSha1() string
 	GenUuidMd5() string
 
+	// 默认的锁，局部分布式锁，各个服务之间独立不共享
+
+	// 获取到lock立即返回，否则block直到获取到
+	Lock(name string) error
+	// 没有lock的情况下unlock，程序会直接panic
+	Unlock(name string) error
+	// 立即返回，如果获取到lock返回true，否则返回false
+	Trylock(name string) (bool, error)
+
+
+	// 全局分布式锁，全局只有一个，需要特殊加global说明
+
+	LockGlobal(name string) error
+	UnlockGlobal(name string) error
+	TrylockGlobal(name string) (bool, error)
+
+
 	// db router
 	Dbrouter() *dbrouter.Router
 }
