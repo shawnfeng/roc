@@ -132,40 +132,41 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response) {
 	fun := "ClientEtcdV2.startWatch -->"
 
 	path := m.servPath
-	// 先get获取value，watch不能获取到现有的
-
-    r, err := m.etcdClient.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
-	if err != nil {
-		slog.Errorf("%s get err:%s", fun, err)
-		close(chg)
-		return
-	} else {
-		chg <- r
-	}
-
-	slog.Infof("%s init get action:%s nodes:%d index:%d servPath:%s", fun, r.Action, len(r.Node.Nodes), r.Index, path)
-
-
-	// !!! 这地方可能会丢掉变更， 后面需要调整
-	wop := &etcd.WatcherOptions{
-		Recursive: true,
-	}
-	watcher := m.etcdClient.Watcher(path, wop)
-	if watcher == nil {
-		slog.Errorf("%s new watcher", fun)
-		return
-	}
 
 	for i := 0; ; i++ {
-		resp, err := watcher.Next(context.Background())
-		// etcd 关闭时候会返回
+		r, err := m.etcdClient.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
 		if err != nil {
-			slog.Errorf("%s watch err:%s", fun, err)
+			slog.Errorf("%s get path:%s err:%s", fun, path, err)
 			close(chg)
 			return
 		} else {
-			slog.Infof("%s next get idx:%d action:%s nodes:%d index:%d servPath:%s", fun, i, resp.Action, len(resp.Node.Nodes), resp.Index, path)
-			chg <- resp
+			chg <- r
+		}
+
+		sresp, _ := json.Marshal(r)
+		slog.Infof("%s init get action:%s nodes:%d index:%d servPath:%s resp:%s", fun, r.Action, len(r.Node.Nodes), r.Index, path, sresp)
+
+		// 每次循环都设置下，测试发现放外边不好使
+		wop := &etcd.WatcherOptions{
+			Recursive: true,
+			AfterIndex: r.Index,
+		}
+		watcher := m.etcdClient.Watcher(path, wop)
+		if watcher == nil {
+			slog.Errorf("%s new watcher path:%s", fun, path)
+			return
+		}
+
+		resp, err := watcher.Next(context.Background())
+		// etcd 关闭时候会返回
+		if err != nil {
+			slog.Errorf("%s watch path:%s err:%s", fun, path, err)
+			close(chg)
+			return
+		} else {
+			slog.Infof("%s next get idx:%d action:%s nodes:%d index:%d after:%d servPath:%s resp:%s", fun, i, resp.Action, len(resp.Node.Nodes), resp.Index, wop.AfterIndex, path)
+			// 测试发现next获取到的返回，index，重新获取总有问题，触发两次，不确定，为什么？为什么？
+			// 所以这里每次next前使用的afterindex都重新get了
 		}
 	}
 
@@ -195,7 +196,7 @@ func (m *ClientEtcdV2) watch() {
 				backoff.BackOff()
 			} else {
 				slog.Infof("%s update v:%s serv:%s", fun, r.Node.Key, m.servPath)
-				m.parseResponse()
+				m.parseResponse(r)
 				backoff.Reset()
 			}
 
@@ -204,8 +205,9 @@ func (m *ClientEtcdV2) watch() {
 }
 
 
-func (m *ClientEtcdV2) parseResponse() {
+func (m *ClientEtcdV2) parseResponse(r *etcd.Response) {
 	fun := "ClientEtcdV2.parseResponse -->"
+	/*
     r, err := m.etcdClient.Get(context.Background(), m.servPath, &etcd.GetOptions{Recursive: true, Sort: false})
 	if err != nil {
 		slog.Errorf("%s get err:%s", fun, err)
@@ -215,6 +217,7 @@ func (m *ClientEtcdV2) parseResponse() {
 		slog.Errorf("%s nil", fun)
 		return
 	}
+    */
 
 	if !r.Node.Dir {
 		slog.Errorf("%s not dir %s", fun, r.Node.Key)
