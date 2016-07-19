@@ -12,6 +12,7 @@ import (
 	// now use 73a8ef737e8ea002281a28b4cb92a1de121ad4c6
     "github.com/coreos/go-etcd/etcd"
 
+	"github.com/shawnfeng/sutil/slowid"
 	"github.com/shawnfeng/sutil/sconf"
 	"github.com/shawnfeng/sutil/slog"
 
@@ -198,6 +199,8 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey string) (*ServBaseV2,
 	}
 
 	reg.IdGenerator.snow = sf
+	reg.IdGenerator.slow = make(map[string]*slowid.Slowid)
+	reg.IdGenerator.servId = sid
 
 	return reg, nil
 
