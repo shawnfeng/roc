@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sort"
+	"sync"
 	"crypto/sha1"
 	"crypto/md5"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/sdming/gosnow"
 
 	"github.com/shawnfeng/sutil"
+	"github.com/shawnfeng/sutil/slowid"
 	"github.com/shawnfeng/sutil/slog"
 
 	"github.com/shawnfeng/dbrouter"
@@ -71,6 +73,12 @@ type ServBase interface {
 	// 任意路径的配置信息
 	//ArbiConfig(location string) (string, error)
 
+	// 慢id生成器，适合id产生不是非常快的场景,基于毫秒时间戳，每毫秒最多产生2个id，过快会自动阻塞，直到毫秒递增
+	// id表示可以再52bit完成，用double表示不会丢失精度，javascript等弱类型语音可以直接使用
+	GenSlowId(tp string) (int64, error)
+	GetSlowIdStamp(sid int64) int64
+	GetSlowIdWithStamp(stamp int64) int64
+
 	// id生成逻辑
 	GenSnowFlakeId() (int64, error)
 	// 获取snowflakeid生成时间戳，单位ms
@@ -106,8 +114,45 @@ type ServBase interface {
 //====================
 // id生成逻辑
 type IdGenerator struct {
+	servId int
+	mu sync.Mutex
+	slow map[string]*slowid.Slowid
 	snow *gosnow.SnowFlake
 }
+
+func (m *IdGenerator) GenSlowId(tp string) (int64, error) {
+	gslow := func(tp string) (*slowid.Slowid, error) {
+		m.mu.Lock()
+		defer m.mu.Unlock()
+
+		s := m.slow[tp]
+		if s == nil {
+			sl, err := initSlowid(m.servId)
+			if err != nil {
+				return nil, err
+			}
+			m.slow[tp] = sl
+			s = sl
+		}
+		return s, nil
+	}
+
+	s, err := gslow(tp)
+	if err != nil {
+		return 0, err
+	}
+
+	return s.Next()
+}
+
+func (m *IdGenerator) GetSlowIdStamp(sid int64) int64 {
+	return slowid.Since+sid>>11
+}
+
+func (m *IdGenerator) GetSlowIdWithStamp(stamp int64) int64 {
+	return (stamp - slowid.Since) << 11
+}
+
 
 func (m *IdGenerator) GenSnowFlakeId() (int64, error) {
 	id, err := m.snow.Next()
@@ -237,6 +282,21 @@ func initSnowflake(servid int) (*gosnow.SnowFlake, error) {
 	}
 	gosnow.Since = time.Date(2014, 11, 1, 0, 0, 0, 0, time.UTC).UnixNano() / 1000000
 	v, err := gosnow.NewSnowFlake(uint32(servid))
+	if err != nil {
+		return nil, err
+	}
+
+
+	return v, nil
+}
+
+
+func initSlowid(servid int) (*slowid.Slowid, error) {
+	if servid < 0 {
+		return nil, fmt.Errorf("init snowflake use nagtive servid")
+	}
+	slowid.Since = time.Date(2014, 11, 1, 0, 0, 0, 0, time.UTC).UnixNano() / 1000000
+	v, err := slowid.NewSlowid(servid)
 	if err != nil {
 		return nil, err
 	}

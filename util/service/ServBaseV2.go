@@ -13,6 +13,7 @@ import (
     //"github.com/coreos/go-etcd/etcd"
     etcd "github.com/coreos/etcd/client"
 
+	"github.com/shawnfeng/sutil/slowid"
 	"github.com/shawnfeng/sutil/sconf"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/ssync"
@@ -322,6 +323,8 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey string) (*ServBaseV2,
 	}
 
 	reg.IdGenerator.snow = sf
+	reg.IdGenerator.slow = make(map[string]*slowid.Slowid)
+	reg.IdGenerator.servId = sid
 
 	return reg, nil
 
