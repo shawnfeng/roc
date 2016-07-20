@@ -164,7 +164,7 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response) {
 			close(chg)
 			return
 		} else {
-			slog.Infof("%s next get idx:%d action:%s nodes:%d index:%d after:%d servPath:%s resp:%s", fun, i, resp.Action, len(resp.Node.Nodes), resp.Index, wop.AfterIndex, path)
+			slog.Infof("%s next get idx:%d action:%s nodes:%d index:%d after:%d servPath:%s", fun, i, resp.Action, len(resp.Node.Nodes), resp.Index, wop.AfterIndex, path)
 			// 测试发现next获取到的返回，index，重新获取总有问题，触发两次，不确定，为什么？为什么？
 			// 所以这里每次next前使用的afterindex都重新get了
 		}
