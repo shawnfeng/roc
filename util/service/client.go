@@ -20,7 +20,7 @@ type ClientLookup interface {
 
 	GetServAddr(processor, key string) *ServInfo
 	GetServAddrWithServid(servid int, processor, key string) *ServInfo
-	GetAllServAddr() map[string][]*ServInfo
+	//GetAllServAddr() map[string][]*ServInfo
 	ServKey() string
 	ServPath() string
 

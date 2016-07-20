@@ -55,6 +55,21 @@ func (m *RegData) String() string {
 	return strings.Join(procs, "|")
 }
 
+type ServCtrl struct {
+	Weight int    `json:"weight"`
+	Disable bool   `json:"disable"`
+}
+
+type ManualData struct {
+	Ctrl  *ServCtrl   `json:"ctrl"`
+}
+
+func (m *ManualData) String() string {
+	s, _ := json.Marshal(m)
+	return string(s)
+}
+
+
 
 // ServBase Interface
 type ServBase interface {

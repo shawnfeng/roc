@@ -43,6 +43,9 @@ const (
 	BASE_LOC_REG_SERV = "serve"
 	// 后门注册的位置
 	BASE_LOC_REG_BACKDOOR = "backdoor"
+
+	// 服务手动配置位置
+	BASE_LOC_REG_MANUAL = "manual"
 )
 
 
@@ -89,7 +92,7 @@ func (m *ServBaseV2) RegisterBackDoor(servs map[string]*ServInfo) error {
 
 	path := fmt.Sprintf("%s/%s/%s/%d/%s", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId, BASE_LOC_REG_BACKDOOR)
 
-	return m.doRegister(path, string(js))
+	return m.doRegister(path, string(js), true)
 
 }
 
@@ -131,7 +134,7 @@ func (m *ServBaseV2) RegisterServiceV2(servs map[string]*ServInfo) error {
 
 	path := fmt.Sprintf("%s/%s/%s/%d/%s", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId, BASE_LOC_REG_SERV)
 
-	return m.doRegister(path, string(js))
+	return m.doRegister(path, string(js), true)
 }
 
 
@@ -150,10 +153,10 @@ func (m *ServBaseV2) RegisterServiceV1(servs map[string]*ServInfo) error {
 
 	path := fmt.Sprintf("%s/%s/%s/%d", m.confEtcd.useBaseloc, BASE_LOC_DIST, m.servLocation, m.servId)
 
-	return m.doRegister(path, string(js))
+	return m.doRegister(path, string(js), false)
 }
 
-func (m *ServBaseV2) doRegister(path, js string) error {
+func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 	fun := "ServBaseV2.doRegister -->"
 	// 创建完成标志
 	var iscreate bool
@@ -169,14 +172,20 @@ func (m *ServBaseV2) doRegister(path, js string) error {
 					TTL: time.Second*120,
 				})
 			} else {
-				// 在刷新ttl时候，不允许变更value
-				// 节点超时时间为120秒
-				slog.Infof("%s refresh ttl idx:%d servs:%s", fun, i, js)
-				r, err = m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions {
-					PrevExist: etcd.PrevExist,
-					TTL: time.Second*120,
-					Refresh: true,
-				})
+				if refresh {
+					// 在刷新ttl时候，不允许变更value
+					// 节点超时时间为120秒
+					slog.Infof("%s refresh ttl idx:%d servs:%s", fun, i, js)
+					r, err = m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions {
+						PrevExist: etcd.PrevExist,
+						TTL: time.Second*120,
+						Refresh: true,
+					})
+				} else {
+					r, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions {
+						TTL: time.Second*120,
+					})
+				}
 
 			}
 
