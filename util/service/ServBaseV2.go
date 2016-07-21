@@ -78,6 +78,7 @@ type ServBaseV2 struct {
 }
 
 func (m *ServBaseV2) RegisterBackDoor(servs map[string]*ServInfo) error {
+	return nil
 	fun := "ServBaseV2.RegisterBackDoor -->"
 	rd := &RegData {
 		Servs: servs,
@@ -119,6 +120,7 @@ func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) error {
 }
 
 func (m *ServBaseV2) RegisterServiceV2(servs map[string]*ServInfo) error {
+	return nil
 	fun := "ServBaseV2.RegisterServiceV2 -->"
 
 	rd := &RegData {
