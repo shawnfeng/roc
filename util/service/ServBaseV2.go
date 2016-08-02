@@ -78,7 +78,6 @@ type ServBaseV2 struct {
 }
 
 func (m *ServBaseV2) RegisterBackDoor(servs map[string]*ServInfo) error {
-	return nil
 	fun := "ServBaseV2.RegisterBackDoor -->"
 	rd := &RegData {
 		Servs: servs,
@@ -114,13 +113,12 @@ func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) error {
 	}
 
 
-	slog.Errorf("%s regist ok", fun)
+	slog.Infof("%s regist ok", fun)
 
 	return nil
 }
 
 func (m *ServBaseV2) RegisterServiceV2(servs map[string]*ServInfo) error {
-	return nil
 	fun := "ServBaseV2.RegisterServiceV2 -->"
 
 	rd := &RegData {
@@ -155,7 +153,7 @@ func (m *ServBaseV2) RegisterServiceV1(servs map[string]*ServInfo) error {
 
 	path := fmt.Sprintf("%s/%s/%s/%d", m.confEtcd.useBaseloc, BASE_LOC_DIST, m.servLocation, m.servId)
 
-	return m.doRegister(path, string(js), false)
+	return m.doRegister(path, string(js), true)
 }
 
 func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
