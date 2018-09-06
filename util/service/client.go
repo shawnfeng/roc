@@ -13,6 +13,7 @@ import (
 	"git.apache.org/thrift.git/lib/go/thrift"
 
 	"github.com/shawnfeng/sutil/slog"
+	"github.com/shawnfeng/sutil/stime"
 )
 
 
@@ -43,6 +44,7 @@ type ClientThrift struct {
 
 	poolLen int
 
+	trace bool
 
 
 	muPool sync.Mutex
@@ -75,9 +77,16 @@ func (m *rpcClient1) GetServiceClient() interface{} {
 }
 
 
-
-
 func NewClientThrift(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, poollen int) *ClientThrift {
+	return NewClientThriftTraceFlag(cb, processor, fn, poollen, false)
+}
+
+func NewClientThriftTrace(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, poollen int) *ClientThrift {
+	return NewClientThriftTraceFlag(cb, processor, fn, poollen, true)
+}
+
+
+func NewClientThriftTraceFlag(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, poollen int, trace bool) *ClientThrift {
 
 	ct := &ClientThrift {
 		clientLookup: cb,
@@ -85,6 +94,7 @@ func NewClientThrift(cb ClientLookup, processor string, fn func(thrift.TTranspor
 		fnFactory: fn,
 		poolLen: poollen,
 		poolClient: make(map[string]chan rpcClient),
+		trace: trace,
 	}
 
 	return ct
@@ -145,12 +155,20 @@ func (m *ClientThrift) printPool() {
 func (m *ClientThrift) hash(key string) (*ServInfo, rpcClient) {
 	fun := "ClientThrift.hash -->"
 
+	st := stime.NewTimeStat()
+
 	s := m.clientLookup.GetServAddr(m.processor, key)
 	if s == nil {
 		return nil, nil
 	}
 
 	addr := s.Addr
+
+	if m.trace {
+		dur := st.Duration()
+		slog.Infof("%s hash key:%s s:%s tm:%d", fun, key, s, dur)
+		st.Reset()
+	}
 
 
 	po := m.getPool(addr)
@@ -163,6 +181,14 @@ func (m *ClientThrift) hash(key string) (*ServInfo, rpcClient) {
 		c = m.newClient(addr)
 	}
 
+
+	if m.trace {
+		dur := st.Duration()
+		slog.Infof("%s getclient key:%s tm:%d", fun, key, dur)
+		st.Reset()
+	}
+
+
 	//m.printPool()
 	return s, c
 }
@@ -171,6 +197,7 @@ func (m *ClientThrift) hash(key string) (*ServInfo, rpcClient) {
 
 func (m *ClientThrift) Payback(si *ServInfo, client rpcClient) {
 	fun := "ClientThrift.Payback -->"
+	st := stime.NewTimeStat()
 
 	po := m.getPool(si.Addr)
 
@@ -181,6 +208,14 @@ func (m *ClientThrift) Payback(si *ServInfo, client rpcClient) {
 		slog.Infof("%s full not payback:%s len:%d", fun, si, len(po))
 		client.Close()
 	}
+
+
+	if m.trace {
+		dur := st.Duration()
+		slog.Infof("%s si:%s tm:%d", fun, si, dur)
+		st.Reset()
+	}
+
 
 	//m.printPool()
 }
