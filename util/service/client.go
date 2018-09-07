@@ -130,14 +130,32 @@ func (m *ClientThrift) newClient(addr string) rpcClient {
 }
 
 func (m *ClientThrift) getPool(addr string) chan rpcClient {
+	fun := "ClientThrift.getPool -->"
+	st := stime.NewTimeStat()
 	m.muPool.Lock()
 	defer m.muPool.Unlock()
+
+	if m.trace {
+		dur := st.Duration()
+		slog.Infof("%s lock addr:%s tm:%d", fun, addr, dur)
+		st.Reset()
+	}
+
+
 	tmp, ok := m.poolClient[addr]
 	if !ok {
 		tmp = make(chan rpcClient, m.poolLen)
 		m.poolClient[addr] = tmp
 
 	}
+
+	if m.trace {
+		dur := st.Duration()
+		slog.Infof("%s map addr:%s tm:%d", fun, addr, dur)
+		st.Reset()
+	}
+
+
 	return tmp
 
 }
@@ -201,6 +219,13 @@ func (m *ClientThrift) Payback(si *ServInfo, client rpcClient) {
 
 	po := m.getPool(si.Addr)
 
+	if m.trace {
+		dur := st.Duration()
+		slog.Infof("%s getpool si:%s tm:%d", fun, si, dur)
+		st.Reset()
+	}
+
+
 	select {
 	case po <- client:
 		slog.Tracef("%s payback:%s len:%d", fun, si, len(po))
@@ -212,7 +237,7 @@ func (m *ClientThrift) Payback(si *ServInfo, client rpcClient) {
 
 	if m.trace {
 		dur := st.Duration()
-		slog.Infof("%s si:%s tm:%d", fun, si, dur)
+		slog.Infof("%s select si:%s tm:%d", fun, si, dur)
 		st.Reset()
 	}
 
