@@ -169,7 +169,7 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 			if !iscreate {
 				slog.Warnf("%s create idx:%d servs:%s", fun, i, js)
 				r, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions {
-					TTL: time.Second*120,
+					TTL: time.Second*180,
 				})
 			} else {
 				if refresh {
@@ -178,12 +178,12 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 					slog.Infof("%s refresh ttl idx:%d servs:%s", fun, i, js)
 					r, err = m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions {
 						PrevExist: etcd.PrevExist,
-						TTL: time.Second*120,
+						TTL: time.Second*180,
 						Refresh: true,
 					})
 				} else {
 					r, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions {
-						TTL: time.Second*120,
+						TTL: time.Second*180,
 					})
 				}
 
@@ -200,7 +200,7 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 			}
 
 			// 每分发起一次注册
-			time.Sleep(time.Second * 60)
+			time.Sleep(time.Second * 30)
 		}
 
 	}()

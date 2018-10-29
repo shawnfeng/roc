@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	TTL_LOCK = time.Second * 120
+	TTL_LOCK = time.Second * 180
 )
 
 func (m *ServBaseV2) lookupLock(path string) *ssync.Mutex {
