@@ -2,40 +2,38 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-
 package rocserv
 
 import (
-	"fmt"
-	"time"
+	"crypto/md5"
+	"crypto/sha1"
 	"encoding/json"
+	"fmt"
+	"sort"
 	"strconv"
 	"strings"
-	"sort"
 	"sync"
-	"crypto/sha1"
-	"crypto/md5"
+	"time"
 
 	// now use 73a8ef737e8ea002281a28b4cb92a1de121ad4c6
-    //"github.com/coreos/go-etcd/etcd"
+	//"github.com/coreos/go-etcd/etcd"
 
-    etcd "github.com/coreos/etcd/client"
+	etcd "github.com/coreos/etcd/client"
 
 	"github.com/sdming/gosnow"
 
 	"github.com/shawnfeng/sutil"
-	"github.com/shawnfeng/sutil/slowid"
 	"github.com/shawnfeng/sutil/slog"
+	"github.com/shawnfeng/sutil/slowid"
 
 	"github.com/shawnfeng/dbrouter"
 
 	"golang.org/x/net/context"
 )
 
-
 type ServInfo struct {
-	Type string         `json:"type"`
-	Addr string         `json:"addr"`
+	Type string `json:"type"`
+	Addr string `json:"addr"`
 	//Processor string    `json:"processor"`
 }
 
@@ -44,24 +42,24 @@ func (m *ServInfo) String() string {
 }
 
 type RegData struct {
-	Servs map[string]*ServInfo   `json:"servs"`
+	Servs map[string]*ServInfo `json:"servs"`
 }
 
 func (m *RegData) String() string {
 	var procs []string
 	for k, v := range m.Servs {
-		procs = append(procs,  fmt.Sprintf("%s@%s", v, k))
+		procs = append(procs, fmt.Sprintf("%s@%s", v, k))
 	}
 	return strings.Join(procs, "|")
 }
 
 type ServCtrl struct {
-	Weight int    `json:"weight"`
-	Disable bool   `json:"disable"`
+	Weight  int  `json:"weight"`
+	Disable bool `json:"disable"`
 }
 
 type ManualData struct {
-	Ctrl  *ServCtrl   `json:"ctrl"`
+	Ctrl *ServCtrl `json:"ctrl"`
 }
 
 func (m *ManualData) String() string {
@@ -69,14 +67,11 @@ func (m *ManualData) String() string {
 	return string(s)
 }
 
-
-
 // ServBase Interface
 type ServBase interface {
 	// key is processor to ServInfo
 	RegisterService(servs map[string]*ServInfo) error
 	RegisterBackDoor(servs map[string]*ServInfo) error
-
 
 	Servname() string
 	Servid() int
@@ -114,13 +109,11 @@ type ServBase interface {
 	// 立即返回，如果获取到lock返回true，否则返回false
 	Trylock(name string) (bool, error)
 
-
 	// 全局分布式锁，全局只有一个，需要特殊加global说明
 
 	LockGlobal(name string) error
 	UnlockGlobal(name string) error
 	TrylockGlobal(name string) (bool, error)
-
 
 	// db router
 	Dbrouter() *dbrouter.Router
@@ -130,9 +123,9 @@ type ServBase interface {
 // id生成逻辑
 type IdGenerator struct {
 	servId int
-	mu sync.Mutex
-	slow map[string]*slowid.Slowid
-	snow *gosnow.SnowFlake
+	mu     sync.Mutex
+	slow   map[string]*slowid.Slowid
+	snow   *gosnow.SnowFlake
 }
 
 func (m *IdGenerator) GenSlowId(tp string) (int64, error) {
@@ -161,13 +154,12 @@ func (m *IdGenerator) GenSlowId(tp string) (int64, error) {
 }
 
 func (m *IdGenerator) GetSlowIdStamp(sid int64) int64 {
-	return slowid.Since+sid>>11
+	return slowid.Since + sid>>11
 }
 
 func (m *IdGenerator) GetSlowIdWithStamp(stamp int64) int64 {
 	return (stamp - slowid.Since) << 11
 }
-
 
 func (m *IdGenerator) GenSnowFlakeId() (int64, error) {
 	id, err := m.snow.Next()
@@ -175,37 +167,30 @@ func (m *IdGenerator) GenSnowFlakeId() (int64, error) {
 }
 
 func (m *IdGenerator) GetSnowFlakeIdStamp(sid int64) int64 {
-	return gosnow.Since+sid>>22
+	return gosnow.Since + sid>>22
 }
 
 func (m *IdGenerator) GetSnowFlakeIdWithStamp(stamp int64) int64 {
 	return (stamp - gosnow.Since) << 22
 }
 
-
-
 func (m *IdGenerator) GenUuid() string {
 	return sutil.GetUUID()
 }
-
 
 func (m *IdGenerator) GenUuidSha1() string {
 	h := sha1.Sum([]byte(m.GenUuid()))
 	return fmt.Sprintf("%x", h)
 }
 
-
 func (m *IdGenerator) GenUuidMd5() string {
 	h := md5.Sum([]byte(m.GenUuid()))
 	return fmt.Sprintf("%x", h)
 }
 
-
-
-
 //====================================
 func getValue(client etcd.KeysAPI, path string) ([]byte, error) {
-    r, err := client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
+	r, err := client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
 	if err != nil {
 		return nil, err
 	}
@@ -216,12 +201,11 @@ func getValue(client etcd.KeysAPI, path string) ([]byte, error) {
 
 	return []byte(r.Node.Value), nil
 
-
 }
 
 func genSid(client etcd.KeysAPI, path, skey string) (int, error) {
 	fun := "genSid -->"
-    r, err := client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
+	r, err := client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
 	if err != nil {
 		return -1, err
 	}
@@ -301,10 +285,8 @@ func initSnowflake(servid int) (*gosnow.SnowFlake, error) {
 		return nil, err
 	}
 
-
 	return v, nil
 }
-
 
 func initSlowid(servid int) (*slowid.Slowid, error) {
 	if servid < 0 {
@@ -316,8 +298,5 @@ func initSlowid(servid int) (*slowid.Slowid, error) {
 		return nil, err
 	}
 
-
 	return v, nil
 }
-
-

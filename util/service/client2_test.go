@@ -2,20 +2,18 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-
 package rocserv
 
 import (
+	"fmt"
 	"testing"
 	"time"
-	"fmt"
 
 	"github.com/shawnfeng/sutil/slog"
-
 )
 
 func TestClient(t *testing.T) {
-    etcds := []string{"http://127.0.0.1:20002"}
+	etcds := []string{"http://127.0.0.1:20002"}
 
 	cli, err := NewClientLookup(etcds, "roc", "base/account")
 
@@ -29,7 +27,6 @@ func TestClient(t *testing.T) {
 
 	//allserv := cli.GetAllServAddr()
 	//slog.Infoln("ALL", allserv)
-
 
 	s := cli.GetServAddr("noexit", "key")
 	if s != nil {
@@ -60,7 +57,6 @@ func TestClient(t *testing.T) {
 		slog.Infoln("stat", k, v)
 	}
 
-
 	s = cli.GetServAddrWithServid(3, "proc_thrift", "key")
 	if s == nil {
 		t.Errorf("get err")
@@ -68,7 +64,4 @@ func TestClient(t *testing.T) {
 
 	slog.Infoln("get test_thrift", s)
 
-
 }
-
-

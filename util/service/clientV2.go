@@ -2,21 +2,19 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-
 package rocserv
 
 import (
+	"encoding/json"
 	"fmt"
-	"time"
+	"sort"
 	"strconv"
 	"strings"
-	"sort"
 	"sync"
-	"encoding/json"
+	"time"
 
-
+	etcd "github.com/coreos/etcd/client"
 	"github.com/shawnfeng/consistent"
-    etcd "github.com/coreos/etcd/client"
 
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/stime"
@@ -24,19 +22,17 @@ import (
 	"golang.org/x/net/context"
 )
 
-
 type servCopyStr struct {
 	servId int
-	reg string
+	reg    string
 	manual string
 }
 
 type servCopyData struct {
 	servId int
-	reg *RegData
+	reg    *RegData
 	manual *ManualData
 }
-
 
 type servCopyCollect map[int]*servCopyData
 
@@ -61,17 +57,16 @@ func (m servCopyCollect) String() string {
 		copys = append(copys, fmt.Sprintf("%d[%s]%s", idx, reg, manual))
 	}
 
-
 	return strings.Join(copys, ";")
 }
 
 type ClientEtcdV2 struct {
 	confEtcd configEtcd
-	servKey string
+	servKey  string
 	servPath string
 	// 使用的注册器位置，不同版本会注册到不同版本的dist目录
 	// 但是会保持多版本的兼容，客户端优先使用最新版本的
-	distLoc  string
+	distLoc string
 
 	etcdClient etcd.KeysAPI
 
@@ -81,17 +76,15 @@ type ClientEtcdV2 struct {
 	muServlist sync.Mutex
 	//servList map[string][]*ServInfo
 	servCopy servCopyCollect
-	servHash  *consistent.Consistent
-
+	servHash *consistent.Consistent
 }
-
 
 func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string {
 	fun := "checkDistVersion -->"
 
 	path := fmt.Sprintf("%s/%s/%s", prefloc, BASE_LOC_DIST_V2, servlocation)
 
-    r, err := client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
+	r, err := client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
 	if err == nil {
 		slog.Infof("%s check dist v2 ok path:%s", fun, path)
 		for _, n := range r.Node.Nodes {
@@ -106,10 +99,9 @@ func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string 
 
 	slog.Warnf("%s check dist v2 path:%s err:%s", fun, path, err)
 
-
 	path = fmt.Sprintf("%s/%s/%s", prefloc, BASE_LOC_DIST, servlocation)
 
-    _, err = client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
+	_, err = client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
 	if err == nil {
 		slog.Infof("%s check dist v1 ok path:%s", fun, path)
 		return BASE_LOC_DIST
@@ -133,17 +125,17 @@ func NewClientEtcdV2(confEtcd configEtcd, servlocation string) (*ClientEtcdV2, e
 		return nil, fmt.Errorf("create etchd client cfg error")
 	}
 
-    client := etcd.NewKeysAPI(c)
+	client := etcd.NewKeysAPI(c)
 	if client == nil {
 		return nil, fmt.Errorf("create etchd api error")
 	}
 
 	distloc := checkDistVersion(client, confEtcd.useBaseloc, servlocation)
 
-	cli := &ClientEtcdV2 {
+	cli := &ClientEtcdV2{
 		confEtcd: confEtcd,
-		servKey: servlocation,
-		distLoc: distloc,
+		servKey:  servlocation,
+		distLoc:  distloc,
 		servPath: fmt.Sprintf("%s/%s/%s", confEtcd.useBaseloc, distloc, servlocation),
 
 		etcdClient: client,
@@ -175,7 +167,7 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response) {
 
 		// 每次循环都设置下，测试发现放外边不好使
 		wop := &etcd.WatcherOptions{
-			Recursive: true,
+			Recursive:  true,
 			AfterIndex: r.Index,
 		}
 		watcher := m.etcdClient.Watcher(path, wop)
@@ -202,7 +194,7 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response) {
 func (m *ClientEtcdV2) watch() {
 	fun := "ClientEtcdV2.watch -->"
 
-	backoff := stime.NewBackOffCtrl(time.Millisecond * 10, time.Second * 5)
+	backoff := stime.NewBackOffCtrl(time.Millisecond*10, time.Second*5)
 
 	var chg chan *etcd.Response
 
@@ -231,20 +223,19 @@ func (m *ClientEtcdV2) watch() {
 	}()
 }
 
-
 func (m *ClientEtcdV2) parseResponse(r *etcd.Response) {
 	fun := "ClientEtcdV2.parseResponse -->"
 	/*
-    r, err := m.etcdClient.Get(context.Background(), m.servPath, &etcd.GetOptions{Recursive: true, Sort: false})
-	if err != nil {
-		slog.Errorf("%s get err:%s", fun, err)
-	}
+		    r, err := m.etcdClient.Get(context.Background(), m.servPath, &etcd.GetOptions{Recursive: true, Sort: false})
+			if err != nil {
+				slog.Errorf("%s get err:%s", fun, err)
+			}
 
-	if r == nil {
-		slog.Errorf("%s nil", fun)
-		return
-	}
-    */
+			if r == nil {
+				slog.Errorf("%s nil", fun)
+				return
+			}
+	*/
 
 	if !r.Node.Dir {
 		slog.Errorf("%s not dir %s", fun, r.Node.Key)
@@ -280,7 +271,6 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 		}
 		ids = append(ids, id)
 
-
 		var reg, manual string
 		for _, nc := range n.Nodes {
 			slog.Infof("%s dist key:%s value:%s", fun, nc.Key, nc.Value)
@@ -291,12 +281,11 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 				manual = nc.Value
 			}
 		}
-		idServ[id] = &servCopyStr {
+		idServ[id] = &servCopyStr{
 			servId: id,
-			reg: reg,
+			reg:    reg,
 			manual: manual,
 		}
-
 
 	}
 	sort.Ints(ids)
@@ -328,7 +317,6 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 			}
 		}
 
-
 		var manual ManualData
 		if len(is.manual) > 0 {
 			err := json.Unmarshal([]byte(is.manual), &manual)
@@ -337,13 +325,11 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 			}
 		}
 
-
-		servCopy[i] = &servCopyData {
+		servCopy[i] = &servCopyData{
 			servId: i,
-			reg: &regd,
+			reg:    &regd,
 			manual: &manual,
 		}
-
 
 	}
 
@@ -380,7 +366,6 @@ func (m *ClientEtcdV2) parseResponseV1(r *etcd.Response) {
 	for _, i := range ids {
 		s := idServ[i]
 
-
 		var servs map[string]*ServInfo
 		err := json.Unmarshal([]byte(s), &servs)
 		if err != nil {
@@ -391,7 +376,7 @@ func (m *ClientEtcdV2) parseResponseV1(r *etcd.Response) {
 			slog.Errorf("%s not found copy path:%s info:%s please check deploy", fun, m.servPath, s)
 		}
 
-		servCopy[i] = &servCopyData {
+		servCopy[i] = &servCopyData{
 			servId: i,
 			reg: &RegData{
 				Servs: servs,
@@ -443,7 +428,6 @@ func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 		}
 	}
 
-
 	shash := consistent.NewWithElts(slist)
 	slog.Infof("%s path:%s serv:%d", fun, m.servPath, len(slist))
 
@@ -486,7 +470,6 @@ func (m *ClientEtcdV2) GetServAddr(processor, key string) *ServInfo {
 	return m.getServAddrWithServid(sid, processor, key)
 }
 
-
 func (m *ClientEtcdV2) getServAddrWithServid(servid int, processor, key string) *ServInfo {
 	if c := m.servCopy[servid]; c != nil {
 		if c.reg != nil {
@@ -501,7 +484,6 @@ func (m *ClientEtcdV2) getServAddrWithServid(servid int, processor, key string) 
 
 	return nil
 }
-
 
 func (m *ClientEtcdV2) GetServAddrWithServid(servid int, processor, key string) *ServInfo {
 	m.muServlist.Lock()
@@ -527,11 +509,9 @@ func (m *ClientEtcdV2) GetAllServAddr() map[string][]*ServInfo {
 }
 */
 
-
 func (m *ClientEtcdV2) ServKey() string {
 	return m.servKey
 }
-
 
 func (m *ClientEtcdV2) ServPath() string {
 	return m.servPath

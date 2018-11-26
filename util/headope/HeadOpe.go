@@ -2,23 +2,21 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-
 package headope
 
 import (
+	"errors"
 	"fmt"
 	"time"
-	"errors"
 
+	"github.com/shawnfeng/sutil/paconn"
+	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/snetutil"
 	"github.com/shawnfeng/sutil/stime"
-	"github.com/shawnfeng/sutil/slog"
-	"github.com/shawnfeng/sutil/paconn"
 )
 
 var EmptyAddrErr error = errors.New("head addrs empty")
 var TimeoutErr error = errors.New("get head timeout")
-
 
 func FindMaster(headAddrs []string, timeout time.Duration) (string, error) {
 	fun := "HeadOpe.FindMaster"
@@ -27,15 +25,15 @@ func FindMaster(headAddrs []string, timeout time.Duration) (string, error) {
 	}
 
 	backOff := stime.NewBackOffCtrl(
-		time.Millisecond * 100,
-		time.Second * 1,
+		time.Millisecond*100,
+		time.Second*1,
 	)
 
 	st := stime.NewTimeStat()
 	for {
 		for _, h := range headAddrs {
 			url := fmt.Sprintf("http://%s/get/master", h)
-			body, err := snetutil.HttpReqGetOk(url, time.Millisecond * 200)
+			body, err := snetutil.HttpReqGetOk(url, time.Millisecond*200)
 			if err != nil {
 				slog.Warnf("%s get head:%s err:%s", fun, url, err)
 			} else {
@@ -52,12 +50,10 @@ func FindMaster(headAddrs []string, timeout time.Duration) (string, error) {
 	}
 }
 
-
 type PbGetservid struct {
 	//Type string
 	Session string
-	Servid int64
-
+	Servid  int64
 }
 
 // 获取servid

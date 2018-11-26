@@ -2,35 +2,26 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-
 package rocserv
 
 import (
-    "flag"
+	"flag"
 	"fmt"
-    "reflect"
+	"reflect"
 
-    "github.com/julienschmidt/httprouter"
+	"github.com/julienschmidt/httprouter"
 
 	"git.apache.org/thrift.git/lib/go/thrift"
 
-
 	"github.com/shawnfeng/sutil/slog"
-
 )
 
 const (
-	PROCESSOR_HTTP = "http"
+	PROCESSOR_HTTP   = "http"
 	PROCESSOR_THRIFT = "thrift"
 )
 
-
-
-
-
 type Service struct {
-
-
 }
 
 var service Service
@@ -40,41 +31,38 @@ var service Service
 type cmdArgs struct {
 	servLoc string
 	//logDir   string
-	sessKey  string     
-
+	sessKey string
 }
 
 func (m *Service) parseFlag() (*cmdArgs, error) {
 	var serv, skey string
-    flag.StringVar(&serv, "serv", "", "servic name")
+	flag.StringVar(&serv, "serv", "", "servic name")
 	//flag.StringVar(&logdir, "log", "", "serice log dir")
 	flag.StringVar(&skey, "skey", "", "service session key")
- 
-    flag.Parse()
+
+	flag.Parse()
 
 	if len(serv) == 0 {
 		return nil, fmt.Errorf("serv args need!")
 	}
 
 	/*
-	if len(logdir) == 0 {
-		return nil, fmt.Errorf("log args need!")
-	}
-   */
+		if len(logdir) == 0 {
+			return nil, fmt.Errorf("log args need!")
+		}
+	*/
 
 	if len(skey) == 0 {
 		return nil, fmt.Errorf("skey args need!")
 	}
 
-
-	return &cmdArgs {
+	return &cmdArgs{
 		servLoc: serv,
 		//logDir: logdir,
 		sessKey: skey,
 	}, nil
 
 }
-
 
 func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) (map[string]*ServInfo, error) {
 	fun := "Service.loadDriver -->"
@@ -89,7 +77,6 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) (map[strin
 			continue
 		}
 
-
 		slog.Infof("%s processor:%s type:%s addr:%s", fun, n, reflect.TypeOf(driver), addr)
 
 		switch d := driver.(type) {
@@ -100,11 +87,10 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) (map[strin
 			}
 
 			slog.Infof("%s load ok processor:%s serv addr:%s", fun, n, sa)
-			infos[n] = &ServInfo {
+			infos[n] = &ServInfo{
 				Type: PROCESSOR_HTTP,
 				Addr: sa,
 			}
-
 
 		case thrift.TProcessor:
 			sa, err := powerThrift(addr, d)
@@ -113,11 +99,10 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) (map[strin
 			}
 
 			slog.Infof("%s load ok processor:%s serv addr:%s", fun, n, sa)
-			infos[n] = &ServInfo {
+			infos[n] = &ServInfo{
 				Type: PROCESSOR_THRIFT,
 				Addr: sa,
 			}
-
 
 		default:
 			return nil, fmt.Errorf("processor:%s driver not recognition", n)
@@ -126,14 +111,11 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) (map[strin
 
 	}
 
-
 	return infos, nil
-
 
 }
 
-
-func (m *Service) Serve(confEtcd configEtcd, initfn func (ServBase) error, procs map[string]Processor) error {
+func (m *Service) Serve(confEtcd configEtcd, initfn func(ServBase) error, procs map[string]Processor) error {
 	fun := "Service.Serve -->"
 
 	args, err := m.parseFlag()
@@ -145,7 +127,7 @@ func (m *Service) Serve(confEtcd configEtcd, initfn func (ServBase) error, procs
 	return m.Init(confEtcd, args.servLoc, args.sessKey, initfn, procs)
 }
 
-func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey string, initfn func (ServBase) error, procs map[string]Processor) error {
+func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey string, initfn func(ServBase) error, procs map[string]Processor) error {
 	fun := "Service.Init -->"
 	// Init ServBase
 
@@ -155,12 +137,11 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey string, initfn func
 		return err
 	}
 
-
 	// Init slog
 	var logConfig struct {
 		Log struct {
 			Level string
-			Dir string
+			Dir   string
 		}
 	}
 	// default use level INFO
@@ -182,8 +163,7 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey string, initfn func
 	slog.Infof("%s init log dir:%s name:%s level:%s", fun, logdir, servLoc, logConfig.Log.Level)
 
 	slog.Init(logdir, "serv.log", logConfig.Log.Level)
-	defer slog.Sync() 
-
+	defer slog.Sync()
 
 	// init callback
 	err = initfn(sb)
@@ -191,7 +171,6 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey string, initfn func
 		slog.Panicf("%s serv init err:%s", fun, err)
 		return err
 	}
-
 
 	// init processor
 	for n, p := range procs {
@@ -217,21 +196,17 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey string, initfn func
 		}
 	}
 
-
-
 	infos, err := m.loadDriver(sb, procs)
 	if err != nil {
 		slog.Panicf("%s load driver err:%s", fun, err)
 		return err
 	}
 
-
 	err = sb.RegisterService(infos)
 	if err != nil {
 		slog.Panicf("%s regist service err:%s", fun, err)
 		return err
 	}
-
 
 	// 后门接口 ==================
 	backdoor := &backDoorHttp{}
@@ -255,7 +230,6 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey string, initfn func
 	}
 	//==============================
 
-
 	// pause here
 	var pause chan bool
 	pause <- true
@@ -264,13 +238,10 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey string, initfn func
 
 }
 
-
-
-func Serve(etcds []string, baseLoc string, initfn func (ServBase) error, procs map[string]Processor) error {
+func Serve(etcds []string, baseLoc string, initfn func(ServBase) error, procs map[string]Processor) error {
 	return service.Serve(configEtcd{etcds, baseLoc}, initfn, procs)
 }
 
-
-func Init(etcds []string, baseLoc string, servLoc, servKey string, initfn func (ServBase) error, procs map[string]Processor) error {
+func Init(etcds []string, baseLoc string, servLoc, servKey string, initfn func(ServBase) error, procs map[string]Processor) error {
 	return service.Init(configEtcd{etcds, baseLoc}, servLoc, servKey, initfn, procs)
 }

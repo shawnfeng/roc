@@ -2,22 +2,18 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-
 package jobs
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
-	"errors"
 	"time"
 
-	"github.com/shawnfeng/sutil/stime"
 	"github.com/shawnfeng/sutil/slog"
-
+	"github.com/shawnfeng/sutil/stime"
 )
-
-
 
 type ManulConf struct {
 	// 启动参数
@@ -45,10 +41,9 @@ func (m *ManulConf) String() string {
 	return fmt.Sprintf("%d|%t|%s|%s", m.BackOffCeil/1000000, m.JobAuto, m.Name, m.Args)
 }
 
-
 type Job struct {
 	// 运行job唯一标识
-	id string
+	id  string
 	pid int32
 	// 管理的进程停止的回调
 	cbProcessStop func(int32, *Job)
@@ -60,13 +55,11 @@ type Job struct {
 	// job没有运行等待退避
 	stopBackOff *stime.BackOffCtrl
 
-
 	runCtrlMu sync.Mutex
-	runCtrl jobRunCtrl
-	mconf ManulConf
+	runCtrl   jobRunCtrl
+	mconf     ManulConf
 
 	jobKey string
-
 }
 
 func Newjob(
@@ -78,18 +71,18 @@ func Newjob(
 
 ) *Job {
 
-	j := &Job {
+	j := &Job{
 		id: id,
 
 		cbProcessStop: cbprocstop,
-		cbProcessRun: cbprocrun,
+		cbProcessRun:  cbprocrun,
 
-		runBackOff: stime.NewBackOffCtrl(time.Millisecond * 100, conf.BackOffCeil),
+		runBackOff: stime.NewBackOffCtrl(time.Millisecond*100, conf.BackOffCeil),
 		// 固定10s
-		stopBackOff: stime.NewBackOffCtrl(time.Second * 10, time.Second * 10),
+		stopBackOff: stime.NewBackOffCtrl(time.Second*10, time.Second*10),
 
 		runCtrl: RUNCTRL_STOP,
-		mconf: *conf,
+		mconf:   *conf,
 	}
 
 	go j.live()
@@ -97,7 +90,6 @@ func Newjob(
 	return j
 
 }
-
 
 func (m *Job) String() string {
 	return fmt.Sprintf("%s|%d", m.id, atomic.LoadInt32(&m.pid))
@@ -110,7 +102,7 @@ func (m *Job) Id() string {
 }
 
 func (m *Job) Pid() (int, error) {
-	pid := atomic.LoadInt32(&m.pid) 
+	pid := atomic.LoadInt32(&m.pid)
 	if pid == 0 {
 		return 0, errors.New("job not run")
 	} else {
@@ -118,15 +110,13 @@ func (m *Job) Pid() (int, error) {
 	}
 }
 
-
 // 测试cmd.stdin 给sh执行的效果
 type JobManager struct {
 	jobsLock sync.Mutex
-	jobs map[string]*Job
+	jobs     map[string]*Job
 
 	cbProcessStop func(int32, *Job)
-	cbProcessRun func(int32, *Job)
-
+	cbProcessRun  func(int32, *Job)
 }
 
 func NewJobManager(
@@ -135,14 +125,12 @@ func NewJobManager(
 	cbprocrun func(int32, *Job),
 ) *JobManager {
 
-	return &JobManager {
+	return &JobManager{
 		jobs: make(map[string]*Job),
 
 		cbProcessStop: cbprocstop,
-		cbProcessRun: cbprocrun,
-
+		cbProcessRun:  cbprocrun,
 	}
-
 
 }
 
@@ -152,7 +140,7 @@ func (m *JobManager) Runjobs() map[string]string {
 	defer m.jobsLock.Unlock()
 
 	pids := make(map[string]string)
-	for _, j := range(m.jobs) {
+	for _, j := range m.jobs {
 		if p, err := j.Pid(); err == nil {
 			pids[j.Id()] = fmt.Sprintf("%d", p)
 		} else {
@@ -186,7 +174,7 @@ func (m *JobManager) Update(confs map[string]*ManulConf) {
 	m.jobsLock.Lock()
 	defer m.jobsLock.Unlock()
 
-	for k, v := range(confs) {
+	for k, v := range confs {
 		j, ok := m.jobs[k]
 		if ok {
 			slog.Infof("%s update job:%s conf:%s", fun, k, v)

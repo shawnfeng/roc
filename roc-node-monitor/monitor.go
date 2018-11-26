@@ -2,39 +2,34 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-
 package main
 
 import (
-	"os"
 	"fmt"
-	"time"
-	"strings"
+	"os"
 	"strconv"
+	"strings"
+	"time"
 
-	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/paconn"
 	"github.com/shawnfeng/sutil/sconf"
+	"github.com/shawnfeng/sutil/slog"
 )
 
-
-
 type Monitor struct {
-	nodePort string
+	nodePort  string
 	nodeAgent *paconn.Agent
 	agentFail chan error
-	jobs []int
-
+	jobs      []int
 }
 
 func NewMonitor(port string) *Monitor {
-	m := &Monitor {
-		nodePort: port,
+	m := &Monitor{
+		nodePort:  port,
 		nodeAgent: nil,
 		agentFail: make(chan error),
-		jobs: make([]int, 0),
+		jobs:      make([]int, 0),
 	}
-
 
 	return m
 }
@@ -45,9 +40,8 @@ func (m *Monitor) agentClose(a *paconn.Agent, data []byte, err error) {
 
 	// 父进程应该已经崩溃，马上进行进程排查
 	m.checkMe()
-	m.agentFail <-err
+	m.agentFail <- err
 }
-
 
 func (m *Monitor) agentTwoway(a *paconn.Agent, btype int32, res []byte) (int32, []byte) {
 	fun := "Monitor.agentTwoway"
@@ -68,7 +62,7 @@ func (m *Monitor) parseJobs(sjobs []byte) {
 		slog.Infof("%s empty jobs", fun)
 	}
 	pids := make([]int, 0)
-	for _, j := range(jobs) {
+	for _, j := range jobs {
 		pid, err := strconv.Atoi(j)
 		if err != nil {
 			slog.Errorf("%s getpid job:%s err:%s", fun, j, err)
@@ -99,22 +93,20 @@ func (m *Monitor) syncJobs() {
 
 }
 
-
-
 func (m *Monitor) checkMe() {
 	fun := "Monitor.checkMe"
 	ppid := os.Getppid()
 	//slog.Tracef("%s ppid:%d", fun, ppid)
 	if ppid == 1 {
 		slog.Warnf("%s clear ppid:%d jobs:%s", fun, ppid, m.jobs)
-		for _, j := range(m.jobs) {
+		for _, j := range m.jobs {
 			// 对不存在的pid FindProcess，不会出错
 			// 但是调用kill时候，会提示错误：no such process
 			p, err := os.FindProcess(j)
 			if err != nil {
 				slog.Errorf("%s FindProcess:%d err:s", fun, j, err)
 			} else {
-				slog.Infof("%s kill:%d", fun ,j)
+				slog.Infof("%s kill:%d", fun, j)
 				err = p.Kill()
 				if err != nil {
 					slog.Errorf("%s Kill:%d err:s", fun, j, err)
@@ -144,9 +136,7 @@ func (m *Monitor) cronCommonJobs() {
 		}
 	}
 
-
 }
-
 
 // 保证agent的成活
 func (m *Monitor) cronLive() {
@@ -175,15 +165,12 @@ func (m *Monitor) cronLive() {
 
 	}
 
-
 }
-
-
 
 func main() {
 	conf := os.Args[1]
 	tconf := sconf.NewTierConf()
-	err := tconf.LoadFromFile(conf) 
+	err := tconf.LoadFromFile(conf)
 	if err != nil {
 		slog.Panicln(err)
 	}
@@ -201,5 +188,3 @@ func main() {
 	go m.cronLive()
 	m.cronCommonJobs()
 }
-
-

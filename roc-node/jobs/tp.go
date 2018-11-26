@@ -2,20 +2,18 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-
 package jobs
 
-
 type jobRunCtrl int32
+
 const (
-	_                         = iota
-	RUNCTRL_START  jobRunCtrl = iota
+	_                        = iota
+	RUNCTRL_START jobRunCtrl = iota
 	RUNCTRL_STOP
 
 	RUNCTRL_KILL
 	// job移除
 	RUNCTRL_REMOVE
-
 )
 
 func (m jobRunCtrl) String() string {
@@ -35,13 +33,5 @@ func (m jobRunCtrl) String() string {
 
 	}
 
-
 	return s
 }
-
-
-
-
-
-
-

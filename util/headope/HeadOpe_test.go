@@ -2,16 +2,15 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-
 package headope
 
 import (
 	"fmt"
-	"time"
 	"testing"
+	"time"
 
-	"net/http"
 	"github.com/shawnfeng/sutil/slog"
+	"net/http"
 )
 
 func master(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +38,7 @@ func TTOk(t *testing.T) {
 	// allow err
 	headAddrs0 := []string{"127.0.0.1:9100", "127.0.0.1:9000", "127.0.0.1:9102"}
 
-	h, err := findMaster(headAddrs0, time.Second * 5)
+	h, err := findMaster(headAddrs0, time.Second*5)
 
 	if err != nil {
 		t.Errorf("%s", err)
@@ -48,13 +47,12 @@ func TTOk(t *testing.T) {
 	slog.Infof("head ok h:%s", h)
 }
 
-
 func TTimeout(t *testing.T) {
 
 	// allow err
 	headAddrs0 := []string{"127.0.0.1:9100", "127.0.0.1:9101", "127.0.0.1:9102"}
 
-	h, err := findMaster(headAddrs0, time.Second * 5)
+	h, err := findMaster(headAddrs0, time.Second*5)
 
 	if err == nil || err != TimeoutErr {
 		t.Errorf("%s", err)
@@ -63,12 +61,11 @@ func TTimeout(t *testing.T) {
 	slog.Infof("head timeout h:%s err:%s", h, err)
 }
 
-
 func TEmpty(t *testing.T) {
 	// allow err
 	headAddrs0 := []string{}
 
-	h, err := findMaster(headAddrs0, time.Second * 5)
+	h, err := findMaster(headAddrs0, time.Second*5)
 
 	if err == nil || err != EmptyAddrErr {
 		t.Errorf("%s", err)

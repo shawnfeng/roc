@@ -2,25 +2,20 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-
 package main
 
 import (
 	"encoding/json"
 
-    etcd "github.com/coreos/etcd/client"
+	etcd "github.com/coreos/etcd/client"
 
 	"github.com/shawnfeng/sutil/slog"
-
 
 	"golang.org/x/net/context"
 )
 
-
-
 func startWatch(etcdClient etcd.KeysAPI, path string) {
 	fun := "startWatch -->"
-
 
 	for i := 0; ; i++ {
 		r, err := etcdClient.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
@@ -34,7 +29,7 @@ func startWatch(etcdClient etcd.KeysAPI, path string) {
 
 		// 每次循环都设置下，测试发现放外边不好使
 		wop := &etcd.WatcherOptions{
-			Recursive: true,
+			Recursive:  true,
 			AfterIndex: r.Index,
 		}
 		watcher := etcdClient.Watcher(path, wop)
@@ -58,7 +53,6 @@ func startWatch(etcdClient etcd.KeysAPI, path string) {
 
 }
 
-
 func main() {
 
 	cfg := etcd.Config{
@@ -71,13 +65,11 @@ func main() {
 		slog.Errorln(cfg, err)
 	}
 
-    client := etcd.NewKeysAPI(c)
+	client := etcd.NewKeysAPI(c)
 	if client == nil {
 		slog.Errorln(cfg, err)
 	}
 
-
 	startWatch(client, "/roc/dist/rec/recommend")
-
 
 }

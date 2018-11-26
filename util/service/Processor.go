@@ -2,9 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-
 package rocserv
-
 
 type Processor interface {
 	// init
@@ -12,4 +10,3 @@ type Processor interface {
 	// interace driver
 	Driver() (string, interface{})
 }
-

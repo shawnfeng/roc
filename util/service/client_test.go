@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-
 package rocserv
 
 import (
@@ -17,7 +16,7 @@ import (
 )
 
 func TestClient(t *testing.T) {
-    etcds := []string{"http://127.0.0.1:20002"}
+	etcds := []string{"http://127.0.0.1:20002"}
 
 	cli, err := NewClientLookup(etcds, "roc", "niubi/fuck")
 
@@ -32,7 +31,6 @@ func TestClient(t *testing.T) {
 	allserv := cli.GetAllServAddr()
 	slog.Infoln("ALL", allserv)
 
-
 	s := cli.GetServAddr("noexit", "key")
 	if s != nil {
 		t.Errorf("get err")
@@ -44,7 +42,6 @@ func TestClient(t *testing.T) {
 	}
 
 	slog.Infoln("get test_http", s)
-
 
 	s = cli.GetServAddr("test_thrift", "key1")
 	if s == nil {
@@ -59,9 +56,6 @@ func TestClient(t *testing.T) {
 
 	ct := NewClientThrift(cli, "test_thrift", cbfac, 5)
 
-
-
-
 	docall := func() {
 		si, c := ct.Get("key1")
 		slog.Infoln("thrift client get", si, c)
@@ -71,8 +65,6 @@ func TestClient(t *testing.T) {
 			return
 		}
 
-
-
 		paramMap := make(map[string]string)
 		paramMap["name"] = "hello"
 		paramMap["passwd"] = "world"
@@ -80,8 +72,6 @@ func TestClient(t *testing.T) {
 		clicall := c.(*rpc.RpcServiceClient)
 		r1, e1 := clicall.FunCall(123456, "login", paramMap)
 		slog.Infoln("thrift client1 call", r1, e1)
-
-
 
 		if e1 != nil {
 			slog.Infoln("thrift client payback", r1)
@@ -95,9 +85,6 @@ func TestClient(t *testing.T) {
 		go docall()
 	}
 
-
 	time.Sleep(time.Second * 30)
 
 }
-
-

@@ -2,37 +2,33 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-
 package engine
 
 import (
-	"time"
-	"strings"
 	"fmt"
-    "net"
+	"net"
+	"net/http"
+	"strings"
 	"sync"
-    "net/http"
-
+	"time"
 
 	"github.com/shawnfeng/sutil"
-	"github.com/shawnfeng/sutil/slog"
-	"github.com/shawnfeng/sutil/sconf"
 	"github.com/shawnfeng/sutil/paconn"
+	"github.com/shawnfeng/sutil/sconf"
+	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/snetutil"
 
 	"github.com/shawnfeng/roc/roc-node/jobs"
-
 )
 
 type nodeMon struct {
-	agm *paconn.AgentManager
-	mon *jobs.Job
+	agm  *paconn.AgentManager
+	mon  *jobs.Job
 	jobm *jobs.JobManager
 
 	// 关闭monitor监控的job
-	muMond sync.Mutex
+	muMond     sync.Mutex
 	monDisable map[string]bool
-
 }
 
 func (m *nodeMon) upMonitorDisableList(list []string) {
@@ -50,7 +46,6 @@ func (m *nodeMon) upMonitorDisableList(list []string) {
 	m.monDisable = nmon
 }
 
-
 func (m *nodeMon) filtMonitorDisable(jobs map[string]string) []string {
 
 	m.muMond.Lock()
@@ -67,8 +62,6 @@ func (m *nodeMon) filtMonitorDisable(jobs map[string]string) []string {
 
 }
 
-
-
 func (m *nodeMon) cbNew(a *paconn.Agent) {
 	fun := "nodeMon.cbNew"
 	slog.Infof("%s a:%s", fun, a)
@@ -80,7 +73,6 @@ func (m *nodeMon) allJobs() []byte {
 	allrunjobs := m.jobm.Runjobs()
 
 	filtjobs := m.filtMonitorDisable(allrunjobs)
-
 
 	sall := strings.Join(filtjobs, ",")
 
@@ -96,7 +88,7 @@ func (m *nodeMon) jobChanges(pid int32, j *jobs.Job) {
 	sall := m.allJobs()
 
 	agents := m.agm.Agents()
-	for _, ag := range(agents) {
+	for _, ag := range agents {
 		_, res, err := ag.Twoway(0, sall, 200*time.Millisecond)
 		if err != nil {
 			slog.Errorf("%s notify pid:%d ag:%s err:%s", fun, pid, ag, err)
@@ -105,7 +97,7 @@ func (m *nodeMon) jobChanges(pid int32, j *jobs.Job) {
 		if string(res) != "OK" {
 			slog.Errorf("%s notify pid:%d ag:%s res:%s", fun, pid, ag, res)
 		}
-		
+
 	}
 
 }
@@ -132,20 +124,18 @@ func (m *nodeMon) StartJob(jobid string) error {
 	return m.jobm.Start(jobid)
 }
 
-
 func (m *nodeMon) Init() {
 
 	fun := "nodeMon.Init"
 
 	agm, err := paconn.NewAgentManager(
 		":",
-		time.Second * 60 *15,
+		time.Second*60*15,
 		0,
 		m.cbNew,
 		nil,
 		m.cbTwoway,
 		m.cbClose,
-
 	)
 
 	if err != nil {
@@ -165,7 +155,7 @@ func (m *nodeMon) Init() {
 }
 
 func NewnodeMon() *nodeMon {
-	nm := &nodeMon {
+	nm := &nodeMon{
 		monDisable: make(map[string]bool),
 	}
 
@@ -183,13 +173,13 @@ func (m *nodeMon) AddMonitor(monjob, monbin, monconf string) {
 		return
 	}
 
-	if len(monjob) > 0 && len(monbin) > 0 && len(monconf) > 0 { 
+	if len(monjob) > 0 && len(monbin) > 0 && len(monconf) > 0 {
 		// start node-monitor
-		mc := &jobs.ManulConf {
-			Name: monbin,
-			Args: []string{monconf, m.agm.Listenport()},
-			JobAuto: true,
-			BackOffCeil: time.Millisecond*100,
+		mc := &jobs.ManulConf{
+			Name:        monbin,
+			Args:        []string{monconf, m.agm.Listenport()},
+			JobAuto:     true,
+			BackOffCeil: time.Millisecond * 100,
 		}
 
 		m.mon = jobs.Newjob(monjob, mc, nil, nil)
@@ -197,7 +187,6 @@ func (m *nodeMon) AddMonitor(monjob, monbin, monconf string) {
 	}
 
 }
-
 
 func (m *nodeMon) RemoveMonitor() {
 	fun := "nodeMon.RemoveMonitor"
@@ -210,7 +199,6 @@ func (m *nodeMon) RemoveMonitor() {
 }
 
 var node_monitor *nodeMon = NewnodeMon()
-
 
 func loadjob(tconf *sconf.TierConf, job string) (*jobs.ManulConf, error) {
 	cmd, err := tconf.ToString(job, "cmd")
@@ -231,20 +219,18 @@ func loadjob(tconf *sconf.TierConf, job string) (*jobs.ManulConf, error) {
 
 	auto := tconf.ToBoolWithDefault(job, "auto", true)
 
-
 	backoffceil := tconf.ToIntWithDefault(job, "backoffceil", 20)
 
-	m := &jobs.ManulConf {
-		Name: cmd,
-		Args: args,
-		User: ruser,
-		Stdlog: stdlog,
-		NeedJobkey: needjobkey,
-		Jobkey: jobkey,
-		JobAuto: auto,
+	m := &jobs.ManulConf{
+		Name:        cmd,
+		Args:        args,
+		User:        ruser,
+		Stdlog:      stdlog,
+		NeedJobkey:  needjobkey,
+		Jobkey:      jobkey,
+		JobAuto:     auto,
 		BackOffCeil: time.Second * time.Duration(backoffceil),
 	}
-
 
 	return m, nil
 }
@@ -252,7 +238,7 @@ func loadjob(tconf *sconf.TierConf, job string) (*jobs.ManulConf, error) {
 func reloadConf(conf string) error {
 	fun := "engine.reloadConf"
 	tconf := sconf.NewTierConf()
-	err := tconf.LoadFromFile(conf) 
+	err := tconf.LoadFromFile(conf)
 	if err != nil {
 		return err
 	}
@@ -283,7 +269,6 @@ func reloadConf(conf string) error {
 		return err
 	}
 	nodeRestPortFile = nport
-
 
 	jobconfs := make(map[string]*jobs.ManulConf)
 	for _, j := range job_list {
@@ -329,7 +314,7 @@ var nodeRestPortFile string
 func writePortfile() {
 	fun := "engine.writePortfile"
 	slog.Infof("%s write:%s port:%s", fun, nodeRestPortFile, nodeRestPort)
-	err := sutil.WriteFile(nodeRestPortFile, []byte(fmt.Sprintf("%s\n",nodeRestPort)), 0600)
+	err := sutil.WriteFile(nodeRestPortFile, []byte(fmt.Sprintf("%s\n", nodeRestPort)), 0600)
 	if err != nil {
 		slog.Errorf("%s write:%s port:%s err:%s", fun, nodeRestPortFile, nodeRestPort, err)
 	}
@@ -354,8 +339,6 @@ func reload(w http.ResponseWriter, r *http.Request) {
 
 }
 
-
-
 func Power(conf string) {
 	fun := "engine.Power"
 	conffile = conf
@@ -363,7 +346,6 @@ func Power(conf string) {
 	if err != nil {
 		slog.Panicf("load conf:%s err:%s", conf, err)
 	}
-
 
 	tcpAddr, err := net.ResolveTCPAddr("tcp", ":")
 	netListen, err := net.Listen(tcpAddr.Network(), tcpAddr.String())
@@ -375,7 +357,6 @@ func Power(conf string) {
 
 	writePortfile()
 
-
 	http.HandleFunc("/conf/reload", reload)
 	err = http.Serve(netListen, nil)
 	if err != nil {
@@ -384,22 +365,21 @@ func Power(conf string) {
 
 	//slog.Infoln("start http serv", restAddr)
 
-
 	//pause := make(chan bool)
 	// pause here
 	//<- pause
-/*
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, os.Kill)
+	/*
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt, os.Kill)
 
-	// Block until a signal is received.
-	for {
-		s := <-c
-		slog.Infoln("engine.Power Got signal:", s)
-		err = reloadConf(conf)
-		if err != nil {
-			slog.Fatalf("reload conf:%s err:%s", conf, err)
+		// Block until a signal is received.
+		for {
+			s := <-c
+			slog.Infoln("engine.Power Got signal:", s)
+			err = reloadConf(conf)
+			if err != nil {
+				slog.Fatalf("reload conf:%s err:%s", conf, err)
+			}
 		}
-	}
-*/
+	*/
 }

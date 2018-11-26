@@ -2,27 +2,27 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-
 package jobs
 
 import (
-	"syscall"
-	"os"
-	"io"
-	"os/user"
+	"bufio"
 	"fmt"
-	"time"
-	"strings"
+	"io"
+	"os"
 	"os/exec"
+	"os/user"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
-	"bufio"
-	"strconv"
+	"syscall"
+	"time"
 
 	"github.com/shawnfeng/sutil"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/stime"
 )
+
 // TODO
 // backoff第一次是立即过来的，这个地方stopbackoff的行为有点不符合啊！！改
 
@@ -60,14 +60,12 @@ func (m *Job) killProc() (erro error) {
 
 }
 
-
 func (m *Job) doUserCtrl(c jobRunCtrl) error {
 	fun := "Job.doUserCtrl"
 	slog.Infof("%s doctrl job:%s ctrl:%s", fun, m, c)
 
 	m.runCtrlMu.Lock()
 	defer m.runCtrlMu.Unlock()
-
 
 	if m.runCtrl == RUNCTRL_REMOVE {
 		ers := fmt.Sprintf("been removed job:%s", m)
@@ -86,7 +84,7 @@ func (m *Job) doUserCtrl(c jobRunCtrl) error {
 	} else if c == RUNCTRL_STOP {
 		m.runCtrl = RUNCTRL_STOP
 		m.killProc()
-	
+
 	} else if c == RUNCTRL_REMOVE {
 		m.runCtrl = RUNCTRL_REMOVE
 		m.killProc()
@@ -97,7 +95,6 @@ func (m *Job) doUserCtrl(c jobRunCtrl) error {
 	}
 
 	return nil
-
 
 }
 
@@ -113,17 +110,13 @@ func (m *Job) updateConf(conf *ManulConf) error {
 	return nil
 }
 
-
-
 func (m *Job) Start() error {
 	return m.doUserCtrl(RUNCTRL_START)
 }
 
-
 func (m *Job) Stop() error {
 	return m.doUserCtrl(RUNCTRL_STOP)
 }
-
 
 func (m *Job) Kill() error {
 	return m.doUserCtrl(RUNCTRL_KILL)
@@ -133,8 +126,6 @@ func (m *Job) Kill() error {
 func (m *Job) Remove() error {
 	return m.doUserCtrl(RUNCTRL_REMOVE)
 }
-
-
 
 func (m *Job) live() {
 	fun := "Job.live"
@@ -173,7 +164,6 @@ func (m *Job) live() {
 
 			err := m.run(&m.runCtrlMu, m.mconf.User, m.mconf.Stdlog, m.mconf.Name, append(m.mconf.Args, jobkeyargs...)...)
 
-
 			if m.cbProcessStop != nil {
 				go m.cbProcessStop(atomic.LoadInt32(&m.pid), m)
 			}
@@ -189,19 +179,19 @@ func (m *Job) live() {
 			}
 			m.runCtrlMu.Unlock()
 			/*
-			if err == nil {
-				slog.Infof("%s exitok call backoffRun job:%s", fun, m)
-				m.runBackOff.Reset()
-			} else {
-				if runDuration < 60*time.Second {
-					slog.Infof("%s exit short call backoffRun job:%s err:%s", fun, m, err)
-					m.runBackOff.BackOff()
-				} else {
-					slog.Infof("%s exit long call backoffRun job:%s err:%s", fun, m, err)
+				if err == nil {
+					slog.Infof("%s exitok call backoffRun job:%s", fun, m)
 					m.runBackOff.Reset()
+				} else {
+					if runDuration < 60*time.Second {
+						slog.Infof("%s exit short call backoffRun job:%s err:%s", fun, m, err)
+						m.runBackOff.BackOff()
+					} else {
+						slog.Infof("%s exit long call backoffRun job:%s err:%s", fun, m, err)
+						m.runBackOff.Reset()
+					}
 				}
-			}
-            */
+			*/
 			// 修改为对成功和失败的都执行退避
 			if runDuration < 60*time.Second {
 				slog.Infof("%s exit short call backoffRun job:%s err:%v", fun, m, err)
@@ -210,8 +200,6 @@ func (m *Job) live() {
 				slog.Infof("%s exit long call backoffRun job:%s err:%v", fun, m, err)
 				m.runBackOff.Reset()
 			}
-
-
 
 		} else {
 			slog.Fatalf("%s unknown ctrl job:%s do:%s", fun, m, m.runCtrl)
@@ -261,12 +249,11 @@ func (m *Job) setRunuser(cmd *exec.Cmd, ruser string) {
 	slog.Infof("%s user:%s info:%s", fun, ruser, u)
 	cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)}
 
-
 }
 
-func (m *Job) makeStdReadChan(r io.Reader) (chan string) {
+func (m *Job) makeStdReadChan(r io.Reader) chan string {
 	fun := "Job.makeStdReadChan"
-    read := make(chan string)
+	read := make(chan string)
 	go func() {
 		stdbuff := bufio.NewReader(r)
 		for {
@@ -288,7 +275,6 @@ func (m *Job) makeStdReadChan(r io.Reader) (chan string) {
 func (m *Job) run(mu *sync.Mutex, ruser, stdlog string, cmdname string, cmdargs ...string) error {
 	fun := "Job.run"
 
-
 	var stdlogw *bufio.Writer
 	if len(stdlog) > 0 {
 		var stdlogf *os.File
@@ -302,7 +288,7 @@ func (m *Job) run(mu *sync.Mutex, ruser, stdlog string, cmdname string, cmdargs 
 			slog.Errorf("%s mkdir:%s err:%s", fun, stdlog, err)
 
 		} else {
-			stdlogf, err = os.OpenFile(stdlog, os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
+			stdlogf, err = os.OpenFile(stdlog, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 			if err != nil {
 				slog.Errorf("%s open file:%s err:%s", fun, stdlog, err)
 			} else {
@@ -313,13 +299,11 @@ func (m *Job) run(mu *sync.Mutex, ruser, stdlog string, cmdname string, cmdargs 
 
 	}
 
-
 	// =================================
 	slog.Infof("%s exec cmd job:%s name:%s args:%s", fun, m, cmdname, cmdargs)
 	cmd := exec.Command(cmdname, cmdargs...)
 
 	m.setRunuser(cmd, ruser)
-
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -335,7 +319,6 @@ func (m *Job) run(mu *sync.Mutex, ruser, stdlog string, cmdname string, cmdargs 
 		return err
 	}
 
-
 	slog.Infof("%s start cmd job:%s name:%s args:%s", fun, m, cmdname, cmdargs)
 	if err := cmd.Start(); err != nil {
 		slog.Errorf("%s over done cmdstart job:%s err:%s", fun, m, err)
@@ -346,7 +329,6 @@ func (m *Job) run(mu *sync.Mutex, ruser, stdlog string, cmdname string, cmdargs 
 	slog.Infof("%s jos start %s", fun, m)
 
 	mu.Unlock()
-
 
 	if m.cbProcessRun != nil {
 		go m.cbProcessRun(atomic.LoadInt32(&m.pid), m)
@@ -394,49 +376,49 @@ func (m *Job) run(mu *sync.Mutex, ruser, stdlog string, cmdname string, cmdargs 
 
 	/*
 
-	stdbuff := bufio.NewReader(stdout)
-	for {
-		// log 按行输出，读取不到换行符号时候，会阻塞在这里哦
-		logline, err := stdbuff.ReadString('\n')
-		if err != nil {
-			if err.Error() != "EOF" {
-				slog.Warnf("%s %s stdout read err:%s", fun, m, err)
-			} else {
-				slog.Infof("%s %s >:EOF", fun, m)
+		stdbuff := bufio.NewReader(stdout)
+		for {
+			// log 按行输出，读取不到换行符号时候，会阻塞在这里哦
+			logline, err := stdbuff.ReadString('\n')
+			if err != nil {
+				if err.Error() != "EOF" {
+					slog.Warnf("%s %s stdout read err:%s", fun, m, err)
+				} else {
+					slog.Infof("%s %s >:EOF", fun, m)
+				}
+				break
 			}
-			break
-		}
-		if stdlogw != nil {
-			stdlogw.WriteString(logline)
-			stdlogw.Flush()
+			if stdlogw != nil {
+				stdlogw.WriteString(logline)
+				stdlogw.Flush()
 
-		} else {
-			slog.Infof("%s STDO %s >:%s", fun, m, logline)
-		}
-	}
-
-	stder := bufio.NewReader(stderr)
-	for {
-		// log 按行输出，读取不到换行符号时候，会阻塞在这里哦
-		logline, err := stder.ReadString('\n')
-		if err != nil {
-			if err.Error() != "EOF" {
-				slog.Warnf("%s %s stderr read err:%s", fun, m, err)
 			} else {
-				slog.Infof("%s %s >:EOF", fun, m)
+				slog.Infof("%s STDO %s >:%s", fun, m, logline)
 			}
-			break
 		}
-		if stdlogw != nil {
-			stdlogw.WriteString(logline)
-			stdlogw.Flush()
 
-		} else {
-			slog.Infof("%s STDE %s >:%s", fun, m, logline)
+		stder := bufio.NewReader(stderr)
+		for {
+			// log 按行输出，读取不到换行符号时候，会阻塞在这里哦
+			logline, err := stder.ReadString('\n')
+			if err != nil {
+				if err.Error() != "EOF" {
+					slog.Warnf("%s %s stderr read err:%s", fun, m, err)
+				} else {
+					slog.Infof("%s %s >:EOF", fun, m)
+				}
+				break
+			}
+			if stdlogw != nil {
+				stdlogw.WriteString(logline)
+				stdlogw.Flush()
+
+			} else {
+				slog.Infof("%s STDE %s >:%s", fun, m, logline)
+			}
 		}
-	}
 
-    */
+	*/
 	slog.Infof("%s wait job:%s name:%s args:%s", fun, m, cmdname, cmdargs)
 	// 只要返回status不是0就会有err
 	if err := cmd.Wait(); err != nil {
@@ -447,4 +429,3 @@ func (m *Job) run(mu *sync.Mutex, ruser, stdlog string, cmdname string, cmdargs 
 	slog.Infof("%s exit ok job:%s", fun, m)
 	return nil
 }
-

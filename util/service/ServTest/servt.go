@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-
 package main
 
 import (
@@ -26,11 +25,10 @@ func (this *RpcServiceImpl) FunCall(callTime int64, funCode string, paramMap map
 	}
 	return
 }
+
 // ========================================
 
 type ProcHttp struct {
-
-
 }
 
 func (m *ProcHttp) Init(sb ServBase) error {
@@ -42,17 +40,13 @@ func (m *ProcHttp) Init(sb ServBase) error {
 
 func (m *ProcHttp) Driver() (string, interface{}) {
 
-
 	slog.Infoln("Driver Location http")
 
 	return "192.168.1.198:", nil
 
 }
 
-
 type ProcThrift struct {
-
-
 }
 
 func (m *ProcThrift) Init(sb ServBase) error {
@@ -64,25 +58,20 @@ func (m *ProcThrift) Init(sb ServBase) error {
 
 func (m *ProcThrift) Driver() (string, interface{}) {
 
-
 	slog.Infoln("Driver Location sb")
 
 	handler := &RpcServiceImpl{}
 	processor := rpc.NewRpcServiceProcessor(handler)
 
-
 	return ":", processor
 
 }
 
-
-
-
 // ./ServTest  -etcd http://127.0.0.1:20002,http://127.0.0.1:20003 -serv fuck -buss niubi -log ./log -skey aaasdfasdfa
 func main() {
 
-	ps := map[string]Processor {
-		"testHttp": &ProcHttp{},
+	ps := map[string]Processor{
+		"testHttp":   &ProcHttp{},
 		"testThrift": &ProcThrift{},
 	}
 
@@ -92,5 +81,3 @@ func main() {
 	}
 
 }
-
-

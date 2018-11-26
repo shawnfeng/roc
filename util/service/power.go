@@ -2,22 +2,19 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-
 package rocserv
 
 import (
-    "net"
-    "net/http"
+	"net"
+	"net/http"
 
-
-    "github.com/julienschmidt/httprouter"
+	"github.com/julienschmidt/httprouter"
 
 	"git.apache.org/thrift.git/lib/go/thrift"
 
-	"github.com/shawnfeng/sutil/snetutil"
 	"github.com/shawnfeng/sutil/slog"
+	"github.com/shawnfeng/sutil/snetutil"
 )
-
 
 func powerHttp(addr string, router *httprouter.Router) (string, error) {
 	fun := "powerHttp -->"
@@ -29,12 +26,10 @@ func powerHttp(addr string, router *httprouter.Router) (string, error) {
 
 	slog.Infof("%s config addr[%s]", fun, paddr)
 
-
 	tcpAddr, err := net.ResolveTCPAddr("tcp", paddr)
 	if err != nil {
 		return "", err
 	}
-
 
 	netListen, err := net.Listen(tcpAddr.Network(), tcpAddr.String())
 	if err != nil {
@@ -59,8 +54,6 @@ func powerHttp(addr string, router *httprouter.Router) (string, error) {
 	return laddr, nil
 }
 
-
-
 func powerThrift(addr string, processor thrift.TProcessor) (string, error) {
 	fun := "powerThrift -->"
 
@@ -70,7 +63,6 @@ func powerThrift(addr string, processor thrift.TProcessor) (string, error) {
 	}
 
 	slog.Infof("%s config addr[%s]", fun, paddr)
-
 
 	transportFactory := thrift.NewTFramedTransportFactory(thrift.NewTTransportFactory())
 	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
@@ -90,7 +82,6 @@ func powerThrift(addr string, processor thrift.TProcessor) (string, error) {
 		return "", err
 	}
 
-
 	laddr, err := snetutil.GetServAddr(serverTransport.Addr())
 	if err != nil {
 		return "", err
@@ -98,14 +89,12 @@ func powerThrift(addr string, processor thrift.TProcessor) (string, error) {
 
 	slog.Infof("%s listen addr[%s]", fun, laddr)
 
-
 	go func() {
 		err := server.Serve()
 		if err != nil {
 			slog.Panicf("%s laddr[%s]", fun, laddr)
 		}
 	}()
-
 
 	return laddr, nil
 

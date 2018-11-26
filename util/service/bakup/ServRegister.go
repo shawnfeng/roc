@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-
 package rocserv
 
 import (
@@ -13,28 +12,27 @@ import (
 	"roc/util/headope"
 )
 
-type servReginfo string {
+type servReginfo struct {
 
 	// 执行中，发生变化时候，变更
-	Version uint64    `json:"version"`
+	Version uint64 `json:"version"`
 	// type -> addr
-	Service map[string]string  `json:"service"`
+	Service map[string]string `json:"service"`
 }
 
 type ServRegister struct {
 
 	// 启动前确认
-	headAddrs []string
+	headAddrs    []string
 	servLocation string
-	servSession string
+	servSession  string
 	//------
 	// 启动后确认
 	servId int64
 	// 以上数据一旦确认后，在整个程序运行周期内不在变更
 
-	muServinfo  sync.Mutex
-	servInfo servReginfo
-
+	muServinfo sync.Mutex
+	servInfo   servReginfo
 }
 
 func (m *ServRegister) headClose(a *paconn.Agent, data []byte, err error) error {
@@ -44,23 +42,21 @@ func (m *ServRegister) headClose(a *paconn.Agent, data []byte, err error) error 
 
 func (m *ServRegister) headNotify(a *paconn.Agent, res []byte) []byte {
 
-
 	return nil
 }
 
-
 func (m *ServRegister) liveHead() error {
 	fun := "ServRegister.liveHead"
-	master, err := headope.findMaster(m.headAddrs, time.Second * 10)
+	master, err := headope.findMaster(m.headAddrs, time.Second*10)
 	if err != nil {
 		return fmt.Errorf("%s get head master err:%s", fun, err)
 	}
 	slog.Infof("%s get head master:%s", fun, master)
 
 	headAgent, err := paconn.NewAgentFromAddr(
-		master
+		master,
 		time.Second*60*3,
-		time.Second*60,,
+		time.Second*60,
 		nil,
 		m.headNotify,
 		m.headClose,
@@ -69,7 +65,6 @@ func (m *ServRegister) liveHead() error {
 	if err != nil {
 		return fmt.Errorf("%s Dial err:%s", fun, err)
 	}
-
 
 	// 1. 查找master，任何一个head都可以获取到master
 	// 一个不行查另一个，直到查到为止，否则一直查，退避查
@@ -82,7 +77,6 @@ func (m *ServRegister) liveHead() error {
 	// config 暂时不做实时的？
 
 }
-
 
 func (m *ServRegister) UpdateService(svType, svAddr string) {
 
@@ -102,26 +96,20 @@ func (m *ServRegister) GetArbiConfig(conf string) {
 
 }
 
-
-func NewServRegisterWithId(headaddrs[]string, location string, session string, servid int64) *ServRegister {
+func NewServRegisterWithId(headaddrs []string, location string, session string, servid int64) *ServRegister {
 
 }
 
-func NewServRegister(headaddrs[]string, location string, session string) *ServRegister {
+func NewServRegister(headaddrs []string, location string, session string) *ServRegister {
 
-	reg := &ServRegister {
-		headAddrs: headaddrs,
+	reg := &ServRegister{
+		headAddrs:    headaddrs,
 		servLocation: location,
-		servSession: session,
+		servSession:  session,
 	}
-
 
 	return reg
 
 }
 
-
 // mutex
-
-
-

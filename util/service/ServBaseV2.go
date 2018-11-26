@@ -2,20 +2,19 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-
 package rocserv
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
-	"encoding/json"
 	// now use 73a8ef737e8ea002281a28b4cb92a1de121ad4c6
-    //"github.com/coreos/go-etcd/etcd"
-    etcd "github.com/coreos/etcd/client"
+	//"github.com/coreos/go-etcd/etcd"
+	etcd "github.com/coreos/etcd/client"
 
-	"github.com/shawnfeng/sutil/slowid"
 	"github.com/shawnfeng/sutil/sconf"
 	"github.com/shawnfeng/sutil/slog"
+	"github.com/shawnfeng/sutil/slowid"
 	"github.com/shawnfeng/sutil/ssync"
 
 	"github.com/shawnfeng/dbrouter"
@@ -27,17 +26,16 @@ const (
 	BASE_LOC_DIST = "dist"
 	// 调整了服务注册结构，为兼容老版本，BASE_LOC_DIST下也要完成之前方式的注册
 	// dist2 2为版本2
-	BASE_LOC_DIST_V2 = "dist2"
-	BASE_LOC_ETC = "etc"
+	BASE_LOC_DIST_V2    = "dist2"
+	BASE_LOC_ETC        = "etc"
 	BASE_LOC_ETC_GLOBAL = "etc/global"
-	BASE_LOC_SKEY = "skey"
-	BASE_LOC_OP = "op"
-	BASE_LOC_DB = "db/route"
+	BASE_LOC_SKEY       = "skey"
+	BASE_LOC_OP         = "op"
+	BASE_LOC_DB         = "db/route"
 	// 服务内分布式锁，只在单个服务副本之间使用
 	BASE_LOC_LOCAL_DIST_LOCK = "lock/local"
 	// 全局分布式锁，跨服务使用
 	BASE_LOC_GLOBAL_DIST_LOCK = "lock/global"
-
 
 	// 服务注册的位置
 	BASE_LOC_REG_SERV = "serve"
@@ -48,38 +46,36 @@ const (
 	BASE_LOC_REG_MANUAL = "manual"
 )
 
-
 type configEtcd struct {
-	etcdAddrs []string
+	etcdAddrs  []string
 	useBaseloc string
 }
-
 
 type ServBaseV2 struct {
 	IdGenerator
 
 	confEtcd configEtcd
 
-	dbLocation string
+	dbLocation   string
 	servLocation string
-	copyName string
-	sessKey string
+	copyName     string
+	sessKey      string
 
 	etcdClient etcd.KeysAPI
-	servId int
+	servId     int
 
 	dbRouter *dbrouter.Router
 
 	muLocks ssync.Mutex
-	locks map[string]*ssync.Mutex
+	locks   map[string]*ssync.Mutex
 
 	muHearts ssync.Mutex
-	hearts map[string]*distLockHeart
+	hearts   map[string]*distLockHeart
 }
 
 func (m *ServBaseV2) RegisterBackDoor(servs map[string]*ServInfo) error {
 	fun := "ServBaseV2.RegisterBackDoor -->"
-	rd := &RegData {
+	rd := &RegData{
 		Servs: servs,
 	}
 
@@ -99,19 +95,17 @@ func (m *ServBaseV2) RegisterBackDoor(servs map[string]*ServInfo) error {
 // {type:http/thrift, addr:10.3.3.3:23233, processor:fuck}
 func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) error {
 	fun := "ServBaseV2.RegisterService -->"
-	err :=  m.RegisterServiceV2(servs)
+	err := m.RegisterServiceV2(servs)
 	if err != nil {
 		slog.Errorf("%s reg v2 err:%s", fun, err)
 		return err
 	}
-
 
 	err = m.RegisterServiceV1(servs)
 	if err != nil {
 		slog.Errorf("%s reg v1 err:%s", fun, err)
 		return err
 	}
-
 
 	slog.Infof("%s regist ok", fun)
 
@@ -121,7 +115,7 @@ func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) error {
 func (m *ServBaseV2) RegisterServiceV2(servs map[string]*ServInfo) error {
 	fun := "ServBaseV2.RegisterServiceV2 -->"
 
-	rd := &RegData {
+	rd := &RegData{
 		Servs: servs,
 	}
 
@@ -137,12 +131,9 @@ func (m *ServBaseV2) RegisterServiceV2(servs map[string]*ServInfo) error {
 	return m.doRegister(path, string(js), true)
 }
 
-
-
 // 为兼容老的client发现服务，保留的
 func (m *ServBaseV2) RegisterServiceV1(servs map[string]*ServInfo) error {
 	fun := "ServBaseV2.RegisterServiceV1 -->"
-
 
 	js, err := json.Marshal(servs)
 	if err != nil {
@@ -168,22 +159,22 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 			var r *etcd.Response
 			if !iscreate {
 				slog.Warnf("%s create idx:%d servs:%s", fun, i, js)
-				r, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions {
-					TTL: time.Second*180,
+				r, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
+					TTL: time.Second * 180,
 				})
 			} else {
 				if refresh {
 					// 在刷新ttl时候，不允许变更value
 					// 节点超时时间为120秒
 					slog.Infof("%s refresh ttl idx:%d servs:%s", fun, i, js)
-					r, err = m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions {
+					r, err = m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions{
 						PrevExist: etcd.PrevExist,
-						TTL: time.Second*180,
-						Refresh: true,
+						TTL:       time.Second * 180,
+						Refresh:   true,
 					})
 				} else {
-					r, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions {
-						TTL: time.Second*180,
+					r, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
+						TTL: time.Second * 180,
 					})
 				}
 
@@ -208,12 +199,9 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 	return nil
 }
 
-
-
 func (m *ServBaseV2) Servid() int {
 	return m.servId
 }
-
 
 func (m *ServBaseV2) Copyname() string {
 	return fmt.Sprintf("%s%d", m.servLocation, m.servId)
@@ -223,7 +211,6 @@ func (m *ServBaseV2) Copyname() string {
 func (m *ServBaseV2) Servname() string {
 	return m.servLocation
 }
-
 
 func (m *ServBaseV2) Dbrouter() *dbrouter.Router {
 	return m.dbRouter
@@ -252,7 +239,6 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 		return err
 	}
 
-
 	err = tf.Load(scfg)
 	if err != nil {
 		return err
@@ -265,7 +251,6 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 
 	return nil
 }
-
 
 // etcd v2 接口
 func NewServBaseV2(confEtcd configEtcd, servLocation, skey string) (*ServBaseV2, error) {
@@ -281,7 +266,7 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey string) (*ServBaseV2,
 		return nil, fmt.Errorf("create etchd client cfg error")
 	}
 
-    client := etcd.NewKeysAPI(c)
+	client := etcd.NewKeysAPI(c)
 	if client == nil {
 		return nil, fmt.Errorf("create etchd api error")
 	}
@@ -294,7 +279,6 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey string) (*ServBaseV2,
 	}
 
 	slog.Infof("%s path:%s sid:%d skey:%s", fun, path, sid, skey)
-
 
 	dbloc := fmt.Sprintf("%s/%s", confEtcd.useBaseloc, BASE_LOC_DB)
 
@@ -309,22 +293,18 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey string) (*ServBaseV2,
 		}
 	}
 
-
-
-	reg := &ServBaseV2 {
-		confEtcd: confEtcd,
-		dbLocation: dbloc,
+	reg := &ServBaseV2{
+		confEtcd:     confEtcd,
+		dbLocation:   dbloc,
 		servLocation: servLocation,
-		sessKey: skey,
-		etcdClient: client,
-		servId: sid,
-		locks: make(map[string]*ssync.Mutex),
-		hearts: make(map[string]*distLockHeart),
+		sessKey:      skey,
+		etcdClient:   client,
+		servId:       sid,
+		locks:        make(map[string]*ssync.Mutex),
+		hearts:       make(map[string]*distLockHeart),
 
 		dbRouter: dr,
-
 	}
-
 
 	sf, err := initSnowflake(sid)
 	if err != nil {
@@ -339,8 +319,4 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey string) (*ServBaseV2,
 
 }
 
-
 // mutex
-
-
-

@@ -2,18 +2,16 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-
 package jobs
 
 import (
-	"testing"
-	"strings"
 	"fmt"
+	"strings"
+	"testing"
 	"time"
 
 	"github.com/shawnfeng/sutil/slog"
 )
-
 
 // test case
 // start stop kill
@@ -27,7 +25,7 @@ import (
 // 测试获取到pid时候，进程ps状态
 // start 后  15430  0.0  0.0   4444   652 pts/13   S+   12:43   0:00 sh c.sh
 
-// 
+//
 //   15430  0.0  0.0      0     0 pts/13   Z+   12:43   0:00 [sh] <defunct>
 
 // 没有start时候remove
@@ -39,12 +37,7 @@ import (
 // backoff时候kill
 // backoff时候stop
 
-
 // 更新配置测试
-
-
-
-
 
 func TestContrl(t *testing.T) {
 	//JobStart(t)
@@ -62,11 +55,11 @@ func TestContrl(t *testing.T) {
 func JobStart6(t *testing.T) {
 	fun := "JobStart6"
 
-	mc := &ManulConf {
+	mc := &ManulConf{
 		"sh",
 		[]string{"c_exit1.sh"},
 		true,
-		time.Second*60,
+		time.Second * 60,
 	}
 
 	cbstart := func(pid int32, j *Job) {
@@ -93,9 +86,9 @@ func JobStart6(t *testing.T) {
 		t.Errorf("%s", fun)
 	}
 
-	time.Sleep(time.Second*45)
+	time.Sleep(time.Second * 45)
 	j.Stop()
-	time.Sleep(time.Second*20)
+	time.Sleep(time.Second * 20)
 	slog.Infof("@@@@@@@ start now")
 	err = j.Start()
 	if err != nil {
@@ -103,24 +96,18 @@ func JobStart6(t *testing.T) {
 		t.Errorf("%s", fun)
 	}
 
-
-	time.Sleep(time.Second*300)
-
-
+	time.Sleep(time.Second * 300)
 
 }
-
-
-
 
 func JobStart5(t *testing.T) {
 	fun := "JobStart5"
 
-	mc := &ManulConf {
+	mc := &ManulConf{
 		"sh",
 		[]string{"c_exit1.sh"},
 		true,
-		time.Second*10,
+		time.Second * 10,
 	}
 
 	cbstart := func(pid int32, j *Job) {
@@ -150,29 +137,24 @@ func JobStart5(t *testing.T) {
 		}()
 	}
 
-
 	slog.Infoln(j)
 	if j.String() != "job0|0" {
 		slog.Errorln(fun)
 		t.Errorf("%s", fun)
 	}
 
-
-	time.Sleep(time.Second*120)
-
-
+	time.Sleep(time.Second * 120)
 
 }
-
 
 func JobStart4(t *testing.T) {
 	fun := "JobStart4"
 
-	mc := &ManulConf {
+	mc := &ManulConf{
 		"sh",
 		[]string{"c.sh"},
 		true,
-		time.Second*60,
+		time.Second * 60,
 	}
 
 	cbstart := func(pid int32, j *Job) {
@@ -240,19 +222,16 @@ func JobStart4(t *testing.T) {
 		slog.Infoln("ok not start", j.String())
 	}
 
-
-
 }
-
 
 func JobStart3(t *testing.T) {
 	fun := "JobStart3"
 
-	mc := &ManulConf {
+	mc := &ManulConf{
 		"sh",
 		[]string{"c.sh"},
 		true,
-		time.Second*60,
+		time.Second * 60,
 	}
 
 	cbstart := func(pid int32, j *Job) {
@@ -308,18 +287,16 @@ func JobStart3(t *testing.T) {
 		slog.Infoln("ok start", j.String())
 	}
 
-
-
 }
 
 func JobStart2(t *testing.T) {
 	fun := "JobStart2"
 
-	mc := &ManulConf {
+	mc := &ManulConf{
 		"sh",
 		[]string{"c.sh"},
 		true,
-		time.Second*60,
+		time.Second * 60,
 	}
 
 	cbstart := func(pid int32, j *Job) {
@@ -347,7 +324,6 @@ func JobStart2(t *testing.T) {
 		slog.Errorln(fun)
 		t.Errorf("%s", fun)
 	}
-
 
 	err = j.Kill()
 	// 此时应该job还没有来得及start
@@ -404,20 +380,17 @@ func JobStart2(t *testing.T) {
 
 }
 
-
 func JobStart(t *testing.T) {
 	fun := "JobStart"
 
-	mc := &ManulConf {
+	mc := &ManulConf{
 		"sh",
 		[]string{"c.sh"},
 		true,
-		time.Second*60,
+		time.Second * 60,
 	}
 
-
 	j := Newjob("job0", mc, nil, nil)
-
 
 	slog.Infoln(j)
 	if j.String() != "job0|0" {
@@ -483,15 +456,14 @@ func JobKill2(t *testing.T) {
 
 	j := Newjob(
 		"0",
-		&ManulConf {
+		&ManulConf{
 			"sh",
 			[]string{"c.sh"},
 			false,
-			time.Second*60,
+			time.Second * 60,
 		},
 		nil, nil,
 	)
-
 
 	time.Sleep(time.Second * 1)
 
@@ -506,42 +478,37 @@ func JobKill2(t *testing.T) {
 		slog.Infof("job kill2 error:%s", err)
 	}
 
-
 	time.Sleep(time.Second * 5)
 
 }
 
-
-
 func JobLoop0(t *testing.T) {
 
 	_ = Newjob(
-			"0",
-		&ManulConf {
+		"0",
+		&ManulConf{
 			"sh",
 			[]string{"c_notexist.sh"},
 			true,
-			time.Second*20,
+			time.Second * 20,
 		},
 		nil, nil,
 	)
-
 
 }
 
 func JobLoop1(t *testing.T) {
 
 	_ = Newjob(
-			"0",
-		&ManulConf {
+		"0",
+		&ManulConf{
 			"sh",
 			[]string{"c_loop.sh"},
 			true,
-			time.Second*20,
+			time.Second * 20,
 		},
 		nil, nil,
 	)
-
 
 	time.Sleep(time.Second * 2)
 }
@@ -550,29 +517,27 @@ func JobLoop1(t *testing.T) {
 func JobLoop2(t *testing.T) {
 
 	_ = Newjob(
-			"0",
-		&ManulConf {
+		"0",
+		&ManulConf{
 			"sh",
 			[]string{"c_exit1.sh"},
 			true,
-			time.Second*3,
+			time.Second * 3,
 		},
 		nil, nil,
 	)
 
-	
 }
-
 
 func JobStopKill(t *testing.T) {
 
 	j := Newjob(
-			"0",
-		&ManulConf {
+		"0",
+		&ManulConf{
 			"sh",
 			[]string{"c.sh"},
 			true,
-			time.Second*20,
+			time.Second * 20,
 		},
 		nil, nil,
 	)
@@ -597,4 +562,3 @@ func JobStopKill(t *testing.T) {
 	time.Sleep(time.Second)
 
 }
-
