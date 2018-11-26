@@ -169,6 +169,7 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey string, initfn func
 	err = sb.ServConfig(&logConfig)
 	if err != nil {
 		slog.Panicf("%s serv config err:%s", fun, err)
+		fmt.Sprintf("%s serv config err:%s", fun, err)
 		return err
 	}
 
@@ -177,9 +178,11 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey string, initfn func
 		logdir = fmt.Sprintf("%s/%s", logConfig.Log.Dir, sb.Copyname())
 	}
 
+	fmt.Sprintf("%s init log dir:%s name:%s level:%s", fun, logdir, servLoc, logConfig.Log.Level)
 	slog.Infof("%s init log dir:%s name:%s level:%s", fun, logdir, servLoc, logConfig.Log.Level)
 
-	slog.Init(logdir, "serv", logConfig.Log.Level)
+	slog.Init(logdir, "serv.log", logConfig.Log.Level)
+	defer slog.Sync() 
 
 
 	// init callback
