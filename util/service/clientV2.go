@@ -77,6 +77,13 @@ type ClientEtcdV2 struct {
 	//servList map[string][]*ServInfo
 	servCopy servCopyCollect
 	servHash *consistent.Consistent
+
+	breakerGlobalPath string
+	breakerServPath   string
+
+	breakerMutex      sync.RWMutex
+	breakerGlobalConf string
+	breakerServConf   string
 }
 
 func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string {
@@ -139,36 +146,44 @@ func NewClientEtcdV2(confEtcd configEtcd, servlocation string) (*ClientEtcdV2, e
 		servPath: fmt.Sprintf("%s/%s/%s", confEtcd.useBaseloc, distloc, servlocation),
 
 		etcdClient: client,
+
+		breakerServPath:   fmt.Sprintf("%s/%s/%s", confEtcd.useBaseloc, BASE_LOC_BREAKER, servlocation),
+		breakerGlobalPath: fmt.Sprintf("%s/%s", confEtcd.useBaseloc, BASE_LOC_BREAKER_GLOBAL),
 	}
 
-	cli.watch()
+	cli.watch(cli.servPath, cli.parseResponse)
+	cli.watch(cli.breakerServPath, cli.handleBreakerServResponse)
+	cli.watch(cli.breakerGlobalPath, cli.handleBreakerGlobalResponse)
 
 	return cli, nil
 
 }
 
-func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response) {
+func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
 	fun := "ClientEtcdV2.startWatch -->"
-
-	path := m.servPath
 
 	for i := 0; ; i++ {
 		r, err := m.etcdClient.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
 		if err != nil {
-			slog.Errorf("%s get path:%s err:%s", fun, path, err)
-			close(chg)
-			return
+			slog.Warnf("%s get path:%s err:%s", fun, path, err)
+			//close(chg)
+			//return
+
 		} else {
 			chg <- r
 		}
 
-		sresp, _ := json.Marshal(r)
-		slog.Infof("%s init get action:%s nodes:%d index:%d servPath:%s resp:%s", fun, r.Action, len(r.Node.Nodes), r.Index, path, sresp)
+		index := uint64(0)
+		if r != nil {
+			index = r.Index
+			sresp, _ := json.Marshal(r)
+			slog.Infof("%s init get action:%s nodes:%d index:%d servPath:%s resp:%s", fun, r.Action, len(r.Node.Nodes), r.Index, path, sresp)
+		}
 
 		// 每次循环都设置下，测试发现放外边不好使
 		wop := &etcd.WatcherOptions{
 			Recursive:  true,
-			AfterIndex: r.Index,
+			AfterIndex: index,
 		}
 		watcher := m.etcdClient.Watcher(path, wop)
 		if watcher == nil {
@@ -191,7 +206,7 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response) {
 
 }
 
-func (m *ClientEtcdV2) watch() {
+func (m *ClientEtcdV2) watch(path string, hander func(*etcd.Response)) {
 	fun := "ClientEtcdV2.watch -->"
 
 	backoff := stime.NewBackOffCtrl(time.Millisecond*10, time.Second*5)
@@ -199,23 +214,22 @@ func (m *ClientEtcdV2) watch() {
 	var chg chan *etcd.Response
 
 	go func() {
-		slog.Infof("%s start watch:%s", fun, m.servPath)
+		slog.Infof("%s start watch:%s", fun, path)
 		for {
-			//slog.Infof("%s loop watch", fun)
 			if chg == nil {
-				slog.Infof("%s loop watch new receiver:%s", fun, m.servPath)
+				slog.Infof("%s loop watch new receiver:%s", fun, path)
 				chg = make(chan *etcd.Response)
-				go m.startWatch(chg)
+				go m.startWatch(chg, path)
 			}
 
 			r, ok := <-chg
 			if !ok {
-				slog.Errorf("%s chg info nil:%s", fun, m.servPath)
+				slog.Errorf("%s chg info nil:%s", fun, path)
 				chg = nil
 				backoff.BackOff()
 			} else {
-				slog.Infof("%s update v:%s serv:%s", fun, r.Node.Key, m.servPath)
-				m.parseResponse(r)
+				slog.Infof("%s update v:%s serv:%s", fun, r.Node.Key, path)
+				hander(r)
 				backoff.Reset()
 			}
 
@@ -250,6 +264,46 @@ func (m *ClientEtcdV2) parseResponse(r *etcd.Response) {
 		slog.Errorf("%s not support:%s dir:%s", fun, m.distLoc, r.Node.Key)
 	}
 
+}
+
+func (m *ClientEtcdV2) handleBreakerGlobalResponse(r *etcd.Response) {
+	fun := "ClientEtcdV2.handleBreakerGlobalResponse -->"
+
+	if r.Node.Dir {
+		slog.Errorf("%s not file %s", fun, r.Node.Key)
+		return
+	}
+
+	m.breakerMutex.Lock()
+	defer m.breakerMutex.Unlock()
+	m.breakerGlobalConf = r.Node.Value
+}
+
+func (m *ClientEtcdV2) GetBreakerServConf() string {
+	m.breakerMutex.RLock()
+	defer m.breakerMutex.RUnlock()
+
+	return m.breakerServConf
+}
+
+func (m *ClientEtcdV2) GetBreakerGlobalConf() string {
+	m.breakerMutex.RLock()
+	defer m.breakerMutex.RUnlock()
+
+	return m.breakerGlobalConf
+}
+
+func (m *ClientEtcdV2) handleBreakerServResponse(r *etcd.Response) {
+	fun := "ClientEtcdV2.handleBreakerServResponse -->"
+
+	if r.Node.Dir {
+		slog.Errorf("%s not file %s", fun, r.Node.Key)
+		return
+	}
+
+	m.breakerMutex.Lock()
+	defer m.breakerMutex.Unlock()
+	m.breakerServConf = r.Node.Value
 }
 
 func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
@@ -467,7 +521,13 @@ func (m *ClientEtcdV2) GetServAddr(processor, key string) *ServInfo {
 		slog.Fatalf("%s servid path:%s processor:%s key:%s sid:%s id:%d err:%s", fun, m.servPath, processor, key, s, sid, err)
 		return nil
 	}
-	return m.getServAddrWithServid(sid, processor, key)
+
+	info := m.getServAddrWithServid(sid, processor, key)
+	if info != nil {
+		info.Servid = sid
+	}
+
+	return info
 }
 
 func (m *ClientEtcdV2) getServAddrWithServid(servid int, processor, key string) *ServInfo {

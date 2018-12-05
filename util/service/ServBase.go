@@ -32,8 +32,9 @@ import (
 )
 
 type ServInfo struct {
-	Type string `json:"type"`
-	Addr string `json:"addr"`
+	Type   string `json:"type"`
+	Addr   string `json:"addr"`
+	Servid int    `json:"-"`
 	//Processor string    `json:"processor"`
 }
 

@@ -26,12 +26,14 @@ const (
 	BASE_LOC_DIST = "dist"
 	// 调整了服务注册结构，为兼容老版本，BASE_LOC_DIST下也要完成之前方式的注册
 	// dist2 2为版本2
-	BASE_LOC_DIST_V2    = "dist2"
-	BASE_LOC_ETC        = "etc"
-	BASE_LOC_ETC_GLOBAL = "etc/global"
-	BASE_LOC_SKEY       = "skey"
-	BASE_LOC_OP         = "op"
-	BASE_LOC_DB         = "db/route"
+	BASE_LOC_DIST_V2        = "dist2"
+	BASE_LOC_BREAKER        = "breaker"
+	BASE_LOC_BREAKER_GLOBAL = "breaker/global"
+	BASE_LOC_ETC            = "etc"
+	BASE_LOC_ETC_GLOBAL     = "etc/global"
+	BASE_LOC_SKEY           = "skey"
+	BASE_LOC_OP             = "op"
+	BASE_LOC_DB             = "db/route"
 	// 服务内分布式锁，只在单个服务副本之间使用
 	BASE_LOC_LOCAL_DIST_LOCK = "lock/local"
 	// 全局分布式锁，跨服务使用

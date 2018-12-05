@@ -6,12 +6,12 @@ package rocserv
 
 import (
 	"fmt"
+	"git.apache.org/thrift.git/lib/go/thrift"
+	"github.com/shawnfeng/sutil/slog"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
-
-	"git.apache.org/thrift.git/lib/go/thrift"
-
-	"github.com/shawnfeng/sutil/slog"
 )
 
 type ClientLookup interface {
@@ -20,6 +20,8 @@ type ClientLookup interface {
 	//GetAllServAddr() map[string][]*ServInfo
 	ServKey() string
 	ServPath() string
+	GetBreakerServConf() string
+	GetBreakerGlobalConf() string
 }
 
 func NewClientLookup(etcdaddrs []string, baseLoc string, servlocation string) (*ClientEtcdV2, error) {
@@ -32,10 +34,11 @@ type ClientThrift struct {
 	fnFactory    func(thrift.TTransport, thrift.TProtocolFactory) interface{}
 
 	poolLen int
-
-	trace bool
+	trace   bool
 
 	poolClient sync.Map
+
+	breaker *Breaker
 }
 
 type rpcClient interface {
@@ -78,6 +81,7 @@ func NewClientThriftTraceFlag(cb ClientLookup, processor string, fn func(thrift.
 		fnFactory:    fn,
 		poolLen:      poollen,
 		trace:        trace,
+		breaker:      NewBreaker(cb),
 	}
 
 	return ct
@@ -173,6 +177,50 @@ func (m *ClientThrift) Rpc(haskkey string, timeout time.Duration, fnrpc func(int
 	if rc == nil {
 		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
 	}
+	rc.SetTimeout(timeout)
+	c := rc.GetServiceClient()
+
+	err := fnrpc(c)
+	if err == nil {
+		m.Payback(si, rc)
+	} else {
+		slog.Warnf("%s close rpcclient s:%s", fun, si)
+		rc.Close()
+	}
+	return err
+}
+
+func (m *ClientThrift) RpcWithBreaker(haskkey string, timeout time.Duration, fnrpc func(interface{}) error) error {
+	//fun := "ClientThrift.RpcWithBreaker -->"
+
+	si, rc := m.hash(haskkey)
+	if rc == nil {
+		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
+	}
+
+	call := func(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(interface{}) error) func() error {
+		return func() error {
+			return m.rpc(si, rc, timeout, fnrpc)
+		}
+	}(si, rc, timeout, fnrpc)
+
+	funcName := ""
+	pc, _, _, ok := runtime.Caller(2)
+	if ok {
+		funcName = runtime.FuncForPC(pc).Name()
+		if index := strings.LastIndex(funcName, "."); index != -1 {
+			if len(funcName) > index+1 {
+				funcName = funcName[index+1:]
+			}
+		}
+	}
+
+	return m.breaker.Do(0, si.Servid, funcName, call, nil)
+}
+
+func (m *ClientThrift) rpc(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(interface{}) error) error {
+	fun := "ClientThrift.rpc -->"
+
 	rc.SetTimeout(timeout)
 	c := rc.GetServiceClient()
 
