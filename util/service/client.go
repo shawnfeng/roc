@@ -28,6 +28,47 @@ func NewClientLookup(etcdaddrs []string, baseLoc string, servlocation string) (*
 	return NewClientEtcdV2(configEtcd{etcdaddrs, baseLoc}, servlocation)
 }
 
+type ClientWrapper struct {
+	clientLookup ClientLookup
+	processor    string
+	breaker      *Breaker
+}
+
+func NewClientWrapper(cb ClientLookup, processor string) *ClientWrapper {
+	return &ClientWrapper{
+		clientLookup: cb,
+		processor:    processor,
+		breaker:      NewBreaker(cb),
+	}
+}
+
+func (m *ClientWrapper) Do(haskkey string, timeout time.Duration, run func(addr string, timeout time.Duration) error) error {
+	fun := "ClientWrapper.Do -->"
+	si := m.clientLookup.GetServAddr(m.processor, haskkey)
+	if si == nil {
+		return fmt.Errorf("%s not find service:%s processor:%s", fun, m.clientLookup.ServPath(), m.processor)
+	}
+
+	call := func(addr string, timeout time.Duration) func() error {
+		return func() error {
+			return run(addr, timeout)
+		}
+	}(si.Addr, timeout)
+
+	funcName := ""
+	pc, _, _, ok := runtime.Caller(1)
+	if ok {
+		funcName = runtime.FuncForPC(pc).Name()
+		if index := strings.LastIndex(funcName, "."); index != -1 {
+			if len(funcName) > index+1 {
+				funcName = funcName[index+1:]
+			}
+		}
+	}
+
+	return m.breaker.Do(0, si.Servid, funcName, call, nil)
+}
+
 type ClientThrift struct {
 	clientLookup ClientLookup
 	processor    string
