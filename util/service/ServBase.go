@@ -97,9 +97,9 @@ type ServBase interface {
 	// 按给定的时间点构造一个起始snowflakeid，一般用于区域判断
 	GetSnowFlakeIdWithStamp(stamp int64) int64
 
-	GenUuid() string
-	GenUuidSha1() string
-	GenUuidMd5() string
+	GenUuid() (string, error)
+	GenUuidSha1() (string, error)
+	GenUuidMd5() (string, error)
 
 	// 默认的锁，局部分布式锁，各个服务之间独立不共享
 
@@ -175,18 +175,28 @@ func (m *IdGenerator) GetSnowFlakeIdWithStamp(stamp int64) int64 {
 	return (stamp - gosnow.Since) << 22
 }
 
-func (m *IdGenerator) GenUuid() string {
+func (m *IdGenerator) GenUuid() (string, error) {
 	return sutil.GetUUID()
 }
 
-func (m *IdGenerator) GenUuidSha1() string {
-	h := sha1.Sum([]byte(m.GenUuid()))
-	return fmt.Sprintf("%x", h)
+func (m *IdGenerator) GenUuidSha1() (string, error) {
+	uuid, err := m.GenUuid()
+	if err != nil {
+		return "", err
+	}
+
+	h := sha1.Sum([]byte(uuid))
+	return fmt.Sprintf("%x", h), nil
 }
 
-func (m *IdGenerator) GenUuidMd5() string {
-	h := md5.Sum([]byte(m.GenUuid()))
-	return fmt.Sprintf("%x", h)
+func (m *IdGenerator) GenUuidMd5() (string, error) {
+	uuid, err := m.GenUuid()
+	if err != nil {
+		return "", err
+	}
+
+	h := md5.Sum([]byte(uuid))
+	return fmt.Sprintf("%x", h), nil
 }
 
 //====================================

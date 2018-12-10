@@ -1,10 +1,5 @@
 module github.com/shawnfeng/roc
 
-replace (
-	code.google.com/p/go-uuid => github.com/shawnfeng/googleuuid v1.0.0
-	code.google.com/p/goprotobuf => github.com/shawnfeng/googlpb v1.0.0
-)
-
 require (
 	git.apache.org/thrift.git v0.0.0-20150427210205-dc799ca07862
 	github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5
@@ -15,9 +10,9 @@ require (
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
 	github.com/julienschmidt/httprouter v1.0.1-0.20150106073633-b55664b9e920
 	github.com/sdming/gosnow v0.0.0-20130403030620-3a05c415e886
-	github.com/shawnfeng/consistent v1.0.0
-	github.com/shawnfeng/dbrouter v1.0.0
-	github.com/shawnfeng/sutil v1.0.0
+	github.com/shawnfeng/consistent v1.0.2
+	github.com/shawnfeng/dbrouter v1.0.1
+	github.com/shawnfeng/sutil v1.0.2
 	// nn
 	github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d // indirect
 	// nn
