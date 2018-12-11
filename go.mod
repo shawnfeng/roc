@@ -10,8 +10,8 @@ require (
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
 	github.com/julienschmidt/httprouter v1.0.1-0.20150106073633-b55664b9e920
 	github.com/sdming/gosnow v0.0.0-20130403030620-3a05c415e886
-	github.com/shawnfeng/consistent v1.0.2
-	github.com/shawnfeng/dbrouter v1.0.1
+	github.com/shawnfeng/consistent v1.0.3
+	github.com/shawnfeng/dbrouter v1.0.2
 	github.com/shawnfeng/hystrix-go v0.0.0-20181211040019-46e497d9012d
 	github.com/shawnfeng/sutil v1.0.3
 	// nn
