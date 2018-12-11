@@ -7,7 +7,7 @@ package rocserv
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/afex/hystrix-go/hystrix"
+	"github.com/shawnfeng/hystrix-go/hystrix"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/stime"
 	"sync"

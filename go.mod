@@ -2,7 +2,7 @@ module github.com/shawnfeng/roc
 
 require (
 	git.apache.org/thrift.git v0.0.0-20150427210205-dc799ca07862
-	github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5
+	github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5 // indirect
 	github.com/coreos/etcd v3.0.0-beta.0.0.20160712024141-cc26f2c8892e+incompatible
 	// nn
 	github.com/gopherjs/gopherjs v0.0.0-20181103185306-d547d1d9531e // indirect
@@ -12,7 +12,8 @@ require (
 	github.com/sdming/gosnow v0.0.0-20130403030620-3a05c415e886
 	github.com/shawnfeng/consistent v1.0.2
 	github.com/shawnfeng/dbrouter v1.0.1
-	github.com/shawnfeng/sutil v1.0.2
+	github.com/shawnfeng/hystrix-go v0.0.0-20181211040019-46e497d9012d
+	github.com/shawnfeng/sutil v1.0.3
 	// nn
 	github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d // indirect
 	// nn
