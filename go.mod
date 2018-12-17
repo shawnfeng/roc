@@ -13,7 +13,7 @@ require (
 	github.com/shawnfeng/consistent v1.0.3
 	github.com/shawnfeng/dbrouter v1.0.2
 	github.com/shawnfeng/hystrix-go v0.0.0-20181211040019-46e497d9012d
-	github.com/shawnfeng/sutil v1.0.3
+	github.com/shawnfeng/sutil v1.0.5
 	// nn
 	github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d // indirect
 	// nn

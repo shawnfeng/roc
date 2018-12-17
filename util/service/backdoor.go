@@ -23,10 +23,10 @@ func (m *backDoorHttp) Driver() (string, interface{}) {
 
 	router := httprouter.New()
 	// 重启
-	router.POST("/restart", snetutil.HttpRequestWrapper(FactoryRestart))
+	//router.POST("/restart", snetutil.HttpRequestWrapper(FactoryRestart))
+	router.GET("/backdoor/health/check", snetutil.HttpRequestWrapper(FactoryHealthCheck))
 
-	return "", router
-
+	return "0.0.0.0:60000", router
 }
 
 // ==============================
@@ -42,5 +42,20 @@ func (m *Restart) Handle(r *snetutil.HttpRequest) snetutil.HttpResponse {
 	slog.Infof("RECEIVE RESTART COMMAND")
 	os.Exit(0)
 	// 这里的代码执行不到了，因为之前已经退出了
+	return snetutil.NewHttpRespString(200, "{}")
+}
+
+// ==============================
+type HealthCheck struct {
+}
+
+func FactoryHealthCheck() snetutil.HandleRequest {
+	return new(HealthCheck)
+}
+
+func (m *HealthCheck) Handle(r *snetutil.HttpRequest) snetutil.HttpResponse {
+	fun := "HealthCheck -->"
+	slog.Infof("%s in", fun)
+
 	return snetutil.NewHttpRespString(200, "{}")
 }

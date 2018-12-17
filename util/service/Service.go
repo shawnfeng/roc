@@ -30,14 +30,14 @@ var service Service
 
 type cmdArgs struct {
 	servLoc string
-	//logDir   string
+	logDir  string
 	sessKey string
 }
 
 func (m *Service) parseFlag() (*cmdArgs, error) {
-	var serv, skey string
+	var serv, logDir, skey string
 	flag.StringVar(&serv, "serv", "", "servic name")
-	//flag.StringVar(&logdir, "log", "", "serice log dir")
+	flag.StringVar(&logDir, "logdir", "", "serice log dir")
 	flag.StringVar(&skey, "skey", "", "service session key")
 
 	flag.Parse()
@@ -46,19 +46,13 @@ func (m *Service) parseFlag() (*cmdArgs, error) {
 		return nil, fmt.Errorf("serv args need!")
 	}
 
-	/*
-		if len(logdir) == 0 {
-			return nil, fmt.Errorf("log args need!")
-		}
-	*/
-
 	if len(skey) == 0 {
 		return nil, fmt.Errorf("skey args need!")
 	}
 
 	return &cmdArgs{
 		servLoc: serv,
-		//logDir: logdir,
+		logDir:  logDir,
 		sessKey: skey,
 	}, nil
 
@@ -124,10 +118,10 @@ func (m *Service) Serve(confEtcd configEtcd, initfn func(ServBase) error, procs 
 		return err
 	}
 
-	return m.Init(confEtcd, args.servLoc, args.sessKey, initfn, procs)
+	return m.Init(confEtcd, args.servLoc, args.sessKey, args.logDir, initfn, procs)
 }
 
-func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey string, initfn func(ServBase) error, procs map[string]Processor) error {
+func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir string, initfn func(ServBase) error, procs map[string]Processor) error {
 	fun := "Service.Init -->"
 	// Init ServBase
 
@@ -157,6 +151,14 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey string, initfn func
 	var logdir string
 	if len(logConfig.Log.Dir) > 0 {
 		logdir = fmt.Sprintf("%s/%s", logConfig.Log.Dir, sb.Copyname())
+	}
+
+	if len(logDir) > 0 {
+		logdir = fmt.Sprintf("%s/%s", logDir, sb.Copyname())
+	}
+
+	if logDir == "console" {
+		logdir = ""
 	}
 
 	fmt.Sprintf("%s init log dir:%s name:%s level:%s", fun, logdir, servLoc, logConfig.Log.Level)
@@ -217,16 +219,14 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey string, initfn func
 	}
 
 	binfos, err := m.loadDriver(sb, map[string]Processor{"_PROC_BACKDOOR": backdoor})
-	if err != nil {
-		slog.Panicf("%s load backdoor driver err:%s", fun, err)
-		return err
-	}
+	if err == nil {
+		err = sb.RegisterBackDoor(binfos)
+		if err != nil {
+			slog.Errorf("%s regist backdoor err:%s", fun, err)
+		}
 
-	err = sb.RegisterBackDoor(binfos)
-
-	if err != nil {
-		slog.Panicf("%s regist backdoor err:%s", fun, err)
-		return err
+	} else {
+		slog.Warnf("%s load backdoor driver err:%s", fun, err)
 	}
 	//==============================
 
@@ -243,5 +243,5 @@ func Serve(etcds []string, baseLoc string, initfn func(ServBase) error, procs ma
 }
 
 func Init(etcds []string, baseLoc string, servLoc, servKey string, initfn func(ServBase) error, procs map[string]Processor) error {
-	return service.Init(configEtcd{etcds, baseLoc}, servLoc, servKey, initfn, procs)
+	return service.Init(configEtcd{etcds, baseLoc}, servLoc, servKey, "", initfn, procs)
 }

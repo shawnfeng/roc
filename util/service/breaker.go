@@ -249,12 +249,14 @@ func (m *Breaker) checkOrUpdateConf(source int32, servid int, funcName string) (
 func (m *Breaker) Do(source int32, servid int, funcName string, run func() error, fallback func(error) error) error {
 	fun := "Breaker.Do -->"
 
-	st := stime.NewTimeStat()
+	//st := stime.NewTimeStat()
 	key := ""
+	/*
 	defer func() {
 		dur := st.Duration()
 		slog.Infof("%s servid:%d funcName:%s key:%s dur:%d", fun, servid, funcName, key, dur)
 	}()
+	*/
 
 	if m.checkOrUpdateConf(source, servid, funcName) == false {
 		return run()
@@ -264,7 +266,7 @@ func (m *Breaker) Do(source int32, servid int, funcName string, run func() error
 
 	err := hystrix.Do(key, run, fallback)
 	if err != nil {
-		slog.Errorf("%s key:%s servid:%d funcName:%s err:%s", fun, key, servid, funcName, err.Error())
+		slog.Errorf("%s key:%s err:%s", fun, key, err.Error())
 	}
 
 	return err
