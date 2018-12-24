@@ -212,8 +212,8 @@ func (m *ClientThrift) Payback(si *ServInfo, client rpcClient) {
 	//m.printPool()
 }
 
-func (m *ClientThrift) Rpc(haskkey string, timeout time.Duration, fnrpc func(interface{}) error) error {
-	fun := "ClientThrift.Rpc -->"
+func (m *ClientThrift) RpcWithoutBreaker(haskkey string, timeout time.Duration, fnrpc func(interface{}) error) error {
+	fun := "ClientThrift.RpcWithoutBreaker -->"
 	si, rc := m.hash(haskkey)
 	if rc == nil {
 		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
@@ -229,6 +229,34 @@ func (m *ClientThrift) Rpc(haskkey string, timeout time.Duration, fnrpc func(int
 		rc.Close()
 	}
 	return err
+}
+
+func (m *ClientThrift) Rpc(haskkey string, timeout time.Duration, fnrpc func(interface{}) error) error {
+	//fun := "ClientThrift.Rpc-->"
+
+	si, rc := m.hash(haskkey)
+	if rc == nil {
+		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
+	}
+
+	call := func(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(interface{}) error) func() error {
+		return func() error {
+			return m.rpc(si, rc, timeout, fnrpc)
+		}
+	}(si, rc, timeout, fnrpc)
+
+	funcName := ""
+	pc, _, _, ok := runtime.Caller(2)
+	if ok {
+		funcName = runtime.FuncForPC(pc).Name()
+		if index := strings.LastIndex(funcName, "."); index != -1 {
+			if len(funcName) > index+1 {
+				funcName = funcName[index+1:]
+			}
+		}
+	}
+
+	return m.breaker.Do(0, si.Servid, funcName, call, nil)
 }
 
 func (m *ClientThrift) RpcWithBreaker(haskkey string, timeout time.Duration, fnrpc func(interface{}) error) error {
