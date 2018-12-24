@@ -252,10 +252,10 @@ func (m *Breaker) Do(source int32, servid int, funcName string, run func() error
 	//st := stime.NewTimeStat()
 	key := ""
 	/*
-	defer func() {
-		dur := st.Duration()
-		slog.Infof("%s servid:%d funcName:%s key:%s dur:%d", fun, servid, funcName, key, dur)
-	}()
+		defer func() {
+			dur := st.Duration()
+			slog.Infof("%s servid:%d funcName:%s key:%s dur:%d", fun, servid, funcName, key, dur)
+		}()
 	*/
 
 	if m.checkOrUpdateConf(source, servid, funcName) == false {
