@@ -218,12 +218,12 @@ func (m *Breaker) setUseFuncConf(key string, conf *ItemConf) {
 }
 
 func (m *Breaker) checkOrUpdateConf(source int32, servid int, funcName string) (needBreaker bool) {
-	fun := "Breaker.checkOrUpdateConf -->"
+	//fun := "Breaker.checkOrUpdateConf -->"
 
 	key := m.generateKey(source, servid, funcName)
 
 	newConf := m.conf.getFuncConf(source, funcName)
-	slog.Infof("%s servid:%d funcName:%s key:%s, newConf:%v", fun, servid, funcName, key, *newConf)
+	//slog.Infof("%s servid:%d funcName:%s key:%s, newConf:%v", fun, servid, funcName, key, *newConf)
 
 	if newConf.Enable == false {
 		return false
@@ -249,25 +249,20 @@ func (m *Breaker) checkOrUpdateConf(source int32, servid int, funcName string) (
 func (m *Breaker) Do(source int32, servid int, funcName string, run func() error, fallback func(error) error) error {
 	fun := "Breaker.Do -->"
 
-	//st := stime.NewTimeStat()
-	key := ""
-	/*
-		defer func() {
-			dur := st.Duration()
-			slog.Infof("%s servid:%d funcName:%s key:%s dur:%d", fun, servid, funcName, key, dur)
-		}()
-	*/
-
 	if m.checkOrUpdateConf(source, servid, funcName) == false {
 		return run()
 	}
 
-	key = m.generateKey(source, servid, funcName)
+	st := stime.NewTimeStat()
+	key := m.generateKey(source, servid, funcName)
 
 	err := hystrix.Do(key, run, fallback)
 	if err != nil {
 		slog.Errorf("%s key:%s err:%s", fun, key, err.Error())
 	}
+
+	dur := st.Duration()
+	slog.Infof("%s servid:%d funcName:%s key:%s dur:%d", fun, servid, funcName, key, dur)
 
 	return err
 }
