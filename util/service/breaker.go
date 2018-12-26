@@ -164,6 +164,12 @@ func (m *BreakerConf) setFuncConf(funcConf map[string]*ItemConf) {
 	m.funcConf = funcConf
 }
 
+type BreakerStat struct {
+	key   string
+	fail  int64
+	total int64
+}
+
 type Breaker struct {
 	conf     *BreakerConf
 	servName string
@@ -171,6 +177,9 @@ type Breaker struct {
 	clientLookup ClientLookup
 	useFuncConf  map[string]*ItemConf
 	rwMutex      sync.RWMutex
+
+	statCounter map[string]*BreakerStat
+	statChan    chan *BreakerStat
 }
 
 func NewBreaker(clientLookup ClientLookup) *Breaker {
@@ -180,9 +189,12 @@ func NewBreaker(clientLookup ClientLookup) *Breaker {
 		clientLookup: clientLookup,
 		servName:     clientLookup.ServKey(),
 		conf:         NewBreakerConf(),
+		statCounter:  make(map[string]*BreakerStat),
+		statChan:     make(chan *BreakerStat, 1024*10),
 	}
 
 	go m.run()
+	go m.monitor()
 
 	return m
 }
@@ -195,6 +207,56 @@ func (m *Breaker) run() {
 		m.conf.tryUpdate(m.servName, rawGlobalConf, rawServConf)
 
 		time.Sleep(time.Second * 30)
+	}
+}
+
+func (m *Breaker) monitor() {
+	fun := "Breaker.monitor -->"
+
+	ticker := time.NewTicker(60 * time.Second)
+	for {
+		select {
+		case <-ticker.C:
+			for _, stat := range m.statCounter {
+				if stat.fail > 5 && stat.total > 5 &&
+					(float64(stat.fail)/float64(stat.total)) > 0.02 {
+					slog.Errorf("%s breaker stat, key:%s, total:%d, fail:%d", fun, stat.key, stat.total, stat.fail)
+				} else {
+					slog.Infof("%s breaker stat, key:%s, total:%d, fail:%d", fun, stat.key, stat.total, stat.fail)
+				}
+			}
+
+			m.statCounter = make(map[string]*BreakerStat)
+
+		case stat := <-m.statChan:
+			tmp := &BreakerStat{
+				key: stat.key,
+			}
+			if item, ok := m.statCounter[stat.key]; ok {
+				tmp = item
+			}
+
+			tmp.fail += stat.fail
+			tmp.total += stat.total
+
+			m.statCounter[tmp.key] = tmp
+		}
+	}
+}
+
+func (m *Breaker) doStat(key string, total, fail int64) {
+	fun := "Breaker.doStat -->"
+
+	stat := &BreakerStat{
+		key:   key,
+		total: total,
+		fail:  fail,
+	}
+
+	select {
+	case m.statChan <- stat:
+	default:
+		slog.Errorf("%s drop, key:%s, total:%d, fail:%d", fun, stat.key, stat.total, stat.fail)
 	}
 }
 
@@ -256,10 +318,14 @@ func (m *Breaker) Do(source int32, servid int, funcName string, run func() error
 	st := stime.NewTimeStat()
 	key := m.generateKey(source, servid, funcName)
 
+	fail := int64(0)
 	err := hystrix.Do(key, run, fallback)
 	if err != nil {
-		slog.Errorf("%s key:%s err:%s", fun, key, err.Error())
+		slog.Warnf("%s key:%s err:%s", fun, key, err.Error())
+		fail = 1
 	}
+
+	m.doStat(key, 1, fail)
 
 	dur := st.Duration()
 	slog.Infof("%s servid:%d funcName:%s key:%s dur:%d", fun, servid, funcName, key, dur)
