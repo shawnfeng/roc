@@ -328,7 +328,7 @@ func (m *Breaker) Do(source int32, servid int, funcName string, run func() error
 	m.doStat(key, 1, fail)
 
 	dur := st.Duration()
-	slog.Infof("%s servid:%d funcName:%s key:%s dur:%d", fun, servid, funcName, key, dur)
+	slog.Infof("%s key:%s dur:%d", fun, servid, funcName, key, dur)
 
 	return err
 }
