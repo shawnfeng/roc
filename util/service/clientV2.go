@@ -74,9 +74,8 @@ type ClientEtcdV2 struct {
 	// 按照processor 进行分组
 
 	muServlist sync.Mutex
-	//servList map[string][]*ServInfo
-	servCopy servCopyCollect
-	servHash *consistent.Consistent
+	servCopy   servCopyCollect
+	servHash   *consistent.Consistent
 
 	breakerGlobalPath string
 	breakerServPath   string
@@ -552,22 +551,24 @@ func (m *ClientEtcdV2) GetServAddrWithServid(servid int, processor, key string) 
 	return m.getServAddrWithServid(servid, processor, key)
 }
 
-/*
-func (m *ClientEtcdV2) GetAllServAddr() map[string][]*ServInfo {
+func (m *ClientEtcdV2) GetAllServAddr(processor string) []*ServInfo {
 	m.muServlist.Lock()
 	defer m.muServlist.Unlock()
 
-	rv := make(map[string][]*ServInfo)
-	for k, v := range m.servList {
-		n := make([]*ServInfo, len(v))
-		copy(n, v)
-		rv[k] = n
+	servs := make([]*ServInfo, 0)
+	for _, c := range m.servCopy {
+		if c.reg != nil {
+			if c.manual != nil && c.manual.Ctrl != nil && c.manual.Ctrl.Disable {
+				return nil
+			}
+			if p := c.reg.Servs[processor]; p != nil {
+				servs = append(servs, p)
+			}
+		}
 	}
 
-
-	return rv
+	return servs
 }
-*/
 
 func (m *ClientEtcdV2) ServKey() string {
 	return m.servKey

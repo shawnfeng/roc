@@ -17,7 +17,7 @@ import (
 type ClientLookup interface {
 	GetServAddr(processor, key string) *ServInfo
 	GetServAddrWithServid(servid int, processor, key string) *ServInfo
-	//GetAllServAddr() map[string][]*ServInfo
+	GetAllServAddr(processor string) []*ServInfo
 	ServKey() string
 	ServPath() string
 	GetBreakerServConf() string
@@ -75,11 +75,11 @@ type ClientThrift struct {
 	fnFactory    func(thrift.TTransport, thrift.TProtocolFactory) interface{}
 
 	poolLen int
-	trace   bool
 
 	poolClient sync.Map
 
 	breaker *Breaker
+	router  Router
 }
 
 type rpcClient interface {
@@ -107,22 +107,22 @@ func (m *rpcClient1) GetServiceClient() interface{} {
 }
 
 func NewClientThrift(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, poollen int) *ClientThrift {
-	return NewClientThriftTraceFlag(cb, processor, fn, poollen, false)
+	return NewClientThriftWithRouterType(cb, processor, fn, poollen, 0)
 }
 
-func NewClientThriftTrace(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, poollen int) *ClientThrift {
-	return NewClientThriftTraceFlag(cb, processor, fn, poollen, true)
+func NewClientThriftByConcurrentRouter(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, poollen int) *ClientThrift {
+	return NewClientThriftWithRouterType(cb, processor, fn, poollen, 1)
 }
 
-func NewClientThriftTraceFlag(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, poollen int, trace bool) *ClientThrift {
+func NewClientThriftWithRouterType(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, poollen, routerType int) *ClientThrift {
 
 	ct := &ClientThrift{
 		clientLookup: cb,
 		processor:    processor,
 		fnFactory:    fn,
 		poolLen:      poollen,
-		trace:        trace,
 		breaker:      NewBreaker(cb),
+		router:       NewRouter(routerType, cb),
 	}
 
 	return ct
@@ -174,10 +174,10 @@ func (m *ClientThrift) getPool(addr string) chan rpcClient {
 
 }
 
-func (m *ClientThrift) hash(key string) (*ServInfo, rpcClient) {
-	fun := "ClientThrift.hash -->"
+func (m *ClientThrift) route(key string) (*ServInfo, rpcClient) {
+	fun := "ClientThrift.route -->"
 
-	s := m.clientLookup.GetServAddr(m.processor, key)
+	s := m.router.Route(m.processor, key)
 	if s == nil {
 		return nil, nil
 	}
@@ -212,60 +212,16 @@ func (m *ClientThrift) Payback(si *ServInfo, client rpcClient) {
 	//m.printPool()
 }
 
-func (m *ClientThrift) RpcWithoutBreaker(haskkey string, timeout time.Duration, fnrpc func(interface{}) error) error {
-	fun := "ClientThrift.RpcWithoutBreaker -->"
-	si, rc := m.hash(haskkey)
-	if rc == nil {
-		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
-	}
-	rc.SetTimeout(timeout)
-	c := rc.GetServiceClient()
-
-	err := fnrpc(c)
-	if err == nil {
-		m.Payback(si, rc)
-	} else {
-		slog.Warnf("%s close rpcclient s:%s", fun, si)
-		rc.Close()
-	}
-	return err
-}
-
 func (m *ClientThrift) Rpc(haskkey string, timeout time.Duration, fnrpc func(interface{}) error) error {
 	//fun := "ClientThrift.Rpc-->"
 
-	si, rc := m.hash(haskkey)
+	si, rc := m.route(haskkey)
 	if rc == nil {
 		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
 	}
 
-	call := func(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(interface{}) error) func() error {
-		return func() error {
-			return m.rpc(si, rc, timeout, fnrpc)
-		}
-	}(si, rc, timeout, fnrpc)
-
-	funcName := ""
-	pc, _, _, ok := runtime.Caller(2)
-	if ok {
-		funcName = runtime.FuncForPC(pc).Name()
-		if index := strings.LastIndex(funcName, "."); index != -1 {
-			if len(funcName) > index+1 {
-				funcName = funcName[index+1:]
-			}
-		}
-	}
-
-	return m.breaker.Do(0, si.Servid, funcName, call, nil)
-}
-
-func (m *ClientThrift) RpcWithBreaker(haskkey string, timeout time.Duration, fnrpc func(interface{}) error) error {
-	//fun := "ClientThrift.RpcWithBreaker -->"
-
-	si, rc := m.hash(haskkey)
-	if rc == nil {
-		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
-	}
+	m.router.Pre(si)
+	defer m.router.Post(si)
 
 	call := func(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(interface{}) error) func() error {
 		return func() error {
