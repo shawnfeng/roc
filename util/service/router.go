@@ -65,6 +65,8 @@ type Concurrent struct {
 }
 
 func (m *Concurrent) Route(processor, key string) *ServInfo {
+	fun := "Route -->"
+
 	list := m.cb.GetAllServAddr(processor)
 	if list == nil {
 		return nil
@@ -81,6 +83,13 @@ func (m *Concurrent) Route(processor, key string) *ServInfo {
 			min = count
 			s = serv
 		}
+
+		slog.Infof("%s processor:%s, addr:%s, count: %d", fun, processor, serv.Addr, count)
+	}
+	if s != nil {
+		slog.Infof("%s processor:%s, addr:%s", fun, processor, s.Addr)
+	} else {
+		slog.Errorf("%s processor:%s, route fail", fun, processor)
 	}
 
 	return s
