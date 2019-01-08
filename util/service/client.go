@@ -32,22 +32,34 @@ type ClientWrapper struct {
 	clientLookup ClientLookup
 	processor    string
 	breaker      *Breaker
+	router       Router
 }
 
 func NewClientWrapper(cb ClientLookup, processor string) *ClientWrapper {
+	return NewClientWrapperWithRouterType(cb, processor, 0)
+}
+
+func NewClientWrapperByConcurrentRouter(cb ClientLookup, processor string) *ClientWrapper {
+	return NewClientWrapperWithRouterType(cb, processor, 1)
+}
+
+func NewClientWrapperWithRouterType(cb ClientLookup, processor string, routerType int) *ClientWrapper {
 	return &ClientWrapper{
 		clientLookup: cb,
 		processor:    processor,
 		breaker:      NewBreaker(cb),
+		router:       NewRouter(routerType, cb),
 	}
 }
 
 func (m *ClientWrapper) Do(haskkey string, timeout time.Duration, run func(addr string, timeout time.Duration) error) error {
 	fun := "ClientWrapper.Do -->"
-	si := m.clientLookup.GetServAddr(m.processor, haskkey)
+	si := m.router.Route(m.processor, haskkey)
 	if si == nil {
 		return fmt.Errorf("%s not find service:%s processor:%s", fun, m.clientLookup.ServPath(), m.processor)
 	}
+	m.router.Pre(si)
+	defer m.router.Post(si)
 
 	call := func(addr string, timeout time.Duration) func() error {
 		return func() error {
