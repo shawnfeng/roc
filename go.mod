@@ -9,6 +9,7 @@ require (
 	// nn
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
 	github.com/julienschmidt/httprouter v1.0.1-0.20150106073633-b55664b9e920
+	github.com/prometheus/client_golang v0.9.2
 	github.com/sdming/gosnow v0.0.0-20130403030620-3a05c415e886
 	github.com/shawnfeng/consistent v1.0.3
 	github.com/shawnfeng/dbrouter v1.0.2

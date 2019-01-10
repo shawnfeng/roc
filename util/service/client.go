@@ -7,8 +7,11 @@ package rocserv
 import (
 	"fmt"
 	"git.apache.org/thrift.git/lib/go/thrift"
+	"github.com/shawnfeng/roc/util/service/sla"
 	"github.com/shawnfeng/sutil/slog"
+	"github.com/shawnfeng/sutil/stime"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -78,7 +81,51 @@ func (m *ClientWrapper) Do(haskkey string, timeout time.Duration, run func(addr 
 		}
 	}
 
-	return m.breaker.Do(0, si.Servid, funcName, call, nil)
+	var err error
+	st := stime.NewTimeStat()
+	defer func() {
+		m.collector(st.Duration(), 0, si.Servid, funcName, err)
+	}()
+	err = m.breaker.Do(0, si.Servid, funcName, call, nil)
+	return err
+}
+
+var metricReqNameKeys = []string{rocserv.Name_space_palfish, rocserv.Name_server_req_total}
+var metricDurationNameKeys = []string{rocserv.Name_space_palfish, rocserv.Name_server_duration_second}
+
+func (m *ClientWrapper) collector(duration time.Duration, source int, servid int, funcName string, err interface{}) {
+	if !rocserv.IsMetricsInited() {
+		slog.Infof("metrics not init can not collect")
+		return
+	}
+	durlabels := m.buildSerLabels(source, servid, funcName)
+	rocserv.MetricsInstance.AddHistoramSampleCreateIfAbsent(metricDurationNameKeys, duration.Seconds(), durlabels, nil)
+	var counterLabels []rocserv.Label
+	if err == nil {
+		counterLabels = m.buildSerReqLabels(source, servid, funcName, rocserv.Status_succ)
+	} else {
+		counterLabels = m.buildSerReqLabels(source, servid, funcName, rocserv.Status_fail)
+	}
+	rocserv.MetricsInstance.IncrCounterCreateIfAbsent(metricReqNameKeys, 1.0, counterLabels)
+}
+func (m *ClientWrapper) buildSerLabels(source int, servid int, funcName string) []rocserv.Label {
+	serverName := rocserv.SafePromethuesValue(m.clientLookup.ServKey())
+	sid := strconv.Itoa(servid)
+	return []rocserv.Label{
+		{Name: rocserv.Label_instance, Value: serverName + "_" + sid},
+		{Name: rocserv.Label_servname, Value: serverName},
+		{Name: rocserv.Label_servid, Value: sid},
+		{Name: rocserv.Label_api, Value: funcName},
+		{Name: rocserv.Label_source, Value: strconv.Itoa(source)},
+		{Name: rocserv.Label_type, Value: m.processor},
+	}
+}
+func (m *ClientWrapper) buildSerReqLabels(source int, servid int, funcName string, status int) []rocserv.Label {
+	labels := m.buildSerLabels(source, servid, funcName)
+	labels = append(labels, rocserv.Label{
+		Name: rocserv.Label_status, Value: strconv.Itoa(status),
+	})
+	return labels
 }
 
 type ClientThrift struct {
