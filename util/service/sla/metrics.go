@@ -2,12 +2,9 @@ package rocserv
 
 import (
 	"fmt"
-	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/shawnfeng/sutil/slog"
-	"net"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -19,13 +16,10 @@ import (
 
 var (
 	DefaultMetricsOpts = &MetricsOpts{
-		Port:        0,
-		Location:    "/metrics",
 		DefBuckets:  []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
 		DefQuantile: map[float64]float64{.25: .01, .5: .01, .75: .01, .9: .01, .95: .001, .99: .001},
 	}
-	MetricsInstance *Metrics
-	state           = 0
+	DefaultMetrics = newMetrics()
 )
 
 const (
@@ -45,8 +39,6 @@ const (
 
 // MetricsOpts is used to configure the Metrics
 type MetricsOpts struct {
-	Port        int32
-	Location    string
 	DefBuckets  []float64
 	DefQuantile map[float64]float64
 }
@@ -59,28 +51,24 @@ type Metrics struct {
 	summaries   map[string]prometheus.Summary
 	defBuckets  []float64
 	defQuantile map[float64]float64
-	port        int32
-	location    string
 }
 
 // NewMetrics creates a new Metrics using the default options.
-func NewMetrics() (*Metrics, error) {
-	return NewMetricsFrom(DefaultMetricsOpts)
+func newMetrics() *Metrics {
+	return newMetricsFrom(DefaultMetricsOpts)
 }
 
 // NewMetricsFrom creates a new Metrics using the passed options.
-func NewMetricsFrom(opts *MetricsOpts) (*Metrics, error) {
+func newMetricsFrom(opts *MetricsOpts) *Metrics {
 	metrics := &Metrics{
 		counters:    make(map[string]prometheus.Counter),
 		gauges:      make(map[string]prometheus.Gauge),
 		historams:   make(map[string]prometheus.Histogram),
 		summaries:   make(map[string]prometheus.Summary),
-		port:        opts.Port,
-		location:    opts.Location,
 		defBuckets:  opts.DefBuckets,
 		defQuantile: opts.DefQuantile,
 	}
-	return metrics, prometheus.Register(metrics)
+	return metrics
 }
 
 //no use only for register
@@ -282,45 +270,10 @@ func (p *Metrics) IncrCounterCreateIfAbsent(namekeys []string, val float64, labe
 		slog.Warnf("set counter fail of no metric:%s,%s,%v", key, hash, val)
 	}
 }
-func IsMetricsInited() bool {
-	return state == 1
-}
-func (p *Metrics) Init() error {
-	slog.Infof("init metric instance")
-	MetricsInstance = p
-	state = 1
-	return nil
-}
-
-func (p *Metrics) Driver() (string, interface{}) {
+func (p *Metrics) Exportor() http.Handler {
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(p)
 
 	handlerFor := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
-	router := httprouter.New()
-	router.Handler("GET", p.location, handlerFor)
-	//router.Handler("POST", p.location,handlerFor)
-	router.HandlerFunc("GET", "/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`<html>
-			<head><title>A Prometheus Exporter</title></head>
-			<body>
-			<h1>A Prometheus Exporter</h1>
-			<p><a href='/metrics'>Metrics</a></p>
-			</body>
-			</html>`))
-	})
-	return getPort(), router
-}
-func getPort() string {
-	p := 22333
-	for {
-		s := "127.0.0.1:" + strconv.Itoa(p)
-		_, err := net.Dial("tcp", s)
-		fmt.Println("dial======", s, err)
-		if err != nil {
-			return s
-		}
-		p++
-	}
-
+	return handlerFor
 }

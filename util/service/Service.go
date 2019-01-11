@@ -170,9 +170,8 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir string, ini
 
 	// sla metric埋点 ==================
 	//init metric
-	//metricOps := m.getMetricOps(sb)
 	//user defualt metric opts
-	metrics, err := rocserv.NewMetrics()
+	metrics := rocserv.NewMetricsprocessor()
 	if err != nil {
 		slog.Warnf("init metrics fail:%v", err)
 	}

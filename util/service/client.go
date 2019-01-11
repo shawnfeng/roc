@@ -94,19 +94,15 @@ var metricReqNameKeys = []string{rocserv.Name_space_palfish, rocserv.Name_server
 var metricDurationNameKeys = []string{rocserv.Name_space_palfish, rocserv.Name_server_duration_second}
 
 func (m *ClientWrapper) collector(duration time.Duration, source int, servid int, funcName string, err interface{}) {
-	if !rocserv.IsMetricsInited() {
-		slog.Infof("metrics not init can not collect")
-		return
-	}
 	durlabels := m.buildSerLabels(source, servid, funcName)
-	rocserv.MetricsInstance.AddHistoramSampleCreateIfAbsent(metricDurationNameKeys, duration.Seconds(), durlabels, nil)
+	rocserv.DefaultMetrics.AddHistoramSampleCreateIfAbsent(metricDurationNameKeys, duration.Seconds(), durlabels, nil)
 	var counterLabels []rocserv.Label
 	if err == nil {
 		counterLabels = m.buildSerReqLabels(source, servid, funcName, rocserv.Status_succ)
 	} else {
 		counterLabels = m.buildSerReqLabels(source, servid, funcName, rocserv.Status_fail)
 	}
-	rocserv.MetricsInstance.IncrCounterCreateIfAbsent(metricReqNameKeys, 1.0, counterLabels)
+	rocserv.DefaultMetrics.IncrCounterCreateIfAbsent(metricReqNameKeys, 1.0, counterLabels)
 }
 func (m *ClientWrapper) buildSerLabels(source int, servid int, funcName string) []rocserv.Label {
 	serverName := rocserv.SafePromethuesValue(m.clientLookup.ServKey())
