@@ -1,12 +1,9 @@
 package rocserv
 
 import (
-	"fmt"
 	"github.com/julienschmidt/httprouter"
 	"github.com/shawnfeng/sutil/slog"
-	"net"
 	"net/http"
-	"strconv"
 )
 
 var (
@@ -43,15 +40,15 @@ func (p *Metricsprocessor) Driver() (string, interface{}) {
 	return p.getListenerAddress(), router
 }
 func (p *Metricsprocessor) getListenerAddress() string {
-	//return ""
-	port := 22333
-	for {
-		s := "127.0.0.1:" + strconv.Itoa(port)
-		_, err := net.Dial("tcp", s)
-		fmt.Println("dial======", s, err)
-		if err != nil {
-			return s
-		}
-		port++
-	}
+	return ""
+	//port := 22333
+	//for {
+	//	s := "127.0.0.1:" + strconv.Itoa(port)
+	//	_, err := net.Dial("tcp", s)
+	//	fmt.Println("dial======", s, err)
+	//	if err != nil {
+	//		return s
+	//	}
+	//	port++
+	//}
 }
