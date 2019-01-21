@@ -46,6 +46,8 @@ const (
 
 	// 服务手动配置位置
 	BASE_LOC_REG_MANUAL = "manual"
+	// sla metrics注册的位置
+	BASE_LOC_REG_METRICS = "metrics"
 )
 
 type configEtcd struct {
@@ -89,6 +91,25 @@ func (m *ServBaseV2) RegisterBackDoor(servs map[string]*ServInfo) error {
 	slog.Infof("%s servs:%s", fun, js)
 
 	path := fmt.Sprintf("%s/%s/%s/%d/%s", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId, BASE_LOC_REG_BACKDOOR)
+
+	return m.doRegister(path, string(js), true)
+
+}
+
+func (m *ServBaseV2) RegisterMetrics(servs map[string]*ServInfo) error {
+	fun := "ServBaseV2.RegisterMetrics -->"
+	rd := &RegData{
+		Servs: servs,
+	}
+
+	js, err := json.Marshal(rd)
+	if err != nil {
+		return err
+	}
+
+	slog.Infof("%s servs:%s", fun, js)
+
+	path := fmt.Sprintf("%s/%s/%s/%d/%s", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId, BASE_LOC_REG_METRICS)
 
 	return m.doRegister(path, string(js), true)
 

@@ -7,6 +7,7 @@ package rocserv
 import (
 	"flag"
 	"fmt"
+	"github.com/shawnfeng/roc/util/service/sla"
 	"reflect"
 
 	"github.com/julienschmidt/httprouter"
@@ -167,6 +168,30 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir string, ini
 	slog.Init(logdir, "serv.log", logConfig.Log.Level)
 	defer slog.Sync()
 
+	// sla metric埋点 ==================
+	//init metric
+	//user defualt metric opts
+	metrics := rocserv.NewMetricsprocessor()
+	if err != nil {
+		slog.Warnf("init metrics fail:%v", err)
+	}
+	err = metrics.Init()
+	if err != nil {
+		slog.Warnf("%s init metrics err:%s", fun, err)
+	}
+
+	minfos, err := m.loadDriver(sb, map[string]Processor{"_PROC_METRICS": metrics})
+	if err == nil {
+		err = sb.RegisterMetrics(minfos)
+		if err != nil {
+			slog.Warnf("%s regist backdoor err:%s", fun, err)
+		}
+
+	} else {
+		slog.Warnf("%s load metrics driver err:%s", fun, err)
+	}
+	//==============================
+
 	// init callback
 	err = initfn(sb)
 	if err != nil {
@@ -236,6 +261,19 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir string, ini
 
 	return nil
 
+}
+func (m *Service) getMetricOps(sb *ServBaseV2) *rocserv.MetricsOpts {
+	fun := "Service.getMetricOps -->"
+	var metricConfig struct {
+		metric *rocserv.MetricsOpts
+	}
+	err := sb.ServConfig(&metricConfig)
+	if err != nil {
+		slog.Panicf("%s serv config err:%s", fun, err)
+		fmt.Sprintf("%s serv config err:%s", fun, err)
+		return nil
+	}
+	return metricConfig.metric
 }
 
 func Serve(etcds []string, baseLoc string, initfn func(ServBase) error, procs map[string]Processor) error {
