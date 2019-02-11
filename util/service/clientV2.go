@@ -559,7 +559,7 @@ func (m *ClientEtcdV2) GetAllServAddr(processor string) []*ServInfo {
 	for _, c := range m.servCopy {
 		if c.reg != nil {
 			if c.manual != nil && c.manual.Ctrl != nil && c.manual.Ctrl.Disable {
-				return nil
+				continue
 			}
 			if p := c.reg.Servs[processor]; p != nil {
 				servs = append(servs, p)
