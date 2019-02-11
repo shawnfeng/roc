@@ -84,7 +84,7 @@ func (m *ClientWrapper) Do(haskkey string, timeout time.Duration, run func(addr 
 	var err error
 	st := stime.NewTimeStat()
 	defer func() {
-		m.collector(st.Duration(), 0, si.Servid, funcName, err)
+		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
 	}()
 	err = m.breaker.Do(0, si.Servid, funcName, call, nil)
 	return err
@@ -93,19 +93,19 @@ func (m *ClientWrapper) Do(haskkey string, timeout time.Duration, run func(addr 
 var metricReqNameKeys = []string{rocserv.Name_space_palfish, rocserv.Name_server_req_total}
 var metricDurationNameKeys = []string{rocserv.Name_space_palfish, rocserv.Name_server_duration_second}
 
-func (m *ClientWrapper) collector(duration time.Duration, source int, servid int, funcName string, err interface{}) {
-	durlabels := m.buildSerLabels(source, servid, funcName)
+func collector(servkey string, processor string, duration time.Duration, source int, servid int, funcName string, err interface{}) {
+	durlabels := buildSerLabels(servkey, processor, source, servid, funcName)
 	rocserv.DefaultMetrics.AddHistoramSampleCreateIfAbsent(metricDurationNameKeys, duration.Seconds(), durlabels, nil)
 	var counterLabels []rocserv.Label
 	if err == nil {
-		counterLabels = m.buildSerReqLabels(source, servid, funcName, rocserv.Status_succ)
+		counterLabels = buildSerReqLabels(servkey, processor, source, servid, funcName, rocserv.Status_succ)
 	} else {
-		counterLabels = m.buildSerReqLabels(source, servid, funcName, rocserv.Status_fail)
+		counterLabels = buildSerReqLabels(servkey, processor, source, servid, funcName, rocserv.Status_fail)
 	}
 	rocserv.DefaultMetrics.IncrCounterCreateIfAbsent(metricReqNameKeys, 1.0, counterLabels)
 }
-func (m *ClientWrapper) buildSerLabels(source int, servid int, funcName string) []rocserv.Label {
-	serverName := rocserv.SafePromethuesValue(m.clientLookup.ServKey())
+func buildSerLabels(servkey string, processor string, source int, servid int, funcName string) []rocserv.Label {
+	serverName := rocserv.SafePromethuesValue(servkey)
 	sid := strconv.Itoa(servid)
 	return []rocserv.Label{
 		{Name: rocserv.Label_instance, Value: serverName + "_" + sid},
@@ -113,11 +113,11 @@ func (m *ClientWrapper) buildSerLabels(source int, servid int, funcName string) 
 		{Name: rocserv.Label_servid, Value: sid},
 		{Name: rocserv.Label_api, Value: funcName},
 		{Name: rocserv.Label_source, Value: strconv.Itoa(source)},
-		{Name: rocserv.Label_type, Value: m.processor},
+		{Name: rocserv.Label_type, Value: processor},
 	}
 }
-func (m *ClientWrapper) buildSerReqLabels(source int, servid int, funcName string, status int) []rocserv.Label {
-	labels := m.buildSerLabels(source, servid, funcName)
+func buildSerReqLabels(servkey string, processor string, source int, servid int, funcName string, status int) []rocserv.Label {
+	labels := buildSerLabels(servkey, processor, source, servid, funcName)
 	labels = append(labels, rocserv.Label{
 		Name: rocserv.Label_status, Value: strconv.Itoa(status),
 	})
@@ -295,7 +295,13 @@ func (m *ClientThrift) Rpc(haskkey string, timeout time.Duration, fnrpc func(int
 		}
 	}
 
-	return m.breaker.Do(0, si.Servid, funcName, call, nil)
+	var err error
+	st := stime.NewTimeStat()
+	defer func() {
+		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
+	}()
+	err = m.breaker.Do(0, si.Servid, funcName, call, nil)
+	return err
 }
 
 func (m *ClientThrift) rpc(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(interface{}) error) error {
