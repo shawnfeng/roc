@@ -44,7 +44,10 @@ type MetricsOpts struct {
 }
 
 type Metrics struct {
-	mu          sync.Mutex
+	mucout      sync.RWMutex
+	mugau       sync.RWMutex
+	muhist      sync.RWMutex
+	musumm      sync.RWMutex
 	counters    map[string]prometheus.Counter
 	gauges      map[string]prometheus.Gauge
 	historams   map[string]prometheus.Histogram
@@ -61,10 +64,10 @@ func newMetrics() *Metrics {
 // NewMetricsFrom creates a new Metrics using the passed options.
 func newMetricsFrom(opts *MetricsOpts) *Metrics {
 	metrics := &Metrics{
-		counters:    make(map[string]prometheus.Counter),
-		gauges:      make(map[string]prometheus.Gauge),
-		historams:   make(map[string]prometheus.Histogram),
-		summaries:   make(map[string]prometheus.Summary),
+		counters:    make(map[string]prometheus.Counter, 512),
+		gauges:      make(map[string]prometheus.Gauge, 512),
+		historams:   make(map[string]prometheus.Histogram, 512),
+		summaries:   make(map[string]prometheus.Summary, 512),
 		defBuckets:  opts.DefBuckets,
 		defQuantile: opts.DefQuantile,
 	}
@@ -80,21 +83,21 @@ func (p *Metrics) Describe(c chan<- *prometheus.Desc) {
 // logic to clean up ephemeral metrics if their value haven't been set for a
 // duration exceeding our allowed expiration time.
 func (p *Metrics) Collect(c chan<- prometheus.Metric) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	for _, v := range p.counters {
+	//rlockCollect(c,&p.mucout,p.counters)
+	//rlockCollect(c,&p.mugau,p.gauges)
+	//rlockCollect(c,&p.muhist,p.historams)
+	//rlockCollect(c,&p.musumm,p.summaries)
+	p.rlockCollectCounter(c)
+	p.rlockCollectGauge(c)
+	p.rlockCollectHistorams(c)
+	p.rlockCollectSummaries(c)
+}
+func rlockCollect(c chan<- prometheus.Metric, rw *sync.RWMutex, collmap map[string]prometheus.Collector) {
+	rw.RLock()
+	defer rw.RUnlock()
+	for _, v := range collmap {
 		v.Collect(c)
 	}
-	for _, v := range p.gauges {
-		v.Collect(c)
-	}
-	for _, v := range p.historams {
-		v.Collect(c)
-	}
-	for _, v := range p.summaries {
-		v.Collect(c)
-	}
-
 }
 
 type Label struct {
@@ -133,7 +136,7 @@ func (p *Metrics) CreateCounter(namekeys []string, labels []Label) prometheus.Co
 	key, hash := flattenKey(namekeys, labels)
 	var m prometheus.Counter
 	var ok bool
-	p.putMetricIfAbsent(func() bool {
+	p.putMetricIfAbsentWithWLock(&p.mucout, func() bool {
 		m, ok = p.counters[hash]
 		return ok
 	}, func() {
@@ -150,7 +153,7 @@ func (p *Metrics) CreateGauge(namekeys []string, labels []Label) prometheus.Gaug
 	key, hash := flattenKey(namekeys, labels)
 	var m prometheus.Gauge
 	var ok bool
-	p.putMetricIfAbsent(func() bool {
+	p.putMetricIfAbsentWithWLock(&p.mugau, func() bool {
 		m, ok = p.gauges[hash]
 		return ok
 	}, func() {
@@ -167,7 +170,7 @@ func (p *Metrics) CreateHistogram(namekeys []string, labels []Label, buckets []f
 	key, hash := flattenKey(namekeys, labels)
 	var m prometheus.Histogram
 	var ok bool
-	p.putMetricIfAbsent(func() bool {
+	p.putMetricIfAbsentWithWLock(&p.muhist, func() bool {
 		m, ok = p.historams[hash]
 		return ok
 	}, func() {
@@ -188,7 +191,7 @@ func (p *Metrics) CreateSummary(namekeys []string, labels []Label, quantile map[
 	key, hash := flattenKey(namekeys, labels)
 	var m prometheus.Summary
 	var ok bool
-	p.putMetricIfAbsent(func() bool {
+	p.putMetricIfAbsentWithWLock(&p.musumm, func() bool {
 		m, ok = p.summaries[hash]
 		return ok
 	}, func() {
@@ -206,21 +209,18 @@ func (p *Metrics) CreateSummary(namekeys []string, labels []Label, quantile map[
 	})
 	return m
 }
-func (p *Metrics) putMetricIfAbsent(isExist func() bool, put func()) {
+func (p *Metrics) putMetricIfAbsentWithWLock(rw *sync.RWMutex, isExist func() bool, put func()) {
+	rw.Lock()
+	defer rw.Unlock()
 	ok := isExist()
 	if !ok {
-		p.mu.Lock()
-		defer p.mu.Unlock()
-		ok := isExist()
-		if !ok {
-			put()
-		}
+		put()
 	}
 }
 
 func (p *Metrics) SetGaugeCreateIfAbsent(namekeys []string, val float64, labels []Label) {
 	key, hash := flattenKey(namekeys, labels)
-	g, ok := p.gauges[hash]
+	g, ok := p.rlockGetGauge(hash)
 	if !ok {
 		g = p.CreateGauge(namekeys, labels)
 	}
@@ -233,7 +233,7 @@ func (p *Metrics) SetGaugeCreateIfAbsent(namekeys []string, val float64, labels 
 
 func (p *Metrics) AddHistoramSampleCreateIfAbsent(namekeys []string, val float64, labels []Label, buckets []float64) {
 	key, hash := flattenKey(namekeys, labels)
-	g, ok := p.historams[hash]
+	g, ok := p.rlockGetHistogram(hash)
 	if !ok {
 		g = p.CreateHistogram(namekeys, labels, buckets)
 	}
@@ -247,7 +247,7 @@ func (p *Metrics) AddHistoramSampleCreateIfAbsent(namekeys []string, val float64
 func (p *Metrics) AddSummarySampleCreateIfAbsent(namekeys []string, val float64, labels []Label, quantile map[float64]float64) {
 
 	key, hash := flattenKey(namekeys, labels)
-	g, ok := p.summaries[hash]
+	g, ok := p.rlockGetSummary(hash)
 	if !ok {
 		g = p.CreateSummary(namekeys, labels, quantile)
 	}
@@ -260,7 +260,7 @@ func (p *Metrics) AddSummarySampleCreateIfAbsent(namekeys []string, val float64,
 
 func (p *Metrics) IncrCounterCreateIfAbsent(namekeys []string, val float64, labels []Label) {
 	key, hash := flattenKey(namekeys, labels)
-	g, ok := p.counters[hash]
+	g, ok := p.rlockGetCounter(hash)
 	if !ok {
 		g = p.CreateCounter(namekeys, labels)
 	}
@@ -270,10 +270,66 @@ func (p *Metrics) IncrCounterCreateIfAbsent(namekeys []string, val float64, labe
 		slog.Warnf("set counter fail of no metric:%s,%s,%v", key, hash, val)
 	}
 }
+func (p *Metrics) rlockGetCounter(hash string) (prometheus.Counter, bool) {
+	p.mucout.RLock()
+	defer p.mucout.RUnlock()
+	g, ok := p.counters[hash]
+	return g, ok
+}
+func (p *Metrics) rlockGetGauge(hash string) (prometheus.Gauge, bool) {
+	p.mugau.RLock()
+	defer p.mugau.RUnlock()
+	g, ok := p.gauges[hash]
+	return g, ok
+}
+func (p *Metrics) rlockGetHistogram(hash string) (prometheus.Histogram, bool) {
+	p.muhist.RLock()
+	defer p.muhist.RUnlock()
+	g, ok := p.historams[hash]
+	return g, ok
+}
+func (p *Metrics) rlockGetSummary(hash string) (prometheus.Summary, bool) {
+	p.musumm.RLock()
+	defer p.musumm.RUnlock()
+	g, ok := p.historams[hash]
+	return g, ok
+}
 func (p *Metrics) Exportor() http.Handler {
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(p)
 
 	handlerFor := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
 	return handlerFor
+}
+
+func (p *Metrics) rlockCollectCounter(c chan<- prometheus.Metric) {
+	p.mucout.RLock()
+	defer p.mucout.RUnlock()
+	for _, v := range p.counters {
+		v.Collect(c)
+	}
+}
+
+func (p *Metrics) rlockCollectGauge(c chan<- prometheus.Metric) {
+	p.mugau.RLock()
+	defer p.mugau.RUnlock()
+	for _, v := range p.gauges {
+		v.Collect(c)
+	}
+}
+
+func (p *Metrics) rlockCollectHistorams(c chan<- prometheus.Metric) {
+	p.muhist.RLock()
+	defer p.muhist.RUnlock()
+	for _, v := range p.historams {
+		v.Collect(c)
+	}
+}
+
+func (p *Metrics) rlockCollectSummaries(c chan<- prometheus.Metric) {
+	p.musumm.RLock()
+	defer p.musumm.RUnlock()
+	for _, v := range p.summaries {
+		v.Collect(c)
+	}
 }
