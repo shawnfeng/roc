@@ -12,7 +12,7 @@ require (
 	github.com/sdming/gosnow v0.0.0-20130403030620-3a05c415e886
 	github.com/shawnfeng/consistent v1.0.3
 	github.com/shawnfeng/dbrouter v1.0.2
-	github.com/shawnfeng/hystrix-go v0.0.0-20190320101252-5a552597faf4
+	github.com/shawnfeng/hystrix-go v0.0.0-20190320120533-5e2bc39f173a
 	github.com/shawnfeng/sutil v1.0.5
 	// nn
 	github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d // indirect
