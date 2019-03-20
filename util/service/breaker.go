@@ -315,7 +315,7 @@ func (m *Breaker) Do(source int32, servid int, funcName string, run func() error
 		return run()
 	}
 
-	st := stime.NewTimeStat()
+	//st := stime.NewTimeStat()
 	key := m.generateKey(source, servid, funcName)
 
 	fail := int64(0)
@@ -327,8 +327,8 @@ func (m *Breaker) Do(source int32, servid int, funcName string, run func() error
 
 	m.doStat(key, 1, fail)
 
-	dur := st.Duration()
-	slog.Infof("%s key:%s dur:%d", fun, key, dur)
+	//dur := st.Duration()
+	//slog.Infof("%s key:%s dur:%d", fun, key, dur)
 
 	return err
 }
