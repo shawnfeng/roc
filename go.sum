@@ -67,6 +67,8 @@ github.com/shawnfeng/hystrix-go v0.0.0-20181211040019-46e497d9012d h1:bBnuUE3ZCR
 github.com/shawnfeng/hystrix-go v0.0.0-20181211040019-46e497d9012d/go.mod h1:5NoZViJlqMQQWlQkrkGrn3Ku8WM9bsG5MVXICGfVtt0=
 github.com/shawnfeng/hystrix-go v0.0.0-20190312084355-16c9bf5ae9b0 h1:66iw0ihguxvYm1M2A7fGf4c5koU9TETmHfZXmsvAE+M=
 github.com/shawnfeng/hystrix-go v0.0.0-20190312084355-16c9bf5ae9b0/go.mod h1:5NoZViJlqMQQWlQkrkGrn3Ku8WM9bsG5MVXICGfVtt0=
+github.com/shawnfeng/hystrix-go v0.0.0-20190320101252-5a552597faf4 h1:HoV8K1FLnpWMdJyPJ8ku/MmOlRLuHMuSi8nYi3yFeEc=
+github.com/shawnfeng/hystrix-go v0.0.0-20190320101252-5a552597faf4/go.mod h1:5NoZViJlqMQQWlQkrkGrn3Ku8WM9bsG5MVXICGfVtt0=
 github.com/shawnfeng/lumberjack.v2 v0.0.0-20181211043042-d38ab0a61bdb h1:8XB3GJL0SMlYBeVm/CTdqHavrlX7lKsvTE1MuTLE4Vs=
 github.com/shawnfeng/lumberjack.v2 v0.0.0-20181211043042-d38ab0a61bdb/go.mod h1:9u5PFfVGpGVlGplh2jWs0UqjcY3ptVZ/v5iXpsRGg9M=
 github.com/shawnfeng/sutil v1.0.3 h1:P1v0B8tNpy8B1tINrmED50MYfBgrGiPLmyKRZAeqHUo=
