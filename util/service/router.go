@@ -80,7 +80,7 @@ func (m *Concurrent) Route(processor, key string) *ServInfo {
 	for _, serv := range list {
 
 		count := m.counter[serv.Addr]
-		slog.Infof("%s processor:%s, addr:%s, count: %d", fun, processor, serv.Addr, count)
+		//slog.Infof("%s processor:%s, addr:%s, count: %d", fun, processor, serv.Addr, count)
 		if count == 0 {
 			min = count
 			s = serv
