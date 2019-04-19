@@ -13,7 +13,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -28,11 +27,11 @@ type ClientLookup interface {
 }
 
 func NewClientLookup(etcdaddrs []string, baseLoc string, servlocation string) (*ClientEtcdV2, error) {
-	return NewClientEtcdV3(configEtcd{etcdaddrs, baseLoc}, servlocation, THRIFT)
+	return NewClientEtcdV2(configEtcd{etcdaddrs, baseLoc}, servlocation, THRIFT)
 }
 
 func NewGrpcClientLookup(etcdaddrs []string, baseLoc string, servlocation string) (*ClientEtcdV2, error) {
-	return NewClientEtcdV3(configEtcd{etcdaddrs, baseLoc}, servlocation, GRPC)
+	return NewClientEtcdV2(configEtcd{etcdaddrs, baseLoc}, servlocation, GRPC)
 }
 
 type ClientWrapper struct {
@@ -74,23 +73,13 @@ func (m *ClientWrapper) Do(haskkey string, timeout time.Duration, run func(addr 
 		}
 	}(si.Addr, timeout)
 
-	funcName := ""
-	pc, _, _, ok := runtime.Caller(1)
-	if ok {
-		funcName = runtime.FuncForPC(pc).Name()
-		if index := strings.LastIndex(funcName, "."); index != -1 {
-			if len(funcName) > index+1 {
-				funcName = funcName[index+1:]
-			}
-		}
-	}
-
+	funcName := GetFunName(1)
 	var err error
 	st := stime.NewTimeStat()
 	defer func() {
 		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
 	}()
-	err = m.breaker.Do(0, si.Servid, funcName, call, THRIFT, nil)
+	err = m.breaker.Do(0, si.Servid, funcName, call, HTTP, nil)
 	return err
 }
 
@@ -132,13 +121,9 @@ type ClientThrift struct {
 	clientLookup ClientLookup
 	processor    string
 	fnFactory    func(thrift.TTransport, thrift.TProtocolFactory) interface{}
-
-	poolLen int
-
-	poolClient sync.Map
-
-	breaker *Breaker
-	router  Router
+	pool         *ClientPool
+	breaker      *Breaker
+	router       Router
 }
 
 type rpcClient interface {
@@ -179,11 +164,11 @@ func NewClientThriftWithRouterType(cb ClientLookup, processor string, fn func(th
 		clientLookup: cb,
 		processor:    processor,
 		fnFactory:    fn,
-		poolLen:      poollen,
 		breaker:      NewBreaker(cb),
 		router:       NewRouter(routerType, cb),
 	}
-
+	pool := NewClientPool(poollen, ct.newClient)
+	ct.pool = pool
 	return ct
 }
 
@@ -213,62 +198,15 @@ func (m *ClientThrift) newClient(addr string) rpcClient {
 		trans:         useTransport,
 		serviceClient: m.fnFactory(useTransport, protocolFactory),
 	}
-
-}
-
-func (m *ClientThrift) getPool(addr string) chan rpcClient {
-	fun := "ClientThrift.getPool -->"
-
-	var tmp chan rpcClient
-	value, ok := m.poolClient.Load(addr)
-	if ok == true {
-		tmp = value.(chan rpcClient)
-	} else {
-		slog.Infof("%s not found addr:%s", fun, addr)
-		tmp = make(chan rpcClient, m.poolLen)
-		m.poolClient.Store(addr, tmp)
-	}
-
-	return tmp
-
 }
 
 func (m *ClientThrift) route(key string) (*ServInfo, rpcClient) {
-	fun := "ClientThrift.route -->"
-
 	s := m.router.Route(m.processor, key)
 	if s == nil {
 		return nil, nil
 	}
-
 	addr := s.Addr
-	po := m.getPool(addr)
-
-	var c rpcClient
-	select {
-	case c = <-po:
-		slog.Tracef("%s get:%s len:%d", fun, addr, len(po))
-	default:
-		c = m.newClient(addr)
-	}
-
-	//m.printPool()
-	return s, c
-}
-
-func (m *ClientThrift) Payback(si *ServInfo, client rpcClient) {
-	fun := "ClientThrift.Payback -->"
-
-	po := m.getPool(si.Addr)
-	select {
-	case po <- client:
-		slog.Tracef("%s payback:%s len:%d", fun, si, len(po))
-	default:
-		slog.Infof("%s full not payback:%s len:%d", fun, si, len(po))
-		client.Close()
-	}
-
-	//m.printPool()
+	return s, m.pool.GrtClient(addr)
 }
 
 func (m *ClientThrift) Rpc(haskkey string, timeout time.Duration, fnrpc func(interface{}) error) error {
@@ -288,17 +226,7 @@ func (m *ClientThrift) Rpc(haskkey string, timeout time.Duration, fnrpc func(int
 		}
 	}(si, rc, timeout, fnrpc)
 
-	funcName := ""
-	pc, _, _, ok := runtime.Caller(2)
-	if ok {
-		funcName = runtime.FuncForPC(pc).Name()
-		if index := strings.LastIndex(funcName, "."); index != -1 {
-			if len(funcName) > index+1 {
-				funcName = funcName[index+1:]
-			}
-		}
-	}
-
+	funcName := GetFunName(2)
 	var err error
 	st := stime.NewTimeStat()
 	defer func() {
@@ -316,10 +244,24 @@ func (m *ClientThrift) rpc(si *ServInfo, rc rpcClient, timeout time.Duration, fn
 
 	err := fnrpc(c)
 	if err == nil {
-		m.Payback(si, rc)
+		m.pool.Close(si.Addr, rc)
 	} else {
 		slog.Warnf("%s close rpcclient s:%s", fun, si)
 		rc.Close()
 	}
 	return err
+}
+
+func GetFunName(index int) string {
+	funcName := ""
+	pc, _, _, ok := runtime.Caller(index)
+	if ok {
+		funcName = runtime.FuncForPC(pc).Name()
+		if index := strings.LastIndex(funcName, "."); index != -1 {
+			if len(funcName) > index+1 {
+				funcName = funcName[index+1:]
+			}
+		}
+	}
+	return funcName
 }

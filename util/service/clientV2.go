@@ -119,7 +119,7 @@ func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string 
 	return BASE_LOC_DIST_V2
 }
 
-func NewClientEtcdV3(confEtcd configEtcd, servlocation string, protocol ServProtocol) (*ClientEtcdV2, error) {
+func NewClientEtcdV2(confEtcd configEtcd, servlocation string, protocol ServProtocol) (*ClientEtcdV2, error) {
 	//fun := "NewClientEtcdV2 -->"
 
 	cfg := etcd.Config{

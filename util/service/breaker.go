@@ -260,12 +260,16 @@ func (m *Breaker) doStat(key string, total, fail int64) {
 	}
 }
 
-func (m *Breaker) generateKey(source int32, servid int, funcName string) string {
-	return fmt.Sprintf("%d.%s.%d.%s", source, m.servName, servid, funcName)
-}
+func (m *Breaker) generateKey(source int32, servid int, funcName string, protocol ServProtocol) string {
+	switch protocol {
+	case HTTP:
+		return fmt.Sprintf("%d.%s.%d.%s.http", source, m.servName, servid, funcName)
+	case GRPC:
+		return fmt.Sprintf("%d.%s.%d.%s.grpc", source, m.servName, servid, funcName)
+	default:
+		return fmt.Sprintf("%d.%s.%d.%s", source, m.servName, servid, funcName)
+	}
 
-func (m *Breaker) generateGrpcKey(source int32, servid int, funcName string) string {
-	return fmt.Sprintf("%d.%s.%d.%s.grpc", source, m.servName, servid, funcName)
 }
 
 func (m *Breaker) getUseFuncConf(key string) (*ItemConf, bool) {
@@ -313,13 +317,7 @@ func (m *Breaker) checkOrUpdateConf(source int32, servid int, funcName string, k
 
 func (m *Breaker) Do(source int32, servid int, funcName string, run func() error, protocol ServProtocol, fallback func(error) error) error {
 	fun := "Breaker.Do -->"
-	var key string
-	if protocol == GRPC {
-		key = m.generateGrpcKey(source, servid, funcName)
-	} else {
-		key = m.generateKey(source, servid, funcName)
-	}
-
+	key := m.generateKey(source, servid, funcName, protocol)
 	if m.checkOrUpdateConf(source, servid, funcName, key) == false {
 		return run()
 	}
