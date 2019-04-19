@@ -267,9 +267,8 @@ func (m *Breaker) generateKey(source int32, servid int, funcName string, protoco
 	case GRPC:
 		return fmt.Sprintf("%d.%s.%d.%s.grpc", source, m.servName, servid, funcName)
 	default:
-		return fmt.Sprintf("%d.%s.%d.%s", source, m.servName, servid, funcName)
+		return fmt.Sprintf("%d.%s.%d.%s.thrift", source, m.servName, servid, funcName)
 	}
-
 }
 
 func (m *Breaker) getUseFuncConf(key string) (*ItemConf, bool) {

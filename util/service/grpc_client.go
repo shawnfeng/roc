@@ -78,7 +78,7 @@ func (m *ClientGrpc) rpc(si *ServInfo, rc rpcClient, fnrpc func(interface{}) err
 	c := rc.GetServiceClient()
 	err := fnrpc(c)
 	if err == nil {
-		m.pool.Close(si.Addr, rc)
+		m.pool.Put(si.Addr, rc)
 	} else {
 		slog.Warnf("%s close rpcclient s:%s", fun, si)
 		rc.Close()
@@ -166,7 +166,8 @@ func (m *ClientPool) getPool(addr string) chan rpcClient {
 	return tmp
 }
 
-func (m *ClientPool) Close(addr string, client rpcClient) {
+// 连接池链接回收
+func (m *ClientPool) Put(addr string, client rpcClient) {
 	fun := "ClientPool.Close -->"
 
 	// po 链接池

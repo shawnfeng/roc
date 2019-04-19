@@ -244,7 +244,7 @@ func (m *ClientThrift) rpc(si *ServInfo, rc rpcClient, timeout time.Duration, fn
 
 	err := fnrpc(c)
 	if err == nil {
-		m.pool.Close(si.Addr, rc)
+		m.pool.Put(si.Addr, rc)
 	} else {
 		slog.Warnf("%s close rpcclient s:%s", fun, si)
 		rc.Close()
