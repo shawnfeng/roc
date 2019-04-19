@@ -39,8 +39,12 @@ const (
 	// 全局分布式锁，跨服务使用
 	BASE_LOC_GLOBAL_DIST_LOCK = "lock/global"
 
-	// 服务注册的位置
-	BASE_LOC_REG_SERV = "serve"
+	// thrift 服务注册的位置
+	BASE_LOC_THRIFT_SERV = "serve"
+
+	// GRPC 服务注册的位置
+	BASE_LOC_GRPC_SERV = "grpc"
+
 	// 后门注册的位置
 	BASE_LOC_REG_BACKDOOR = "backdoor"
 
@@ -48,6 +52,10 @@ const (
 	BASE_LOC_REG_MANUAL = "manual"
 	// sla metrics注册的位置
 	BASE_LOC_REG_METRICS = "metrics"
+
+	PROCESSOR_GRPC_PROPERTY_NAME = "proc_grpc"
+
+	PROCESSOR_THRIFT_PROPERTY_NAME = "proc_thrift"
 )
 
 type configEtcd struct {
@@ -118,6 +126,24 @@ func (m *ServBaseV2) RegisterMetrics(servs map[string]*ServInfo) error {
 // {type:http/thrift, addr:10.3.3.3:23233, processor:fuck}
 func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) error {
 	fun := "ServBaseV2.RegisterService -->"
+
+	/*err := m.RegisterServic(servs)
+	if err != nil {
+		slog.Errorf("%s reg v1 err:%s", fun, err)
+		return err
+	}*/
+
+	for key, val := range servs {
+		if val.Type == PROCESSOR_GRPC {
+			info := map[string]*ServInfo{key: val}
+			if err := m.RegisterGrpcService(info); err != nil {
+				slog.Errorf("%s reg v2 err:%s", fun, err)
+				return err
+			}
+			delete(servs, key)
+		}
+	}
+
 	err := m.RegisterServiceV2(servs)
 	if err != nil {
 		slog.Errorf("%s reg v2 err:%s", fun, err)
@@ -149,7 +175,7 @@ func (m *ServBaseV2) RegisterServiceV2(servs map[string]*ServInfo) error {
 
 	slog.Infof("%s servs:%s", fun, js)
 
-	path := fmt.Sprintf("%s/%s/%s/%d/%s", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId, BASE_LOC_REG_SERV)
+	path := fmt.Sprintf("%s/%s/%s/%d/%s", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId, BASE_LOC_THRIFT_SERV)
 
 	return m.doRegister(path, string(js), true)
 }
@@ -174,6 +200,8 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 	fun := "ServBaseV2.doRegister -->"
 	// 创建完成标志
 	var iscreate bool
+
+	slog.Infof("%s path:%s data:%s refresh:%t", fun, path, js, refresh)
 
 	go func() {
 
@@ -273,6 +301,24 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 	}
 
 	return nil
+}
+
+func (m *ServBaseV2) RegisterGrpcService(info map[string]*ServInfo) error {
+	fun := "ServBaseV2.RegisterGrpcService -->"
+	rd := &RegData{
+		Servs: info,
+	}
+
+	js, err := json.Marshal(rd)
+	if err != nil {
+		return err
+	}
+
+	slog.Infof("%s servs:%s", fun, js)
+
+	path := fmt.Sprintf("%s/%s/%s/%d/%s", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId, BASE_LOC_GRPC_SERV)
+
+	return m.doRegister(path, string(js), true)
 }
 
 // etcd v2 接口

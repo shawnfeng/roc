@@ -20,6 +20,7 @@ import (
 const (
 	PROCESSOR_HTTP   = "http"
 	PROCESSOR_THRIFT = "thrift"
+	PROCESSOR_GRPC   = "gprc"
 )
 
 type Service struct {
@@ -98,7 +99,17 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) (map[strin
 				Type: PROCESSOR_THRIFT,
 				Addr: sa,
 			}
+		case *GrpcServer:
+			sa, err := powerGrpc(addr, d)
+			if err != nil {
+				return nil, err
+			}
 
+			slog.Infof("%s load ok processor:%s serv addr:%s", fun, n, sa)
+			infos[n] = &ServInfo{
+				Type: PROCESSOR_GRPC,
+				Addr: sa,
+			}
 		default:
 			return nil, fmt.Errorf("processor:%s driver not recognition", n)
 

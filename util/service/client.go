@@ -28,7 +28,11 @@ type ClientLookup interface {
 }
 
 func NewClientLookup(etcdaddrs []string, baseLoc string, servlocation string) (*ClientEtcdV2, error) {
-	return NewClientEtcdV2(configEtcd{etcdaddrs, baseLoc}, servlocation)
+	return NewClientEtcdV3(configEtcd{etcdaddrs, baseLoc}, servlocation, THRIFT)
+}
+
+func NewGrpcClientLookup(etcdaddrs []string, baseLoc string, servlocation string) (*ClientEtcdV2, error) {
+	return NewClientEtcdV3(configEtcd{etcdaddrs, baseLoc}, servlocation, GRPC)
 }
 
 type ClientWrapper struct {
@@ -86,7 +90,7 @@ func (m *ClientWrapper) Do(haskkey string, timeout time.Duration, run func(addr 
 	defer func() {
 		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
 	}()
-	err = m.breaker.Do(0, si.Servid, funcName, call, nil)
+	err = m.breaker.Do(0, si.Servid, funcName, call, THRIFT, nil)
 	return err
 }
 
@@ -300,7 +304,7 @@ func (m *ClientThrift) Rpc(haskkey string, timeout time.Duration, fnrpc func(int
 	defer func() {
 		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
 	}()
-	err = m.breaker.Do(0, si.Servid, funcName, call, nil)
+	err = m.breaker.Do(0, si.Servid, funcName, call, THRIFT, nil)
 	return err
 }
 
