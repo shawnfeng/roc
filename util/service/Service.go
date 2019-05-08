@@ -283,3 +283,7 @@ func Serve(etcds []string, baseLoc string, initfn func(ServBase) error, procs ma
 func Init(etcds []string, baseLoc string, servLoc, servKey string, initfn func(ServBase) error, procs map[string]Processor) error {
 	return service.Init(configEtcd{etcds, baseLoc}, servLoc, servKey, "", initfn, procs)
 }
+
+func Test(etcds []string, baseLoc string, initfn func(ServBase) error) error {
+	return service.Init(configEtcd{etcds, baseLoc}, "test/test", "test", "console", initfn, nil)
+}
