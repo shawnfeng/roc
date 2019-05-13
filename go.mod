@@ -22,6 +22,7 @@ require (
 	github.com/ugorji/go v0.0.0-20160531122944-b94837a2404a // indirect
 	// 这个库，老的依赖拷贝没有.git目录，不知道对应哪个版本，这个就用最新的吧
 	// 官方的库应该问题不大
-	golang.org/x/net v0.0.0-20181207154023-610586996380
+	golang.org/x/net v0.0.0-20190311183353-d8887717615a
+	google.golang.org/grpc v1.20.0
 
 )
