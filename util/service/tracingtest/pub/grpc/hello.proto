@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package tracingtest;
+
+service Hello {
+    rpc SayHello(SayHelloRequest) returns (SayHelloReply) {}
+}
+
+message SayHelloRequest {
+    string name = 1;
+}
+
+message SayHelloReply {
+    string message = 1;
+}

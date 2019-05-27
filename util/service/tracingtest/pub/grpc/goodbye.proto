@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package tracingtest;
+
+service Goodbye {
+    rpc SayGoodbye(SayGoodbyeRequest) returns (SayGoodbyeReply) {}
+}
+
+message SayGoodbyeRequest {
+    string name = 1;
+}
+
+message SayGoodbyeReply {
+    string message = 1;
+}

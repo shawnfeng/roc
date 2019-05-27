@@ -179,6 +179,9 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir string, ini
 	slog.Init(logdir, "serv.log", logConfig.Log.Level)
 	defer slog.Sync()
 
+	// init tracing
+	InitJaeger(servLoc)
+
 	// sla metric埋点 ==================
 	//init metric
 	//user defualt metric opts

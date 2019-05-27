@@ -1,0 +1,2 @@
+thrift -I /Users/hezheng/zhenghe/banyu/server/go/util/idl -gen go:package_prefix=code.ibanyu.com/server/go/util.git/idl/gen-go/ ./Hello.thrift
+thrift -I /Users/hezheng/zhenghe/banyu/server/go/util/idl -gen go:package_prefix=code.ibanyu.com/server/go/util.git/idl/gen-go/ ./Goodbye.thrift

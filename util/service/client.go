@@ -169,6 +169,10 @@ func NewClientThriftWithRouterType(cb ClientLookup, processor string, fn func(th
 	}
 	pool := NewClientPool(poollen, ct.newClient)
 	ct.pool = pool
+
+	// init trace
+	InitJaeger(processor)
+
 	return ct
 }
 
