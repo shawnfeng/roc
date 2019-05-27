@@ -10,7 +10,7 @@ import (
 	"net/http"
 )
 
-type HelloHttp struct {}
+type HelloHttp struct{}
 
 func (p *HelloHttp) Init() error {
 	fun := "HelloHttpService.Init-->"

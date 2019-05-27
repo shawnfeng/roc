@@ -10,9 +10,9 @@ import (
 
 func main() {
 	ps := map[string]rocserv.Processor{
-		"grpc_goodbye": &grpc.GoodbyeGrpc{},
+		"grpc_goodbye":   &grpc.GoodbyeGrpc{},
 		"thrift_goodbye": &thrift.GoodbyeThrift{},
-		"http_goodbye": &http.GoodbyeHttp{},
+		"http_goodbye":   &http.GoodbyeHttp{},
 	}
 
 	etcds := []string{"http://localhost:2379"}

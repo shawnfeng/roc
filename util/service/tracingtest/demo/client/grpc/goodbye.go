@@ -20,7 +20,7 @@ func main() {
 	ctx := context.Background()
 	//ctx = opentracing.ContextWithSpan(ctx, span)
 
-	time.Sleep(2*time.Second)
+	time.Sleep(2 * time.Second)
 	fmt.Println(grpcAdapter.SayGoodbye(ctx, &tracingtest.SayGoodbyeRequest{
 		Name: "zhenghe",
 	}))

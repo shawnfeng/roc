@@ -7,7 +7,7 @@ import (
 	"github.com/shawnfeng/roc/util/service/tracingtest/pub/grpc/goodbye"
 )
 
-type GoodbyeGrpcServiceImpl struct {}
+type GoodbyeGrpcServiceImpl struct{}
 
 func (h *GoodbyeGrpcServiceImpl) SayGoodbye(ctx context.Context, in *tracingtest.SayGoodbyeRequest) (*tracingtest.SayGoodbyeReply, error) {
 	fun := "GoodbyeGrpcServiceImpl.SayGoodbye-->"
@@ -18,7 +18,7 @@ func (h *GoodbyeGrpcServiceImpl) SayGoodbye(ctx context.Context, in *tracingtest
 	}, nil
 }
 
-type GoodbyeGrpc struct {}
+type GoodbyeGrpc struct{}
 
 func (h *GoodbyeGrpc) Init() error {
 	fun := "GoodbyeGrpc.Init-->"

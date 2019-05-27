@@ -20,7 +20,7 @@ func main() {
 	textCarrier := opentracing.TextMapCarrier(make(map[string]string))
 	tracer.Inject(span.Context(), opentracing.TextMap, textCarrier)
 
-	time.Sleep(5*time.Second)
+	time.Sleep(5 * time.Second)
 	ctx := context.Background()
 	ctx = opentracing.ContextWithSpan(ctx, span)
 	r := thrift.SayGoodbye("zhenghe", ctx)

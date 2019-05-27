@@ -55,4 +55,3 @@ func SayGoodbye(ctx context.Context, req *tracingtest.SayGoodbyeRequest) (r *tra
 	}
 	return
 }
-

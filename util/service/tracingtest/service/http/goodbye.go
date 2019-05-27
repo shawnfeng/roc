@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-type GoodbyeHttp struct {}
+type GoodbyeHttp struct{}
 
 func (p *GoodbyeHttp) Init() error {
 	fun := "GoodbyeHttpService.Init-->"

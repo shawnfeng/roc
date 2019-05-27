@@ -14,14 +14,14 @@ import (
 func InitJaeger(serviceName string) (opentracing.Tracer, io.Closer) {
 	fun := "InitJaeger-->"
 	cfg := config.Configuration{
-		ServiceName:         serviceName,
-		Sampler:             &config.SamplerConfig{
-			Type:                    "const",
-			Param:                   1,
+		ServiceName: serviceName,
+		Sampler: &config.SamplerConfig{
+			Type:  "const",
+			Param: 1,
 		},
-		Reporter:            &config.ReporterConfig{
-			LogSpans:            true,
-			CollectorEndpoint:   "http://10.111.209.188:20352/api/traces",
+		Reporter: &config.ReporterConfig{
+			LogSpans:          true,
+			CollectorEndpoint: "http://10.111.209.188:20352/api/traces",
 		},
 	}
 

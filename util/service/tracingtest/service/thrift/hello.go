@@ -36,7 +36,7 @@ func (h *HelloThriftServiceImpl) SayHello(name string, tctx *thriftutil.Context)
 	return h.impl.SayHello(name, ctx)
 }
 
-type HelloThrift struct {}
+type HelloThrift struct{}
 
 func (m *HelloThrift) Init() error {
 	fun := "HelloThrift.Init-->"
@@ -55,7 +55,3 @@ func (m *HelloThrift) Driver() (string, interface{}) {
 
 	return ":", processor
 }
-
-
-
-

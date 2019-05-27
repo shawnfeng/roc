@@ -9,7 +9,7 @@ import (
 	"github.com/shawnfeng/roc/util/service/tracingtest/pub/thrift/gen-go/goodbye"
 )
 
-type GoodbyeThriftServieImpl2 struct {}
+type GoodbyeThriftServieImpl2 struct{}
 
 func (h *GoodbyeThriftServieImpl2) SayGoodbye(name string, ctx context.Context) (r string, err error) {
 	fun := "Goodbyethriftserviceimpl.SayGoodbye-->"
@@ -34,7 +34,7 @@ func (h *GoodbyeThriftServiceImpl) SayGoodbye(name string, tctx *thriftutil.Cont
 	return h.impl.SayGoodbye(name, ctx)
 }
 
-type GoodbyeThrift struct {}
+type GoodbyeThrift struct{}
 
 func (m *GoodbyeThrift) Init() error {
 	fun := "GoodbyeThrift.Init-->"
