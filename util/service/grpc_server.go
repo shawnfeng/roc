@@ -2,6 +2,8 @@ package rocserv
 
 import (
 	"context"
+	"github.com/opentracing-contrib/go-grpc"
+	"github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
 )
 
@@ -38,8 +40,15 @@ func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
 		}
 		opts = append(opts, grpc.StreamInterceptor(streamInterceptor))
 	}
+
+	// tracing
+	tracer := opentracing.GlobalTracer()
+	opts = append(opts, grpc.UnaryInterceptor(
+		otgrpc.OpenTracingServerInterceptor(tracer)))
+	opts = append(opts, grpc.StreamInterceptor(
+		otgrpc.OpenTracingStreamServerInterceptor(tracer)))
+
 	// 实例化grpc Server
 	server := grpc.NewServer(opts...)
-
 	return &GrpcServer{Server: server}
 }

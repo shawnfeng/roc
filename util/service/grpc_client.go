@@ -2,6 +2,8 @@ package rocserv
 
 import (
 	"fmt"
+	"github.com/opentracing-contrib/go-grpc"
+	"github.com/opentracing/opentracing-go"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/stime"
 	"google.golang.org/grpc"
@@ -36,6 +38,7 @@ func NewClientGrpcWithRouterType(cb ClientLookup, processor string, poollen int,
 	}
 	pool := NewClientPool(poollen, clientGrpc.newClient)
 	clientGrpc.pool = pool
+
 	return clientGrpc
 }
 
@@ -116,7 +119,15 @@ func (m *ClientGrpc) newClient(addr string) rpcClient {
 	fun := "ClientGrpc.newClient -->"
 
 	// 可加入多种拦截器
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	tracer := opentracing.GlobalTracer()
+	opts := []grpc.DialOption{
+		grpc.WithInsecure(),
+		grpc.WithUnaryInterceptor(
+			otgrpc.OpenTracingClientInterceptor(tracer)),
+		grpc.WithStreamInterceptor(
+			otgrpc.OpenTracingStreamClientInterceptor(tracer)),
+	}
+	conn, err := grpc.Dial(addr, opts...)
 	if err != nil {
 		slog.Errorf("%s NetTSocket addr:%s err:%s", fun, addr, err)
 		return nil

@@ -6,6 +6,8 @@ package rocserv
 
 import (
 	"fmt"
+	"github.com/opentracing-contrib/go-stdlib/nethttp"
+	"github.com/opentracing/opentracing-go"
 	"net"
 	"net/http"
 
@@ -45,8 +47,16 @@ func powerHttp(addr string, router *httprouter.Router) (string, error) {
 
 	slog.Infof("%s listen addr[%s]", fun, laddr)
 
+	// tracing
+	mw := nethttp.Middleware(
+		opentracing.GlobalTracer(),
+		router,
+		nethttp.OperationNameFunc(func(r *http.Request) string {
+			return "HTTP " + r.Method + ": " + r.URL.Path
+		}))
+
 	go func() {
-		err := http.Serve(netListen, router)
+		err := http.Serve(netListen, mw)
 		if err != nil {
 			slog.Panicf("%s laddr[%s]", fun, laddr)
 		}
