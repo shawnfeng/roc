@@ -6,6 +6,7 @@ require (
 	github.com/coreos/etcd v3.0.0-beta.0.0.20160712024141-cc26f2c8892e+incompatible
 	// nn
 	github.com/gopherjs/gopherjs v0.0.0-20181103185306-d547d1d9531e // indirect
+	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0 // indirect
 	// nn
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
 	github.com/julienschmidt/httprouter v1.0.1-0.20150106073633-b55664b9e920
