@@ -73,7 +73,7 @@ func (m *ClientWrapper) Do(haskkey string, timeout time.Duration, run func(addr 
 		}
 	}(si.Addr, timeout)
 
-	funcName := GetFunName(1)
+	funcName := GetFunName(3)
 	var err error
 	st := stime.NewTimeStat()
 	defer func() {
@@ -226,7 +226,7 @@ func (m *ClientThrift) Rpc(haskkey string, timeout time.Duration, fnrpc func(int
 		}
 	}(si, rc, timeout, fnrpc)
 
-	funcName := GetFunName(2)
+	funcName := GetFunName(3)
 	var err error
 	st := stime.NewTimeStat()
 	defer func() {
