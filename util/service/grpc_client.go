@@ -62,7 +62,7 @@ func (m *ClientGrpc) Rpc(haskkey string, fnrpc func(interface{}) error) error {
 		}
 	}(si, rc, fnrpc)
 
-	funcName := GetFunName(2)
+	funcName := GetFunName(3)
 
 	var err error
 	st := stime.NewTimeStat()
