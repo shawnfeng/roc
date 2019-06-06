@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/shawnfeng/roc/util/service/sla"
+	"github.com/shawnfeng/sutil/trace"
 	"reflect"
 
 	"github.com/julienschmidt/httprouter"
@@ -178,6 +179,12 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir string, ini
 
 	slog.Init(logdir, "serv.log", logConfig.Log.Level)
 	defer slog.Sync()
+
+	// init tracer
+	err = trace.InitDefaultTracer(servLoc)
+	if err != nil {
+		slog.Warnf("%s init tracer fail:%v", err)
+	}
 
 	// sla metric埋点 ==================
 	//init metric

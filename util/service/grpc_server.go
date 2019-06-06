@@ -2,6 +2,9 @@ package rocserv
 
 import (
 	"context"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/opentracing-contrib/go-grpc"
+	"github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
 )
 
@@ -12,7 +15,15 @@ type GrpcServer struct {
 type FunInterceptor func(ctx context.Context, req interface{}, fun string) error
 
 func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
-	var opts []grpc.ServerOption
+
+	var unaryInterceptors []grpc.UnaryServerInterceptor
+	var streamInterceptors []grpc.StreamServerInterceptor
+
+	// add tracer interceptor
+	tracer := opentracing.GlobalTracer()
+	unaryInterceptors = append(unaryInterceptors, otgrpc.OpenTracingServerInterceptor(tracer))
+	streamInterceptors = append(streamInterceptors, otgrpc.OpenTracingStreamServerInterceptor(tracer))
+
 	for _, fn := range fns {
 		// 注册interceptor
 		var interceptor grpc.UnaryServerInterceptor
@@ -24,7 +35,7 @@ func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
 			// 继续处理请求
 			return handler(ctx, req)
 		}
-		opts = append(opts, grpc.UnaryInterceptor(interceptor))
+		unaryInterceptors = append(unaryInterceptors, interceptor)
 
 		var streamInterceptor grpc.StreamServerInterceptor
 		streamInterceptor = func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
@@ -36,10 +47,14 @@ func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
 			// 继续处理请求
 			return handler(srv, ss)
 		}
-		opts = append(opts, grpc.StreamInterceptor(streamInterceptor))
+		streamInterceptors = append(streamInterceptors, streamInterceptor)
 	}
+
+	var opts []grpc.ServerOption
+	opts = append(opts, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaryInterceptors...)))
+	opts = append(opts, grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)))
+
 	// 实例化grpc Server
 	server := grpc.NewServer(opts...)
-
 	return &GrpcServer{Server: server}
 }
