@@ -1,6 +1,7 @@
 package rocserv
 
 import (
+	"errors"
 	"fmt"
 	"github.com/opentracing-contrib/go-grpc"
 	"github.com/opentracing/opentracing-go"
@@ -28,6 +29,11 @@ type ClientGrpc struct {
 	fnFactory    func(client *grpc.ClientConn) interface{}
 }
 
+type Provider struct {
+	Ip   string
+	Port uint16
+}
+
 func NewClientGrpcWithRouterType(cb ClientLookup, processor string, poollen int, fn func(client *grpc.ClientConn) interface{}, routerType int) *ClientGrpc {
 	clientGrpc := &ClientGrpc{
 		clientLookup: cb,
@@ -48,6 +54,62 @@ func NewClientGrpcByConcurrentRouter(cb ClientLookup, processor string, poollen 
 
 func NewClientGrpc(cb ClientLookup, processor string, poollen int, fn func(client *grpc.ClientConn) interface{}) *ClientGrpc {
 	return NewClientGrpcWithRouterType(cb, processor, poollen, fn, 0)
+}
+
+func (m *ClientGrpc) CustomizedRouteRpc(getProvider func() *Provider, fnrpc func(interface{}) error) error {
+	if getProvider == nil {
+		return errors.New("fun getProvider is nil")
+	}
+	provider := getProvider()
+	return m.DirectRouteRpc(provider, fnrpc)
+}
+
+func (m *ClientGrpc) DirectRouteRpc(provider *Provider, fnrpc func(interface{}) error) error {
+	if provider == nil {
+		return errors.New("get Provider is nil")
+	}
+	si, rc, e := m.getClient(provider)
+	if e != nil {
+		return e
+	}
+	if rc == nil {
+		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
+	}
+	m.router.Pre(si)
+	defer m.router.Post(si)
+
+	call := func(si *ServInfo, rc rpcClient, fnrpc func(interface{}) error) func() error {
+		return func() error {
+			return m.rpc(si, rc, fnrpc)
+		}
+	}(si, rc, fnrpc)
+	funcName := GetFunName(3)
+	var err error
+	st := stime.NewTimeStat()
+	defer func() {
+		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
+	}()
+	err = m.breaker.Do(0, si.Servid, funcName, call, GRPC, nil)
+	return err
+}
+
+func (m *ClientGrpc) getClient(provider *Provider) (*ServInfo, rpcClient, error) {
+	servInfos := m.clientLookup.GetAllServAddr(m.processor)
+	if len(servInfos) < 1 {
+		return nil, nil, errors.New(m.processor + " server provider is emtpy ")
+	}
+	var serv *ServInfo
+	addr := fmt.Sprintf("%s:%d", provider.Ip, provider.Port)
+	for _, item := range servInfos {
+		if item.Addr == addr {
+			serv = item
+			break
+		}
+	}
+	if serv == nil {
+		return nil, nil, errors.New(m.processor + " server provider is emtpy ")
+	}
+	return serv, m.pool.GrtClient(serv.Addr), nil
 }
 
 func (m *ClientGrpc) Rpc(haskkey string, fnrpc func(interface{}) error) error {
