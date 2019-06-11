@@ -51,7 +51,7 @@ func (m *ServBaseV2) resetExistLock(path string) error {
 	if err != nil {
 		slog.Infof("%s exist check path:%s resp:%v err:%v", fun, path, r, err)
 	} else {
-		// 正常只有重启服务从新获取锁才会到这里
+		// 正常只有重启服务重新获取锁才会到这里
 		slog.Warnf("%s exist check path:%s resp:%v", fun, path, r)
 	}
 
