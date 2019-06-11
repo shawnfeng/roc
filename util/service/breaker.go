@@ -260,8 +260,15 @@ func (m *Breaker) doStat(key string, total, fail int64) {
 	}
 }
 
-func (m *Breaker) generateKey(source int32, servid int, funcName string) string {
-	return fmt.Sprintf("%d.%s.%d.%s", source, m.servName, servid, funcName)
+func (m *Breaker) generateKey(source int32, servid int, funcName string, protocol ServProtocol) string {
+	switch protocol {
+	case HTTP:
+		return fmt.Sprintf("%d.%s.%d.%s.http", source, m.servName, servid, funcName)
+	case GRPC:
+		return fmt.Sprintf("%d.%s.%d.%s.grpc", source, m.servName, servid, funcName)
+	default:
+		return fmt.Sprintf("%d.%s.%d.%s.thrift", source, m.servName, servid, funcName)
+	}
 }
 
 func (m *Breaker) getUseFuncConf(key string) (*ItemConf, bool) {
@@ -279,10 +286,9 @@ func (m *Breaker) setUseFuncConf(key string, conf *ItemConf) {
 	m.useFuncConf[key] = conf
 }
 
-func (m *Breaker) checkOrUpdateConf(source int32, servid int, funcName string) (needBreaker bool) {
+// 定时检查更新，用一个标志位
+func (m *Breaker) checkOrUpdateConf(source int32, servid int, funcName string, key string) (needBreaker bool) {
 	//fun := "Breaker.checkOrUpdateConf -->"
-
-	key := m.generateKey(source, servid, funcName)
 
 	newConf := m.conf.getFuncConf(source, funcName)
 	//slog.Infof("%s servid:%d funcName:%s key:%s, newConf:%v", fun, servid, funcName, key, *newConf)
@@ -308,15 +314,12 @@ func (m *Breaker) checkOrUpdateConf(source int32, servid int, funcName string) (
 	return true
 }
 
-func (m *Breaker) Do(source int32, servid int, funcName string, run func() error, fallback func(error) error) error {
+func (m *Breaker) Do(source int32, servid int, funcName string, run func() error, protocol ServProtocol, fallback func(error) error) error {
 	fun := "Breaker.Do -->"
-
-	if m.checkOrUpdateConf(source, servid, funcName) == false {
+	key := m.generateKey(source, servid, funcName, protocol)
+	if m.checkOrUpdateConf(source, servid, funcName, key) == false {
 		return run()
 	}
-
-	st := stime.NewTimeStat()
-	key := m.generateKey(source, servid, funcName)
 
 	fail := int64(0)
 	err := hystrix.Do(key, run, fallback)
@@ -325,10 +328,11 @@ func (m *Breaker) Do(source int32, servid int, funcName string, run func() error
 		fail = 1
 	}
 
+	slog.Debugf("Breaker key:%s fail:%d", key, fail)
 	m.doStat(key, 1, fail)
 
-	dur := st.Duration()
-	slog.Infof("%s key:%s dur:%d", fun, key, dur)
+	//dur := st.Duration()
+	//slog.Infof("%s key:%s dur:%d", fun, key, dur)
 
 	return err
 }

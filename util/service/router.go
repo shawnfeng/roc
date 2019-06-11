@@ -78,13 +78,19 @@ func (m *Concurrent) Route(processor, key string) *ServInfo {
 	min := int64(0)
 	var s *ServInfo
 	for _, serv := range list {
+
 		count := m.counter[serv.Addr]
+		//slog.Infof("%s processor:%s, addr:%s, count: %d", fun, processor, serv.Addr, count)
+		if count == 0 {
+			min = count
+			s = serv
+			break
+		}
+
 		if min == 0 || min > count {
 			min = count
 			s = serv
 		}
-
-		slog.Infof("%s processor:%s, addr:%s, count: %d", fun, processor, serv.Addr, count)
 	}
 	if s != nil {
 		slog.Infof("%s processor:%s, addr:%s", fun, processor, s.Addr)

@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/shawnfeng/roc/util/service/sla"
+	"github.com/shawnfeng/sutil/trace"
 	"reflect"
 
 	"github.com/julienschmidt/httprouter"
@@ -20,6 +21,7 @@ import (
 const (
 	PROCESSOR_HTTP   = "http"
 	PROCESSOR_THRIFT = "thrift"
+	PROCESSOR_GRPC   = "gprc"
 )
 
 type Service struct {
@@ -98,7 +100,17 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) (map[strin
 				Type: PROCESSOR_THRIFT,
 				Addr: sa,
 			}
+		case *GrpcServer:
+			sa, err := powerGrpc(addr, d)
+			if err != nil {
+				return nil, err
+			}
 
+			slog.Infof("%s load ok processor:%s serv addr:%s", fun, n, sa)
+			infos[n] = &ServInfo{
+				Type: PROCESSOR_GRPC,
+				Addr: sa,
+			}
 		default:
 			return nil, fmt.Errorf("processor:%s driver not recognition", n)
 
@@ -167,6 +179,12 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir string, ini
 
 	slog.Init(logdir, "serv.log", logConfig.Log.Level)
 	defer slog.Sync()
+
+	// init tracer
+	err = trace.InitDefaultTracer(servLoc)
+	if err != nil {
+		slog.Warnf("%s init tracer fail:%v", err)
+	}
 
 	// sla metric埋点 ==================
 	//init metric
@@ -282,4 +300,8 @@ func Serve(etcds []string, baseLoc string, initfn func(ServBase) error, procs ma
 
 func Init(etcds []string, baseLoc string, servLoc, servKey string, initfn func(ServBase) error, procs map[string]Processor) error {
 	return service.Init(configEtcd{etcds, baseLoc}, servLoc, servKey, "", initfn, procs)
+}
+
+func Test(etcds []string, baseLoc string, initfn func(ServBase) error) error {
+	return service.Init(configEtcd{etcds, baseLoc}, "test/test", "test", "console", initfn, nil)
 }
