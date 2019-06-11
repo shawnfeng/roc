@@ -17,14 +17,17 @@ require (
 	github.com/shawnfeng/consistent v1.0.3
 	github.com/shawnfeng/dbrouter v1.0.2
 	github.com/shawnfeng/hystrix-go v0.0.0-20190320120533-5e2bc39f173a
-	github.com/shawnfeng/sutil v1.0.6-0.20190529031048-434949744a83
+	github.com/shawnfeng/sutil v1.0.6-0.20190611112943-5516e251417e
+
 	// nn
 	github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d // indirect
 	// nn
 	github.com/smartystreets/goconvey v0.0.0-20181108003508-044398e4856c // indirect
 	// 这个库，老的依赖拷贝没有.git目录，不知道对应哪个版本，这个就用最新的吧
 	// 官方的库应该问题不大
+  
 	golang.org/x/net v0.0.0-20190522155817-f3200d17e092
 	google.golang.org/grpc v1.20.0
+
 
 )

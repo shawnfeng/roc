@@ -23,10 +23,9 @@ import (
 	"github.com/sdming/gosnow"
 
 	"github.com/shawnfeng/sutil"
+	"github.com/shawnfeng/sutil/dbrouter"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/slowid"
-
-	"github.com/shawnfeng/dbrouter"
 
 	"golang.org/x/net/context"
 )
