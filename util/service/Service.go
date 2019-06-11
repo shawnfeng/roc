@@ -186,30 +186,6 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir string, ini
 		slog.Warnf("%s init tracer fail:%v", err)
 	}
 
-	// sla metric埋点 ==================
-	//init metric
-	//user defualt metric opts
-	metrics := rocserv.NewMetricsprocessor()
-	if err != nil {
-		slog.Warnf("init metrics fail:%v", err)
-	}
-	err = metrics.Init()
-	if err != nil {
-		slog.Warnf("%s init metrics err:%s", fun, err)
-	}
-
-	minfos, err := m.loadDriver(sb, map[string]Processor{"_PROC_METRICS": metrics})
-	if err == nil {
-		err = sb.RegisterMetrics(minfos)
-		if err != nil {
-			slog.Warnf("%s regist backdoor err:%s", fun, err)
-		}
-
-	} else {
-		slog.Warnf("%s load metrics driver err:%s", fun, err)
-	}
-	//==============================
-
 	// init callback
 	err = initfn(sb)
 	if err != nil {
@@ -270,6 +246,30 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir string, ini
 
 	} else {
 		slog.Warnf("%s load backdoor driver err:%s", fun, err)
+	}
+	//==============================
+
+	// sla metric埋点 ==================
+	//init metric
+	//user defualt metric opts
+	metrics := rocserv.NewMetricsprocessor()
+	if err != nil {
+		slog.Warnf("init metrics fail:%v", err)
+	}
+	err = metrics.Init()
+	if err != nil {
+		slog.Warnf("%s init metrics err:%s", fun, err)
+	}
+
+	minfos, err := m.loadDriver(sb, map[string]Processor{"_PROC_METRICS": metrics})
+	if err == nil {
+		err = sb.RegisterMetrics(minfos)
+		if err != nil {
+			slog.Warnf("%s regist backdoor err:%s", fun, err)
+		}
+
+	} else {
+		slog.Warnf("%s load metrics driver err:%s", fun, err)
 	}
 	//==============================
 
