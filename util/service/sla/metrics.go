@@ -54,6 +54,7 @@ type Metrics struct {
 	summaries   map[string]prometheus.Summary
 	defBuckets  []float64
 	defQuantile map[float64]float64
+	registry    *prometheus.Registry
 }
 
 // NewMetrics creates a new Metrics using the default options.
@@ -70,8 +71,17 @@ func newMetricsFrom(opts *MetricsOpts) *Metrics {
 		summaries:   make(map[string]prometheus.Summary, 512),
 		defBuckets:  opts.DefBuckets,
 		defQuantile: opts.DefQuantile,
+		registry:    prometheus.NewRegistry(),
 	}
 	return metrics
+}
+
+// register collector
+func (p *Metrics) regist(c prometheus.Collector) {
+	err := p.registry.Register(c)
+	if err != nil {
+		slog.Warnf("sla register collector error: collector:%v,err:%v", c, err)
+	}
 }
 
 //no use only for register
@@ -145,6 +155,7 @@ func (p *Metrics) CreateCounter(namekeys []string, labels []Label) prometheus.Co
 			Help:        key,
 			ConstLabels: prometheusLabels(labels),
 		})
+		p.regist(m)
 		p.counters[hash] = m
 	})
 	return m
@@ -162,6 +173,7 @@ func (p *Metrics) CreateGauge(namekeys []string, labels []Label) prometheus.Gaug
 			Help:        key,
 			ConstLabels: prometheusLabels(labels),
 		})
+		p.regist(m)
 		p.gauges[hash] = m
 	})
 	return m
@@ -183,6 +195,7 @@ func (p *Metrics) CreateHistogram(namekeys []string, labels []Label, buckets []f
 			ConstLabels: prometheusLabels(labels),
 			Buckets:     buckets,
 		})
+		p.regist(m)
 		p.historams[hash] = m
 	})
 	return m
@@ -205,6 +218,7 @@ func (p *Metrics) CreateSummary(namekeys []string, labels []Label, quantile map[
 			ConstLabels: prometheusLabels(labels),
 			Objectives:  quantile,
 		})
+		p.regist(m)
 		p.summaries[hash] = m
 	})
 	return m
@@ -295,10 +309,7 @@ func (p *Metrics) rlockGetSummary(hash string) (prometheus.Summary, bool) {
 	return g, ok
 }
 func (p *Metrics) Exportor() http.Handler {
-	registry := prometheus.NewRegistry()
-	registry.MustRegister(p)
-
-	handlerFor := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
+	handlerFor := promhttp.HandlerFor(p.registry, promhttp.HandlerOpts{})
 	return handlerFor
 }
 
