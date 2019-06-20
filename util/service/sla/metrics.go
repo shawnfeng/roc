@@ -320,7 +320,8 @@ type promErrorLog struct {
 }
 
 func (m *promErrorLog) Println(v ...interface{}) {
-	slog.Warnln("promethues collect fail", v...)
+	v = append(v, "promethues collect fail!!!")
+	slog.Warnln(v...)
 }
 
 func NewPromErrorLog() *promErrorLog {
