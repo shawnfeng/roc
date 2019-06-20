@@ -309,8 +309,22 @@ func (p *Metrics) rlockGetSummary(hash string) (prometheus.Summary, bool) {
 	return g, ok
 }
 func (p *Metrics) Exportor() http.Handler {
-	handlerFor := promhttp.HandlerFor(p.registry, promhttp.HandlerOpts{})
+	handlerFor := promhttp.HandlerFor(p.registry, promhttp.HandlerOpts{
+		ErrorLog:      NewPromErrorLog(),
+		ErrorHandling: promhttp.ContinueOnError,
+	})
 	return handlerFor
+}
+
+type promErrorLog struct {
+}
+
+func (m *promErrorLog) Println(v ...interface{}) {
+	slog.Warnln("promethues collect fail", v...)
+}
+
+func NewPromErrorLog() *promErrorLog {
+	return &promErrorLog{}
 }
 
 func (p *Metrics) rlockCollectCounter(c chan<- prometheus.Metric) {
