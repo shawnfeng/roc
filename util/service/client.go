@@ -19,6 +19,7 @@ import (
 type ClientLookup interface {
 	GetServAddr(processor, key string) *ServInfo
 	GetServAddrWithServid(servid int, processor, key string) *ServInfo
+	GetServAddrWithGroup(group string, processor, key string) *ServInfo
 	GetAllServAddr(processor string) []*ServInfo
 	ServKey() string
 	ServPath() string
