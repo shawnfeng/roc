@@ -382,6 +382,10 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 			}
 		}
 
+		if len(manual.Ctrl.Groups) == 0 {
+			manual.Ctrl.Groups = append(manual.Ctrl.Groups, "")
+		}
+
 		servCopy[i] = &servCopyData{
 			servId: i,
 			reg:    &regd,
@@ -472,9 +476,6 @@ func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 			weight = c.manual.Ctrl.Weight
 			groups = c.manual.Ctrl.Groups
 			disable = c.manual.Ctrl.Disable
-		}
-		if len(groups) == 0 {
-			groups = append(groups, "")
 		}
 
 		if weight == 0 {
@@ -594,6 +595,39 @@ func (m *ClientEtcdV2) GetAllServAddr(processor string) []*ServInfo {
 			if c.manual != nil && c.manual.Ctrl != nil && c.manual.Ctrl.Disable {
 				continue
 			}
+			if p := c.reg.Servs[processor]; p != nil {
+				servs = append(servs, p)
+			}
+		}
+	}
+
+	return servs
+}
+
+func (m *ClientEtcdV2) GetAllServAddrWithGroup(group, processor string) []*ServInfo {
+	m.muServlist.Lock()
+	defer m.muServlist.Unlock()
+
+	servs := make([]*ServInfo, 0)
+	for _, c := range m.servCopy {
+		if c.reg != nil {
+			if c.manual != nil && c.manual.Ctrl != nil && c.manual.Ctrl.Disable {
+				continue
+			}
+
+			isFind := false
+			groups := c.manual.Ctrl.Groups
+			for _, g := range groups {
+				if g == group {
+					isFind = true
+					break
+				}
+			}
+
+			if isFind == false {
+				continue
+			}
+
 			if p := c.reg.Servs[processor]; p != nil {
 				servs = append(servs, p)
 			}

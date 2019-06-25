@@ -24,7 +24,7 @@ func NewRouter(routerType int, cb ClientLookup) Router {
 }
 
 type Router interface {
-	Route(processor, key string) *ServInfo
+	Route(group, processor, key string) *ServInfo
 	Pre(s *ServInfo) error
 	Post(s *ServInfo) error
 }
@@ -39,8 +39,8 @@ type Hash struct {
 	cb ClientLookup
 }
 
-func (m *Hash) Route(processor, key string) *ServInfo {
-	return m.cb.GetServAddr(processor, key)
+func (m *Hash) Route(group, processor, key string) *ServInfo {
+	return m.cb.GetServAddrWithGroup(group, processor, key)
 }
 
 func (m *Hash) Pre(s *ServInfo) error {
@@ -64,10 +64,21 @@ type Concurrent struct {
 	counter map[string]int64
 }
 
-func (m *Concurrent) Route(processor, key string) *ServInfo {
+func (m *Concurrent) Route(group, processor, key string) *ServInfo {
 	fun := "Route -->"
+	s := m.route(group, processor, key)
+	if s != nil {
+		return s
+	}
 
-	list := m.cb.GetAllServAddr(processor)
+	slog.Infof("%s group:%s, processor:%s, key:%s", fun, group, processor, key)
+	return m.route("", processor, key)
+}
+
+func (m *Concurrent) route(group, processor, key string) *ServInfo {
+	fun := "route -->"
+
+	list := m.cb.GetAllServAddrWithGroup(group, processor)
 	if list == nil {
 		return nil
 	}
