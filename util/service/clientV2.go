@@ -75,7 +75,7 @@ type ClientEtcdV2 struct {
 
 	muServlist sync.Mutex
 	servCopy   servCopyCollect
-	servHash   *consistent.Consistent
+	servHash   map[string]*consistent.Consistent
 
 	breakerGlobalPath string
 	breakerServPath   string
@@ -382,6 +382,10 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 			}
 		}
 
+		if len(manual.Ctrl.Groups) == 0 {
+			manual.Ctrl.Groups = append(manual.Ctrl.Groups, "")
+		}
+
 		servCopy[i] = &servCopyData{
 			servId: i,
 			reg:    &regd,
@@ -448,7 +452,7 @@ func (m *ClientEtcdV2) parseResponseV1(r *etcd.Response) {
 func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 	fun := "ClientEtcdV2.upServlist -->"
 
-	var slist []string
+	slist := make(map[string][]string)
 	for sid, c := range scopy {
 		if c == nil {
 			slog.Infof("%s not found copy path:%s sid:%d", fun, m.servPath, sid)
@@ -465,12 +469,15 @@ func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 			continue
 		}
 
+		var groups []string
 		var weight int
 		var disable bool
 		if c.manual != nil && c.manual.Ctrl != nil {
 			weight = c.manual.Ctrl.Weight
+			groups = c.manual.Ctrl.Groups
 			disable = c.manual.Ctrl.Disable
 		}
+
 		if weight == 0 {
 			weight = 100
 		}
@@ -480,12 +487,26 @@ func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 			continue
 		}
 
-		for i := 0; i < weight; i++ {
-			slist = append(slist, fmt.Sprintf("%d-%d", sid, i))
+		var tmpList []string
+		for _, g := range groups {
+			if _, ok := slist[g]; ok {
+				tmpList = slist[g]
+			}
+			for i := 0; i < weight; i++ {
+				tmpList = append(tmpList, fmt.Sprintf("%d-%d", sid, i))
+			}
+
+			slist[g] = tmpList
 		}
 	}
 
-	shash := consistent.NewWithElts(slist)
+	shash := make(map[string]*consistent.Consistent)
+	for group, list := range slist {
+		hash := consistent.NewWithElts(list)
+		if hash != nil {
+			shash[group] = hash
+		}
+	}
 	slog.Infof("%s path:%s serv:%d", fun, m.servPath, len(slist))
 
 	m.muServlist.Lock()
@@ -498,16 +519,31 @@ func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 }
 
 func (m *ClientEtcdV2) GetServAddr(processor, key string) *ServInfo {
-	fun := "ClientEtcdV2.GetServAddr -->"
+	//fun := "ClientEtcdV2.GetServAddr -->"
+	return m.GetServAddrWithGroup("", processor, key)
+}
+
+func (m *ClientEtcdV2) GetServAddrWithGroup(group string, processor, key string) *ServInfo {
+	fun := "ClientEtcdV2.GetServAddrWithGroup-->"
 	m.muServlist.Lock()
 	defer m.muServlist.Unlock()
 
 	if m.servHash == nil {
-		slog.Errorf("%s empty serv path:%s hash circle processor:%s key:%s", fun, m.servPath, processor, key)
+		slog.Errorf("%s m.servHash == nil, serv path:%s hash circle processor:%s key:%s", fun, m.servPath, processor, key)
 		return nil
 	}
 
-	s, err := m.servHash.Get(key)
+	if m.servHash[""] == nil {
+		slog.Errorf("%s m.servHash[\"\"] == nil, serv path:%s hash circle processor:%s key:%s", fun, m.servPath, processor, key)
+		return nil
+	}
+
+	shash, _ := m.servHash[group]
+	if shash == nil {
+		shash = m.servHash[""]
+	}
+
+	s, err := shash.Get(key)
 	if err != nil {
 		slog.Errorf("%s get serv path:%s processor:%s key:%s err:%s", fun, m.servPath, processor, key, err)
 		return nil
@@ -524,13 +560,7 @@ func (m *ClientEtcdV2) GetServAddr(processor, key string) *ServInfo {
 		slog.Fatalf("%s servid path:%s processor:%s key:%s sid:%s id:%d err:%s", fun, m.servPath, processor, key, s, sid, err)
 		return nil
 	}
-
-	info := m.getServAddrWithServid(sid, processor, key)
-	if info != nil {
-		info.Servid = sid
-	}
-
-	return info
+	return m.getServAddrWithServid(sid, processor, key)
 }
 
 func (m *ClientEtcdV2) getServAddrWithServid(servid int, processor, key string) *ServInfo {
@@ -565,6 +595,39 @@ func (m *ClientEtcdV2) GetAllServAddr(processor string) []*ServInfo {
 			if c.manual != nil && c.manual.Ctrl != nil && c.manual.Ctrl.Disable {
 				continue
 			}
+			if p := c.reg.Servs[processor]; p != nil {
+				servs = append(servs, p)
+			}
+		}
+	}
+
+	return servs
+}
+
+func (m *ClientEtcdV2) GetAllServAddrWithGroup(group, processor string) []*ServInfo {
+	m.muServlist.Lock()
+	defer m.muServlist.Unlock()
+
+	servs := make([]*ServInfo, 0)
+	for _, c := range m.servCopy {
+		if c.reg != nil {
+			if c.manual != nil && c.manual.Ctrl != nil && c.manual.Ctrl.Disable {
+				continue
+			}
+
+			isFind := false
+			groups := c.manual.Ctrl.Groups
+			for _, g := range groups {
+				if g == group {
+					isFind = true
+					break
+				}
+			}
+
+			if isFind == false {
+				continue
+			}
+
 			if p := c.reg.Servs[processor]; p != nil {
 				servs = append(servs, p)
 			}

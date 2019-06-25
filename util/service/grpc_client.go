@@ -152,7 +152,7 @@ func (m *ClientGrpc) rpc(si *ServInfo, rc rpcClient, fnrpc func(interface{}) err
 }
 
 func (m *ClientGrpc) route(key string) (*ServInfo, rpcClient) {
-	s := m.router.Route(m.processor, key)
+	s := m.router.Route("", m.processor, key)
 	if s == nil {
 		return nil, nil
 	}

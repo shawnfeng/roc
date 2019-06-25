@@ -19,7 +19,9 @@ import (
 type ClientLookup interface {
 	GetServAddr(processor, key string) *ServInfo
 	GetServAddrWithServid(servid int, processor, key string) *ServInfo
+	GetServAddrWithGroup(group string, processor, key string) *ServInfo
 	GetAllServAddr(processor string) []*ServInfo
+	GetAllServAddrWithGroup(group, processor string) []*ServInfo
 	ServKey() string
 	ServPath() string
 	GetBreakerServConf() string
@@ -60,7 +62,7 @@ func NewClientWrapperWithRouterType(cb ClientLookup, processor string, routerTyp
 
 func (m *ClientWrapper) Do(haskkey string, timeout time.Duration, run func(addr string, timeout time.Duration) error) error {
 	fun := "ClientWrapper.Do -->"
-	si := m.router.Route(m.processor, haskkey)
+	si := m.router.Route("", m.processor, haskkey)
 	if si == nil {
 		return fmt.Errorf("%s not find service:%s processor:%s", fun, m.clientLookup.ServPath(), m.processor)
 	}
@@ -201,7 +203,7 @@ func (m *ClientThrift) newClient(addr string) rpcClient {
 }
 
 func (m *ClientThrift) route(key string) (*ServInfo, rpcClient) {
-	s := m.router.Route(m.processor, key)
+	s := m.router.Route("", m.processor, key)
 	if s == nil {
 		return nil, nil
 	}
