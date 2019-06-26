@@ -7,11 +7,10 @@ package rocserv
 import (
 	"fmt"
 	"git.apache.org/thrift.git/lib/go/thrift"
-	"github.com/shawnfeng/roc/util/service/sla"
 	"github.com/shawnfeng/sutil/slog"
+	"github.com/shawnfeng/sutil/smetric"
 	"github.com/shawnfeng/sutil/stime"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -83,38 +82,13 @@ func (m *ClientWrapper) Do(haskkey string, timeout time.Duration, run func(addr 
 	return err
 }
 
-var metricReqNameKeys = []string{rocserv.Name_space_palfish, rocserv.Name_server_req_total}
-var metricDurationNameKeys = []string{rocserv.Name_space_palfish, rocserv.Name_server_duration_second}
-
 func collector(servkey string, processor string, duration time.Duration, source int, servid int, funcName string, err interface{}) {
-	durlabels := buildSerLabels(servkey, processor, source, servid, funcName)
-	rocserv.DefaultMetrics.AddHistoramSampleCreateIfAbsent(metricDurationNameKeys, duration.Seconds(), durlabels, nil)
-	var counterLabels []rocserv.Label
-	if err == nil {
-		counterLabels = buildSerReqLabels(servkey, processor, source, servid, funcName, rocserv.Status_succ)
-	} else {
-		counterLabels = buildSerReqLabels(servkey, processor, source, servid, funcName, rocserv.Status_fail)
+	servBase := GetServBase()
+	instance := ""
+	if servBase != nil {
+		instance = servBase.Copyname()
 	}
-	rocserv.DefaultMetrics.IncrCounterCreateIfAbsent(metricReqNameKeys, 1.0, counterLabels)
-}
-func buildSerLabels(servkey string, processor string, source int, servid int, funcName string) []rocserv.Label {
-	serverName := rocserv.SafePromethuesValue(servkey)
-	sid := strconv.Itoa(servid)
-	return []rocserv.Label{
-		{Name: rocserv.Label_instance, Value: serverName + "_" + sid},
-		{Name: rocserv.Label_servname, Value: serverName},
-		{Name: rocserv.Label_servid, Value: sid},
-		{Name: rocserv.Label_api, Value: funcName},
-		{Name: rocserv.Label_source, Value: strconv.Itoa(source)},
-		{Name: rocserv.Label_type, Value: processor},
-	}
-}
-func buildSerReqLabels(servkey string, processor string, source int, servid int, funcName string, status int) []rocserv.Label {
-	labels := buildSerLabels(servkey, processor, source, servid, funcName)
-	labels = append(labels, rocserv.Label{
-		Name: rocserv.Label_status, Value: strconv.Itoa(status),
-	})
-	return labels
+	smetric.CollectServ(instance, servkey, servid, processor, duration, source, funcName, err)
 }
 
 type ClientThrift struct {
