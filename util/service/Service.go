@@ -7,7 +7,7 @@ package rocserv
 import (
 	"flag"
 	"fmt"
-	"github.com/shawnfeng/roc/util/service/sla"
+	"github.com/shawnfeng/sutil/smetric"
 	"github.com/shawnfeng/sutil/trace"
 	"reflect"
 
@@ -25,6 +25,7 @@ const (
 )
 
 type Service struct {
+	sbase ServBase
 }
 
 var service Service
@@ -143,6 +144,7 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir string, ini
 		slog.Panicf("%s init servbase loc:%s key:%s err:%s", fun, servLoc, sessKey, err)
 		return err
 	}
+	m.sbase = sb
 
 	// Init slog
 	var logConfig struct {
@@ -252,7 +254,7 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir string, ini
 	// sla metric埋点 ==================
 	//init metric
 	//user defualt metric opts
-	metrics := rocserv.NewMetricsprocessor()
+	metrics := smetric.NewMetricsprocessor()
 	if err != nil {
 		slog.Warnf("init metrics fail:%v", err)
 	}
@@ -280,19 +282,6 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir string, ini
 	return nil
 
 }
-func (m *Service) getMetricOps(sb *ServBaseV2) *rocserv.MetricsOpts {
-	fun := "Service.getMetricOps -->"
-	var metricConfig struct {
-		metric *rocserv.MetricsOpts
-	}
-	err := sb.ServConfig(&metricConfig)
-	if err != nil {
-		slog.Panicf("%s serv config err:%s", fun, err)
-		fmt.Sprintf("%s serv config err:%s", fun, err)
-		return nil
-	}
-	return metricConfig.metric
-}
 
 func Serve(etcds []string, baseLoc string, initfn func(ServBase) error, procs map[string]Processor) error {
 	return service.Serve(configEtcd{etcds, baseLoc}, initfn, procs)
@@ -300,6 +289,23 @@ func Serve(etcds []string, baseLoc string, initfn func(ServBase) error, procs ma
 
 func Init(etcds []string, baseLoc string, servLoc, servKey string, initfn func(ServBase) error, procs map[string]Processor) error {
 	return service.Init(configEtcd{etcds, baseLoc}, servLoc, servKey, "", initfn, procs)
+}
+
+func GetServBase() ServBase {
+	return service.sbase
+}
+
+func GetServName() (servName string) {
+	if service.sbase != nil {
+		servName = service.sbase.Servname()
+	}
+	return
+}
+func GetServId() (servId int) {
+	if service.sbase != nil {
+		servId = service.sbase.Servid()
+	}
+	return
 }
 
 func Test(etcds []string, baseLoc string, initfn func(ServBase) error) error {
