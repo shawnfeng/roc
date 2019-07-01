@@ -42,8 +42,13 @@ type Hash struct {
 }
 
 func (m *Hash) Route(ctx context.Context, processor, key string) *ServInfo {
+	fun := "Hash.Route -->"
+
 	group := scontext.GetGroup(ctx)
-	return m.cb.GetServAddrWithGroup(group, processor, key)
+	s := m.cb.GetServAddrWithGroup(group, processor, key)
+
+	slog.Infof("%s group:%s, processor:%s, key:%s, s:%v", fun, group, processor, key, s)
+	return s
 }
 
 func (m *Hash) Pre(s *ServInfo) error {
@@ -68,16 +73,18 @@ type Concurrent struct {
 }
 
 func (m *Concurrent) Route(ctx context.Context, processor, key string) *ServInfo {
-	fun := "Route -->"
+	fun := "Concurrent.Route -->"
 
 	group := scontext.GetGroup(ctx)
 	s := m.route(group, processor, key)
 	if s != nil {
+		slog.Infof("%s group:%s, processor:%s, key:%s, s:%v", fun, group, processor, key, s)
 		return s
 	}
 
-	slog.Infof("%s group:%s, processor:%s, key:%s", fun, group, processor, key)
-	return m.route("", processor, key)
+	s = m.route("", processor, key)
+	slog.Infof("%s group:%s, new group:%s, processor:%s, key:%s, s:%v", fun, group, "", processor, key, s)
+	return s
 }
 
 func (m *Concurrent) route(group, processor, key string) *ServInfo {
