@@ -5,6 +5,8 @@
 package rocserv
 
 import (
+	"context"
+	"github.com/shawnfeng/sutil/scontext"
 	"github.com/shawnfeng/sutil/slog"
 	"sync"
 )
@@ -24,7 +26,7 @@ func NewRouter(routerType int, cb ClientLookup) Router {
 }
 
 type Router interface {
-	Route(group, processor, key string) *ServInfo
+	Route(ctx context.Context, processor, key string) *ServInfo
 	Pre(s *ServInfo) error
 	Post(s *ServInfo) error
 }
@@ -39,7 +41,8 @@ type Hash struct {
 	cb ClientLookup
 }
 
-func (m *Hash) Route(group, processor, key string) *ServInfo {
+func (m *Hash) Route(ctx context.Context, processor, key string) *ServInfo {
+	group := scontext.GetGroup(ctx)
 	return m.cb.GetServAddrWithGroup(group, processor, key)
 }
 
@@ -64,8 +67,10 @@ type Concurrent struct {
 	counter map[string]int64
 }
 
-func (m *Concurrent) Route(group, processor, key string) *ServInfo {
+func (m *Concurrent) Route(ctx context.Context, processor, key string) *ServInfo {
 	fun := "Route -->"
+
+	group := scontext.GetGroup(ctx)
 	s := m.route(group, processor, key)
 	if s != nil {
 		return s
