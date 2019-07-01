@@ -1,6 +1,7 @@
 package rocserv
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/opentracing-contrib/go-grpc"
@@ -113,7 +114,33 @@ func (m *ClientGrpc) getClient(provider *Provider) (*ServInfo, rpcClient, error)
 }
 
 func (m *ClientGrpc) Rpc(haskkey string, fnrpc func(interface{}) error) error {
-	si, rc := m.route(haskkey)
+	si, rc := m.route(context.TODO(), haskkey)
+	if rc == nil {
+		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
+	}
+
+	m.router.Pre(si)
+	defer m.router.Post(si)
+
+	call := func(si *ServInfo, rc rpcClient, fnrpc func(interface{}) error) func() error {
+		return func() error {
+			return m.rpc(si, rc, fnrpc)
+		}
+	}(si, rc, fnrpc)
+
+	funcName := GetFunName(3)
+
+	var err error
+	st := stime.NewTimeStat()
+	defer func() {
+		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
+	}()
+	err = m.breaker.Do(0, si.Servid, funcName, call, GRPC, nil)
+	return err
+}
+
+func (m *ClientGrpc) RpcWithContext(ctx context.Context, haskkey string, fnrpc func(interface{}) error) error {
+	si, rc := m.route(ctx, haskkey)
 	if rc == nil {
 		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
 	}
@@ -151,8 +178,8 @@ func (m *ClientGrpc) rpc(si *ServInfo, rc rpcClient, fnrpc func(interface{}) err
 	return err
 }
 
-func (m *ClientGrpc) route(key string) (*ServInfo, rpcClient) {
-	s := m.router.Route("", m.processor, key)
+func (m *ClientGrpc) route(ctx context.Context, key string) (*ServInfo, rpcClient) {
+	s := m.router.Route(ctx, m.processor, key)
 	if s == nil {
 		return nil, nil
 	}

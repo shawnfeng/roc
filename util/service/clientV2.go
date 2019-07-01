@@ -382,6 +382,10 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 			}
 		}
 
+		if manual.Ctrl == nil {
+			manual.Ctrl = &ServCtrl{}
+		}
+
 		if len(manual.Ctrl.Groups) == 0 {
 			manual.Ctrl.Groups = append(manual.Ctrl.Groups, "")
 		}
