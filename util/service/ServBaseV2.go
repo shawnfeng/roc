@@ -125,23 +125,15 @@ func (m *ServBaseV2) RegisterMetrics(servs map[string]*ServInfo) error {
 // {type:http/thrift, addr:10.3.3.3:23233, processor:fuck}
 func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) error {
 	fun := "ServBaseV2.RegisterService -->"
-	for key, val := range servs {
-		if val.Type == PROCESSOR_GRPC {
-			info := map[string]*ServInfo{key: val}
-			if err := m.RegisterServiceV2(info, BASE_LOC_GRPC_SERV); err != nil {
-				slog.Errorf("%s reg v2 err:%s", fun, err)
-				return err
-			}
-			delete(servs, key)
-		}
+	if err := m.RegisterGrpcService(servs); err != nil {
+		slog.Errorf("%s reg v2 err:%s", fun, err)
+		return err
 	}
-
 	err := m.RegisterServiceV2(servs, BASE_LOC_THRIFT_SERV)
 	if err != nil {
 		slog.Errorf("%s reg v2 err:%s", fun, err)
 		return err
 	}
-
 	err = m.RegisterServiceV1(servs)
 	if err != nil {
 		slog.Errorf("%s reg v1 err:%s", fun, err)
@@ -150,6 +142,22 @@ func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) error {
 
 	slog.Infof("%s regist ok", fun)
 
+	return nil
+}
+
+func (m *ServBaseV2) RegisterGrpcService(servs map[string]*ServInfo) error {
+	fun := "ServBaseV2.RegisterGrpcService -->"
+	infos := make(map[string]*ServInfo)
+	for key, val := range servs {
+		if val.Type == PROCESSOR_GRPC {
+			infos[key] = val
+			delete(servs, key)
+		}
+	}
+	if err := m.RegisterServiceV2(infos, BASE_LOC_GRPC_SERV); err != nil {
+		slog.Errorf("%s reg grpc v2 err:%s", fun, err)
+		return err
+	}
 	return nil
 }
 
