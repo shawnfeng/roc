@@ -39,10 +39,11 @@ type cmdArgs struct {
 }
 
 func (m *Service) parseFlag() (*cmdArgs, error) {
-	var serv, logDir, skey string
+	var serv, logDir, skey, group string
 	flag.StringVar(&serv, "serv", "", "servic name")
 	flag.StringVar(&logDir, "logdir", "", "serice log dir")
 	flag.StringVar(&skey, "skey", "", "service session key")
+	flag.StringVar(&group, "group", "", "service group")
 
 	flag.Parse()
 
@@ -58,6 +59,7 @@ func (m *Service) parseFlag() (*cmdArgs, error) {
 		servLoc: serv,
 		logDir:  logDir,
 		sessKey: skey,
+		group:   group,
 	}, nil
 
 }
