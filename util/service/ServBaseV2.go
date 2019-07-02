@@ -194,8 +194,7 @@ func (m *ServBaseV2) SetGroup(group string) error {
 	path := fmt.Sprintf("%s/%s/%s/%d/%s", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId, BASE_LOC_REG_MANUAL)
 	value, err := m.getValueFromEtcd(path)
 	if err != nil {
-		slog.Errorf("%s getValueFromEtcd err, path:%s, err:%v", fun, path, err)
-		return err
+		slog.Warnf("%s getValueFromEtcd err, path:%s, err:%v", fun, path, err)
 	}
 
 	manual := &ManualData{}
