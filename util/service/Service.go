@@ -252,6 +252,8 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir, group stri
 		return err
 	}
 
+	sb.SetGroup(group)
+
 	// 后门接口 ==================
 	backdoor := &backDoorHttp{}
 	err = backdoor.Init()
