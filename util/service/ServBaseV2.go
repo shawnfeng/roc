@@ -219,6 +219,9 @@ func (m *ServBaseV2) SetGroup(group string) error {
 	if isFind == false {
 		manual.Ctrl.Groups = append(manual.Ctrl.Groups, group)
 	}
+	if manual.Ctrl.Weight == 0 {
+		manual.Ctrl.Weight = 100
+	}
 
 	newValue, err := json.Marshal(manual)
 	if err != nil {
