@@ -35,6 +35,7 @@ type cmdArgs struct {
 	servLoc string
 	logDir  string
 	sessKey string
+	group   string
 }
 
 func (m *Service) parseFlag() (*cmdArgs, error) {
@@ -131,12 +132,11 @@ func (m *Service) Serve(confEtcd configEtcd, initfn func(ServBase) error, procs 
 		return err
 	}
 
-	return m.Init(confEtcd, args.servLoc, args.sessKey, args.logDir, initfn, procs)
+	return m.Init(confEtcd, args.servLoc, args.sessKey, args.logDir, args.group, initfn, procs)
 }
 
-func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir string, initfn func(ServBase) error, procs map[string]Processor) error {
+func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir, group string, initfn func(ServBase) error, procs map[string]Processor) error {
 	fun := "Service.Init -->"
-	// Init ServBase
 
 	sb, err := NewServBaseV2(confEtcd, servLoc, sessKey)
 	if err != nil {
@@ -144,7 +144,6 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir string, ini
 		return err
 	}
 
-	// Init slog
 	var logConfig struct {
 		Log struct {
 			Level string
@@ -229,6 +228,8 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir string, ini
 		return err
 	}
 
+	sb.SetGroup(group)
+
 	// 后门接口 ==================
 	backdoor := &backDoorHttp{}
 	err = backdoor.Init()
@@ -299,9 +300,9 @@ func Serve(etcds []string, baseLoc string, initfn func(ServBase) error, procs ma
 }
 
 func Init(etcds []string, baseLoc string, servLoc, servKey string, initfn func(ServBase) error, procs map[string]Processor) error {
-	return service.Init(configEtcd{etcds, baseLoc}, servLoc, servKey, "", initfn, procs)
+	return service.Init(configEtcd{etcds, baseLoc}, servLoc, servKey, "", "", initfn, procs)
 }
 
 func Test(etcds []string, baseLoc string, initfn func(ServBase) error) error {
-	return service.Init(configEtcd{etcds, baseLoc}, "test/test", "test", "console", initfn, nil)
+	return service.Init(configEtcd{etcds, baseLoc}, "test/test", "test", "console", "", initfn, nil)
 }
