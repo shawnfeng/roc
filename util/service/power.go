@@ -5,6 +5,9 @@
 package rocserv
 
 import (
+	"fmt"
+	"github.com/opentracing-contrib/go-stdlib/nethttp"
+	"github.com/opentracing/opentracing-go"
 	"net"
 	"net/http"
 
@@ -44,8 +47,16 @@ func powerHttp(addr string, router *httprouter.Router) (string, error) {
 
 	slog.Infof("%s listen addr[%s]", fun, laddr)
 
+	// tracing
+	mw := nethttp.Middleware(
+		opentracing.GlobalTracer(),
+		router,
+		nethttp.OperationNameFunc(func(r *http.Request) string {
+			return "HTTP " + r.Method + ": " + r.URL.Path
+		}))
+
 	go func() {
-		err := http.Serve(netListen, router)
+		err := http.Serve(netListen, mw)
 		if err != nil {
 			slog.Panicf("%s laddr[%s]", fun, laddr)
 		}
@@ -98,4 +109,29 @@ func powerThrift(addr string, processor thrift.TProcessor) (string, error) {
 
 	return laddr, nil
 
+}
+
+//启动grpc ，并返回端口信息
+func powerGrpc(addr string, server *GrpcServer) (string, error) {
+	fun := "powerGrpc -->"
+	paddr, err := snetutil.GetListenAddr(addr)
+	if err != nil {
+		return "", err
+	}
+	slog.Infof("%s config addr[%s]", fun, paddr)
+	lis, err := net.Listen("tcp", paddr)
+	if err != nil {
+		return "", fmt.Errorf("grpc tcp Listen err:%v", err)
+	}
+	laddr, err := snetutil.GetServAddr(lis.Addr())
+	if err != nil {
+		return "", fmt.Errorf(" GetServAddr err:%v", err)
+	}
+	slog.Infof("%s listen grpc addr[%s]", fun, laddr)
+	go func() {
+		if err := server.Server.Serve(lis); err != nil {
+			slog.Panicf("%s grpc laddr[%s]", fun, laddr)
+		}
+	}()
+	return laddr, nil
 }
