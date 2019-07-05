@@ -16,6 +16,7 @@ import (
 	"git.apache.org/thrift.git/lib/go/thrift"
 
 	"github.com/shawnfeng/sutil/slog"
+	"github.com/shawnfeng/sutil/slog/statlog"
 )
 
 const (
@@ -180,6 +181,9 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir, group stri
 
 	slog.Init(logdir, "serv.log", logConfig.Log.Level)
 	defer slog.Sync()
+
+	statlog.Init(logdir, "stat.log", servLoc)
+	defer statlog.Sync()
 
 	// init tracer
 	err = trace.InitDefaultTracer(servLoc)
