@@ -193,15 +193,19 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 	defer slog.Sync()
 	defer statlog.Sync()
 
-	m.initTracer(servLoc)
-	m.callInitFunc(sb, initfn)
-
-	err = m.initProcessor(sb, procs)
+	err = initfn(sb)
 	if err != nil {
-		slog.Panicf("%s processor name empty", fun)
+		slog.Panicf("%s callInitFunc err:%s", fun, err)
 		return err
 	}
 
+	err = m.initProcessor(sb, procs)
+	if err != nil {
+		slog.Panicf("%s initProcessor err:%s", fun, err)
+		return err
+	}
+
+	m.initTracer(servLoc)
 	m.initBackdoork(sb)
 	m.initMetric(sb)
 
@@ -216,7 +220,7 @@ func (m *Service) initProcessor(sb *ServBaseV2, procs map[string]Processor) erro
 
 	for n, p := range procs {
 		if len(n) == 0 {
-			slog.Errorf("%r processor name empty", fun)
+			slog.Errorf("%s processor name empty", fun)
 			return fmt.Errorf("processor name empty")
 		}
 
@@ -252,18 +256,6 @@ func (m *Service) initProcessor(sb *ServBaseV2, procs map[string]Processor) erro
 	return nil
 }
 
-func (m *Service) callInitFunc(sb *ServBaseV2, initfn func(ServBase) error) error {
-	fun := "Service.callInitFunc -->"
-
-	err := initfn(sb)
-	if err != nil {
-		slog.Panicf("%s serv init err:%s", fun, err)
-		return err
-	}
-
-	return nil
-}
-
 func (m *Service) initTracer(servLoc string) error {
 	fun := "Service.initTracer -->"
 
@@ -281,7 +273,7 @@ func (m *Service) initBackdoork(sb *ServBaseV2) error {
 	backdoor := &backDoorHttp{}
 	err := backdoor.Init()
 	if err != nil {
-		slog.Panicf("%s init backdoor err:%s", fun, err)
+		slog.Errorf("%s init backdoor err:%s", fun, err)
 		return err
 	}
 
@@ -330,7 +322,6 @@ func (m *Service) getMetricOps(sb *ServBaseV2) *rocserv.MetricsOpts {
 	err := sb.ServConfig(&metricConfig)
 	if err != nil {
 		slog.Panicf("%s serv config err:%s", fun, err)
-		fmt.Sprintf("%s serv config err:%s", fun, err)
 		return nil
 	}
 	return metricConfig.metric
