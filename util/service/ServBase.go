@@ -22,8 +22,8 @@ import (
 
 	"github.com/sdming/gosnow"
 
-	"github.com/shawnfeng/dbrouter"
 	"github.com/shawnfeng/sutil"
+	"github.com/shawnfeng/sutil/dbrouter"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/slowid"
 
