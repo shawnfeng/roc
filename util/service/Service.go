@@ -7,22 +7,21 @@ package rocserv
 import (
 	"flag"
 	"fmt"
-	"github.com/shawnfeng/roc/util/service/sla"
-	"github.com/shawnfeng/sutil/trace"
-	"reflect"
-
-	"github.com/julienschmidt/httprouter"
-
 	"git.apache.org/thrift.git/lib/go/thrift"
-
+	"github.com/gin-gonic/gin"
+	"github.com/julienschmidt/httprouter"
+	"github.com/shawnfeng/roc/util/service/sla"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/slog/statlog"
+	"github.com/shawnfeng/sutil/trace"
+	"reflect"
 )
 
 const (
 	PROCESSOR_HTTP   = "http"
 	PROCESSOR_THRIFT = "thrift"
 	PROCESSOR_GRPC   = "gprc"
+	PROCESSOR_GIN    = "gin"
 )
 
 type Service struct {
@@ -116,6 +115,17 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) (map[strin
 			slog.Infof("%s load ok processor:%s serv addr:%s", fun, n, sa)
 			infos[n] = &ServInfo{
 				Type: PROCESSOR_GRPC,
+				Addr: sa,
+			}
+		case *gin.Engine:
+			sa, err := powerGin(addr, d)
+			if err != nil {
+				return nil, err
+			}
+
+			slog.Infof("%s load ok processor:%s serv addr:%s", fun, n, sa)
+			infos[n] = &ServInfo{
+				Type: PROCESSOR_GIN,
 				Addr: sa,
 			}
 		default:
