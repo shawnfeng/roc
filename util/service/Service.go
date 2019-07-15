@@ -37,7 +37,7 @@ type cmdArgs struct {
 	servLoc       string
 	logDir        string
 	sessKey       string
-  group         string
+	group         string
 }
 
 func (m *Service) parseFlag() (*cmdArgs, error) {
@@ -66,7 +66,7 @@ func (m *Service) parseFlag() (*cmdArgs, error) {
 		servLoc:       serv,
 		logDir:        logDir,
 		sessKey:       skey,
-    group:         group,
+		group:         group,
 	}, nil
 
 }
@@ -218,8 +218,8 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 		return err
 	}
 
-  sb.SetGroup(group)
-  
+	sb.SetGroup(args.group)
+
 	m.initTracer(servLoc)
 	m.initBackdoork(sb)
 	m.initMetric(sb)
