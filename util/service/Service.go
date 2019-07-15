@@ -37,16 +37,18 @@ type cmdArgs struct {
 	servLoc       string
 	logDir        string
 	sessKey       string
+  group         string
 }
 
 func (m *Service) parseFlag() (*cmdArgs, error) {
-	var serv, logDir, skey string
+	var serv, logDir, skey, group string
 	var logMaxSize, logMaxBackups int
 	flag.IntVar(&logMaxSize, "logmaxsize", 0, "logMaxSize is the maximum size in megabytes of the log file")
 	flag.IntVar(&logMaxBackups, "logmaxbackups", 0, "logmaxbackups is the maximum number of old log files to retain")
 	flag.StringVar(&serv, "serv", "", "servic name")
 	flag.StringVar(&logDir, "logdir", "", "serice log dir")
 	flag.StringVar(&skey, "skey", "", "service session key")
+	flag.StringVar(&group, "group", "", "service group")
 
 	flag.Parse()
 
@@ -64,6 +66,7 @@ func (m *Service) parseFlag() (*cmdArgs, error) {
 		servLoc:       serv,
 		logDir:        logDir,
 		sessKey:       skey,
+    group:         group,
 	}, nil
 
 }
@@ -215,6 +218,8 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 		return err
 	}
 
+  sb.SetGroup(group)
+  
 	m.initTracer(servLoc)
 	m.initBackdoork(sb)
 	m.initMetric(sb)
