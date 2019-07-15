@@ -12,7 +12,7 @@ import (
 	//"github.com/coreos/go-etcd/etcd"
 	etcd "github.com/coreos/etcd/client"
 
-	"github.com/shawnfeng/sutil/dbrouter"
+	"github.com/shawnfeng/dbrouter"
 	"github.com/shawnfeng/sutil/sconf"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/slowid"
