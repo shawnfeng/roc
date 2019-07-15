@@ -6,17 +6,15 @@ package rocserv
 
 import (
 	"fmt"
+	"git.apache.org/thrift.git/lib/go/thrift"
+	"github.com/gin-gonic/gin"
+	"github.com/julienschmidt/httprouter"
 	"github.com/opentracing-contrib/go-stdlib/nethttp"
 	"github.com/opentracing/opentracing-go"
-	"net"
-	"net/http"
-
-	"github.com/julienschmidt/httprouter"
-
-	"git.apache.org/thrift.git/lib/go/thrift"
-
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/snetutil"
+	"net"
+	"net/http"
 )
 
 func powerHttp(addr string, router *httprouter.Router) (string, error) {
@@ -133,5 +131,51 @@ func powerGrpc(addr string, server *GrpcServer) (string, error) {
 			slog.Panicf("%s grpc laddr[%s]", fun, laddr)
 		}
 	}()
+	return laddr, nil
+}
+
+func powerGin(addr string, router *gin.Engine) (string, error) {
+	fun := "powerGin -->"
+
+	paddr, err := snetutil.GetListenAddr(addr)
+	if err != nil {
+		return "", err
+	}
+
+	slog.Infof("%s config addr[%s]", fun, paddr)
+
+	tcpAddr, err := net.ResolveTCPAddr("tcp", paddr)
+	if err != nil {
+		return "", err
+	}
+
+	netListen, err := net.Listen(tcpAddr.Network(), tcpAddr.String())
+	if err != nil {
+		return "", err
+	}
+
+	laddr, err := snetutil.GetServAddr(netListen.Addr())
+	if err != nil {
+		netListen.Close()
+		return "", err
+	}
+
+	slog.Infof("%s listen addr[%s]", fun, laddr)
+
+	// tracing
+	mw := nethttp.Middleware(
+		opentracing.GlobalTracer(),
+		router,
+		nethttp.OperationNameFunc(func(r *http.Request) string {
+			return "HTTP " + r.Method + ": " + r.URL.Path
+		}))
+
+	go func() {
+		err := http.Serve(netListen, mw)
+		if err != nil {
+			slog.Panicf("%s laddr[%s]", fun, laddr)
+		}
+	}()
+
 	return laddr, nil
 }
