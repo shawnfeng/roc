@@ -7,13 +7,12 @@ package rocserv
 import (
 	"flag"
 	"fmt"
-	"github.com/shawnfeng/sutil/smetric"
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
 	"github.com/julienschmidt/httprouter"
-	"github.com/shawnfeng/roc/util/service/sla"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/slog/statlog"
+	"github.com/shawnfeng/sutil/smetric"
 	"github.com/shawnfeng/sutil/trace"
 	"reflect"
 )
@@ -153,7 +152,6 @@ func (m *Service) Serve(confEtcd configEtcd, initfn func(ServBase) error, procs 
 
 	return m.Init(confEtcd, args, initfn, procs)
 }
-
 
 func (m *Service) initLog(sb *ServBaseV2, args *cmdArgs) error {
 	fun := "Service.initLog -->"
@@ -329,21 +327,6 @@ func (m *Service) initMetric(sb *ServBaseV2) error {
 		slog.Warnf("%s load metrics driver err:%s", fun, err)
 	}
 	return err
-}
-
-
-func (m *Service) getMetricOps(sb *ServBaseV2) *rocserv.MetricsOpts {
-	fun := "Service.getMetricOps -->"
-
-	var metricConfig struct {
-		metric *rocserv.MetricsOpts
-	}
-	err := sb.ServConfig(&metricConfig)
-	if err != nil {
-		slog.Panicf("%s serv config err:%s", fun, err)
-		return nil
-	}
-	return metricConfig.metric
 }
 
 func Serve(etcds []string, baseLoc string, initfn func(ServBase) error, procs map[string]Processor) error {
