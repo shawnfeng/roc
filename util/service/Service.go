@@ -7,6 +7,7 @@ package rocserv
 import (
 	"flag"
 	"fmt"
+	"github.com/shawnfeng/sutil/smetric"
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
 	"github.com/julienschmidt/httprouter"
@@ -25,6 +26,7 @@ const (
 )
 
 type Service struct {
+	sbase ServBase
 }
 
 var service Service
@@ -151,6 +153,7 @@ func (m *Service) Serve(confEtcd configEtcd, initfn func(ServBase) error, procs 
 
 	return m.Init(confEtcd, args, initfn, procs)
 }
+
 
 func (m *Service) initLog(sb *ServBaseV2, args *cmdArgs) error {
 	fun := "Service.initLog -->"
@@ -309,7 +312,7 @@ func (m *Service) initBackdoork(sb *ServBaseV2) error {
 func (m *Service) initMetric(sb *ServBaseV2) error {
 	fun := "Service.initMetric -->"
 
-	metrics := rocserv.NewMetricsprocessor()
+	metrics := smetric.NewMetricsprocessor()
 	err := metrics.Init()
 	if err != nil {
 		slog.Warnf("%s init metrics err:%s", fun, err)
@@ -327,6 +330,7 @@ func (m *Service) initMetric(sb *ServBaseV2) error {
 	}
 	return err
 }
+
 
 func (m *Service) getMetricOps(sb *ServBaseV2) *rocserv.MetricsOpts {
 	fun := "Service.getMetricOps -->"
@@ -355,6 +359,23 @@ func Init(etcds []string, baseLoc string, servLoc, servKey, logDir string, initf
 		sessKey:       servKey,
 	}
 	return service.Init(configEtcd{etcds, baseLoc}, args, initfn, procs)
+}
+
+func GetServBase() ServBase {
+	return service.sbase
+}
+
+func GetServName() (servName string) {
+	if service.sbase != nil {
+		servName = service.sbase.Servname()
+	}
+	return
+}
+func GetServId() (servId int) {
+	if service.sbase != nil {
+		servId = service.sbase.Servid()
+	}
+	return
 }
 
 func Test(etcds []string, baseLoc string, initfn func(ServBase) error) error {
