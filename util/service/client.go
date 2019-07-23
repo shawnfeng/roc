@@ -85,7 +85,6 @@ func (m *ClientWrapper) Do(haskkey string, timeout time.Duration, run func(addr 
 	return err
 }
 
-
 func (m *ClientWrapper) Call(ctx context.Context, haskkey, funcName string, run func(addr string) error) error {
 	fun := "ClientWrapper.Call -->"
 
