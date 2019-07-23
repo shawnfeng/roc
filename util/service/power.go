@@ -134,30 +134,30 @@ func powerGrpc(addr string, server *GrpcServer) (string, error) {
 	return laddr, nil
 }
 
-func powerGin(addr string, router *gin.Engine) (string, error) {
+func powerGin(addr string, router *gin.Engine) (string, *http.Server, error) {
 	fun := "powerGin -->"
 
 	paddr, err := snetutil.GetListenAddr(addr)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	slog.Infof("%s config addr[%s]", fun, paddr)
 
 	tcpAddr, err := net.ResolveTCPAddr("tcp", paddr)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	netListen, err := net.Listen(tcpAddr.Network(), tcpAddr.String())
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	laddr, err := snetutil.GetServAddr(netListen.Addr())
 	if err != nil {
 		netListen.Close()
-		return "", err
+		return "", nil, err
 	}
 
 	slog.Infof("%s listen addr[%s]", fun, laddr)
@@ -170,12 +170,38 @@ func powerGin(addr string, router *gin.Engine) (string, error) {
 			return "HTTP " + r.Method + ": " + r.URL.Path
 		}))
 
+	serv := &http.Server{Handler: mw}
 	go func() {
-		err := http.Serve(netListen, mw)
+		err := serv.Serve(netListen)
 		if err != nil {
 			slog.Panicf("%s laddr[%s]", fun, laddr)
 		}
 	}()
 
-	return laddr, nil
+	return laddr, serv, nil
+}
+
+func reloadRouter(processor string, server interface{}, driver interface{}) error {
+	fun := "reloadRouter -->"
+
+	s, ok := server.(*http.Server)
+	if !ok {
+		return fmt.Errorf("server type error")
+	}
+
+	switch router := driver.(type) {
+	case *gin.Engine:
+		mw := nethttp.Middleware(
+			opentracing.GlobalTracer(),
+			router,
+			nethttp.OperationNameFunc(func(r *http.Request) string {
+				return "HTTP " + r.Method + ": " + r.URL.Path
+			}))
+		s.Handler = mw
+		slog.Infof("%s reload ok, processors:%s", fun, processor)
+	default:
+		return fmt.Errorf("processor:%s driver not recognition", processor)
+	}
+
+	return nil
 }

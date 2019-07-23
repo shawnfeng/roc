@@ -15,6 +15,7 @@ import (
 	"github.com/shawnfeng/sutil/smetric"
 	"github.com/shawnfeng/sutil/trace"
 	"reflect"
+	"sync"
 )
 
 const (
@@ -26,11 +27,12 @@ const (
 
 type Service struct {
 	sbase ServBase
+
+	mutex   sync.Mutex
+	servers map[string]interface{}
 }
 
 var service Service
-
-//func NewService
 
 type cmdArgs struct {
 	logMaxSize    int
@@ -122,10 +124,12 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) (map[strin
 				Addr: sa,
 			}
 		case *gin.Engine:
-			sa, err := powerGin(addr, d)
+			sa, serv, err := powerGin(addr, d)
 			if err != nil {
 				return nil, err
 			}
+
+			m.addServer(n, serv)
 
 			slog.Infof("%s load ok processor:%s serv addr:%s", fun, n, sa)
 			infos[n] = &ServInfo{
@@ -139,6 +143,26 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) (map[strin
 	}
 
 	return infos, nil
+}
+
+func (m *Service) addServer(processor string, server interface{}) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	m.servers[processor] = server
+}
+
+func (m *Service) reloadRouter(processor string, driver interface{}) error {
+	//fun := "Service.reloadRouter -->"
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	server, ok := m.servers[processor]
+	if !ok {
+		return fmt.Errorf("processor:%s driver not recognition", processor)
+	}
+
+	return reloadRouter(processor, server, driver)
 }
 
 func (m *Service) Serve(confEtcd configEtcd, initfn func(ServBase) error, procs map[string]Processor) error {
@@ -327,6 +351,10 @@ func (m *Service) initMetric(sb *ServBaseV2) error {
 		slog.Warnf("%s load metrics driver err:%s", fun, err)
 	}
 	return err
+}
+
+func ReloadRouter(processor string, driver interface{}) error {
+	return service.reloadRouter(processor, driver)
 }
 
 func Serve(etcds []string, baseLoc string, initfn func(ServBase) error, procs map[string]Processor) error {
