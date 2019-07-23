@@ -8,20 +8,21 @@ import (
 	"flag"
 	"fmt"
 	"github.com/shawnfeng/sutil/smetric"
+	"git.apache.org/thrift.git/lib/go/thrift"
+	"github.com/gin-gonic/gin"
+	"github.com/julienschmidt/httprouter"
+	"github.com/shawnfeng/roc/util/service/sla"
+	"github.com/shawnfeng/sutil/slog"
+	"github.com/shawnfeng/sutil/slog/statlog"
 	"github.com/shawnfeng/sutil/trace"
 	"reflect"
-
-	"github.com/julienschmidt/httprouter"
-
-	"git.apache.org/thrift.git/lib/go/thrift"
-
-	"github.com/shawnfeng/sutil/slog"
 )
 
 const (
 	PROCESSOR_HTTP   = "http"
 	PROCESSOR_THRIFT = "thrift"
 	PROCESSOR_GRPC   = "gprc"
+	PROCESSOR_GIN    = "gin"
 )
 
 type Service struct {
@@ -33,16 +34,23 @@ var service Service
 //func NewService
 
 type cmdArgs struct {
-	servLoc string
-	logDir  string
-	sessKey string
+	logMaxSize    int
+	logMaxBackups int
+	servLoc       string
+	logDir        string
+	sessKey       string
+	group         string
 }
 
 func (m *Service) parseFlag() (*cmdArgs, error) {
-	var serv, logDir, skey string
+	var serv, logDir, skey, group string
+	var logMaxSize, logMaxBackups int
+	flag.IntVar(&logMaxSize, "logmaxsize", 0, "logMaxSize is the maximum size in megabytes of the log file")
+	flag.IntVar(&logMaxBackups, "logmaxbackups", 0, "logmaxbackups is the maximum number of old log files to retain")
 	flag.StringVar(&serv, "serv", "", "servic name")
 	flag.StringVar(&logDir, "logdir", "", "serice log dir")
 	flag.StringVar(&skey, "skey", "", "service session key")
+	flag.StringVar(&group, "group", "", "service group")
 
 	flag.Parse()
 
@@ -55,9 +63,12 @@ func (m *Service) parseFlag() (*cmdArgs, error) {
 	}
 
 	return &cmdArgs{
-		servLoc: serv,
-		logDir:  logDir,
-		sessKey: skey,
+		logMaxSize:    logMaxSize,
+		logMaxBackups: logMaxBackups,
+		servLoc:       serv,
+		logDir:        logDir,
+		sessKey:       skey,
+		group:         group,
 	}, nil
 
 }
@@ -67,7 +78,6 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) (map[strin
 
 	infos := make(map[string]*ServInfo)
 
-	// load processor's driver
 	for n, p := range procs {
 		addr, driver := p.Driver()
 		if driver == nil {
@@ -112,15 +122,24 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) (map[strin
 				Type: PROCESSOR_GRPC,
 				Addr: sa,
 			}
+		case *gin.Engine:
+			sa, err := powerGin(addr, d)
+			if err != nil {
+				return nil, err
+			}
+
+			slog.Infof("%s load ok processor:%s serv addr:%s", fun, n, sa)
+			infos[n] = &ServInfo{
+				Type: PROCESSOR_GIN,
+				Addr: sa,
+			}
 		default:
 			return nil, fmt.Errorf("processor:%s driver not recognition", n)
 
 		}
-
 	}
 
 	return infos, nil
-
 }
 
 func (m *Service) Serve(confEtcd configEtcd, initfn func(ServBase) error, procs map[string]Processor) error {
@@ -132,34 +151,25 @@ func (m *Service) Serve(confEtcd configEtcd, initfn func(ServBase) error, procs 
 		return err
 	}
 
-	return m.Init(confEtcd, args.servLoc, args.sessKey, args.logDir, initfn, procs)
+	return m.Init(confEtcd, args, initfn, procs)
 }
 
-func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir string, initfn func(ServBase) error, procs map[string]Processor) error {
-	fun := "Service.Init -->"
-	// Init ServBase
 
-	sb, err := NewServBaseV2(confEtcd, servLoc, sessKey)
-	if err != nil {
-		slog.Panicf("%s init servbase loc:%s key:%s err:%s", fun, servLoc, sessKey, err)
-		return err
-	}
-	m.sbase = sb
+func (m *Service) initLog(sb *ServBaseV2, args *cmdArgs) error {
+	fun := "Service.initLog -->"
 
-	// Init slog
+	logDir := args.logDir
 	var logConfig struct {
 		Log struct {
 			Level string
 			Dir   string
 		}
 	}
-	// default use level INFO
 	logConfig.Log.Level = "INFO"
 
-	err = sb.ServConfig(&logConfig)
+	err := sb.ServConfig(&logConfig)
 	if err != nil {
-		slog.Panicf("%s serv config err:%s", fun, err)
-		fmt.Sprintf("%s serv config err:%s", fun, err)
+		slog.Errorf("%s serv config err:%s", fun, err)
 		return err
 	}
 
@@ -176,66 +186,112 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir string, ini
 		logdir = ""
 	}
 
-	fmt.Sprintf("%s init log dir:%s name:%s level:%s", fun, logdir, servLoc, logConfig.Log.Level)
-	slog.Infof("%s init log dir:%s name:%s level:%s", fun, logdir, servLoc, logConfig.Log.Level)
+	slog.Infof("%s init log dir:%s name:%s level:%s", fun, logdir, args.servLoc, logConfig.Log.Level)
 
 	slog.Init(logdir, "serv.log", logConfig.Log.Level)
-	defer slog.Sync()
+	statlog.Init(logdir, "stat.log", args.servLoc)
+	return nil
+}
 
-	// init tracer
-	err = trace.InitDefaultTracer(servLoc)
-	if err != nil {
-		slog.Warnf("%s init tracer fail:%v", err)
-	}
+func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) error, procs map[string]Processor) error {
+	fun := "Service.Init -->"
 
-	// init callback
-	err = initfn(sb)
+	servLoc := args.servLoc
+	sessKey := args.sessKey
+
+	sb, err := NewServBaseV2(confEtcd, servLoc, sessKey)
 	if err != nil {
-		slog.Panicf("%s serv init err:%s", fun, err)
+		slog.Panicf("%s init servbase loc:%s key:%s err:%s", fun, servLoc, sessKey, err)
 		return err
 	}
 
-	// init processor
+	m.initLog(sb, args)
+	defer slog.Sync()
+	defer statlog.Sync()
+
+	err = initfn(sb)
+	if err != nil {
+		slog.Panicf("%s callInitFunc err:%s", fun, err)
+		return err
+	}
+
+	err = m.initProcessor(sb, procs)
+	if err != nil {
+		slog.Panicf("%s initProcessor err:%s", fun, err)
+		return err
+	}
+
+	sb.SetGroup(args.group)
+
+	m.initTracer(servLoc)
+	m.initBackdoork(sb)
+	m.initMetric(sb)
+
+	var pause chan bool
+	pause <- true
+
+	return nil
+}
+
+func (m *Service) initProcessor(sb *ServBaseV2, procs map[string]Processor) error {
+	fun := "Service.initProcessor -->"
+
 	for n, p := range procs {
 		if len(n) == 0 {
-			slog.Panicf("%s processor name empty", fun)
-			return err
+			slog.Errorf("%s processor name empty", fun)
+			return fmt.Errorf("processor name empty")
 		}
 
 		if n[0] == '_' {
-			slog.Panicf("%s processor name can not prefix '_'", fun)
-			return err
+			slog.Errorf("%s processor name can not prefix '_'", fun)
+			return fmt.Errorf("processor name can not prefix '_'")
 		}
 
 		if p == nil {
-			slog.Panicf("%s processor:%s is nil", fun, n)
+			slog.Errorf("%s processor:%s is nil", fun, n)
 			return fmt.Errorf("processor:%s is nil", n)
 		} else {
 			err := p.Init()
 			if err != nil {
-				slog.Panicf("%s processor:%s init err:%s", fun, err)
-				return err
+				slog.Errorf("%s processor:%s init err:%s", fun, err)
+				return fmt.Errorf("processor:%s init err:%s", n, err)
 			}
 		}
 	}
 
 	infos, err := m.loadDriver(sb, procs)
 	if err != nil {
-		slog.Panicf("%s load driver err:%s", fun, err)
+		slog.Errorf("%s load driver err:%s", fun, err)
 		return err
 	}
 
 	err = sb.RegisterService(infos)
 	if err != nil {
-		slog.Panicf("%s regist service err:%s", fun, err)
+		slog.Errorf("%s regist service err:%s", fun, err)
 		return err
 	}
 
-	// 后门接口 ==================
-	backdoor := &backDoorHttp{}
-	err = backdoor.Init()
+	return nil
+}
+
+func (m *Service) initTracer(servLoc string) error {
+	fun := "Service.initTracer -->"
+
+	err := trace.InitDefaultTracer(servLoc)
 	if err != nil {
-		slog.Panicf("%s init backdoor err:%s", fun, err)
+		slog.Errorf("%s init tracer fail:%v", fun, err)
+	}
+
+	return err
+}
+
+func (m *Service) initBackdoork(sb *ServBaseV2) error {
+	fun := "Service.initBackdoork -->"
+
+	backdoor := &backDoorHttp{}
+	err := backdoor.Init()
+	if err != nil {
+		slog.Errorf("%s init backdoor err:%s", fun, err)
 		return err
 	}
 
@@ -249,16 +305,15 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir string, ini
 	} else {
 		slog.Warnf("%s load backdoor driver err:%s", fun, err)
 	}
-	//==============================
 
-	// sla metric埋点 ==================
-	//init metric
-	//user defualt metric opts
+	return err
+}
+
+func (m *Service) initMetric(sb *ServBaseV2) error {
+	fun := "Service.initMetric -->"
+
 	metrics := smetric.NewMetricsprocessor()
-	if err != nil {
-		slog.Warnf("init metrics fail:%v", err)
-	}
-	err = metrics.Init()
+	err := metrics.Init()
 	if err != nil {
 		slog.Warnf("%s init metrics err:%s", fun, err)
 	}
@@ -273,22 +328,37 @@ func (m *Service) Init(confEtcd configEtcd, servLoc, sessKey, logDir string, ini
 	} else {
 		slog.Warnf("%s load metrics driver err:%s", fun, err)
 	}
-	//==============================
+	return err
+}
 
-	// pause here
-	var pause chan bool
-	pause <- true
 
-	return nil
+func (m *Service) getMetricOps(sb *ServBaseV2) *rocserv.MetricsOpts {
+	fun := "Service.getMetricOps -->"
 
+	var metricConfig struct {
+		metric *rocserv.MetricsOpts
+	}
+	err := sb.ServConfig(&metricConfig)
+	if err != nil {
+		slog.Panicf("%s serv config err:%s", fun, err)
+		return nil
+	}
+	return metricConfig.metric
 }
 
 func Serve(etcds []string, baseLoc string, initfn func(ServBase) error, procs map[string]Processor) error {
 	return service.Serve(configEtcd{etcds, baseLoc}, initfn, procs)
 }
 
-func Init(etcds []string, baseLoc string, servLoc, servKey string, initfn func(ServBase) error, procs map[string]Processor) error {
-	return service.Init(configEtcd{etcds, baseLoc}, servLoc, servKey, "", initfn, procs)
+func Init(etcds []string, baseLoc string, servLoc, servKey, logDir string, initfn func(ServBase) error, procs map[string]Processor) error {
+	args := &cmdArgs{
+		logMaxSize:    0,
+		logMaxBackups: 0,
+		servLoc:       servLoc,
+		logDir:        logDir,
+		sessKey:       servKey,
+	}
+	return service.Init(configEtcd{etcds, baseLoc}, args, initfn, procs)
 }
 
 func GetServBase() ServBase {
@@ -309,5 +379,12 @@ func GetServId() (servId int) {
 }
 
 func Test(etcds []string, baseLoc string, initfn func(ServBase) error) error {
-	return service.Init(configEtcd{etcds, baseLoc}, "test/test", "test", "console", initfn, nil)
+	args := &cmdArgs{
+		logMaxSize:    0,
+		logMaxBackups: 0,
+		servLoc:       "test/test",
+		sessKey:       "test",
+		logDir:        "console",
+	}
+	return service.Init(configEtcd{etcds, baseLoc}, args, initfn, nil)
 }

@@ -3,7 +3,9 @@ module github.com/shawnfeng/roc
 require (
 	git.apache.org/thrift.git v0.0.0-20150427210205-dc799ca07862
 	github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5 // indirect
-	github.com/coreos/etcd v3.0.0-beta.0.0.20160712024141-cc26f2c8892e+incompatible
+	github.com/coreos/etcd v3.3.13+incompatible
+	github.com/coreos/go-semver v0.3.0 // indirect
+	github.com/gin-gonic/gin v1.4.0
 	// nn
 	github.com/gopherjs/gopherjs v0.0.0-20181103185306-d547d1d9531e // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
@@ -18,7 +20,7 @@ require (
 	github.com/shawnfeng/consistent v1.0.3
 	github.com/shawnfeng/dbrouter v1.0.2
 	github.com/shawnfeng/hystrix-go v0.0.0-20190320120533-5e2bc39f173a
-	github.com/shawnfeng/sutil v1.0.6-0.20190626112807-161b55a87e36
+	github.com/shawnfeng/sutil v1.0.6-0.20190704114539-9ede5164c60b
 
 	// nn
 	github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d // indirect
