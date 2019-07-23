@@ -25,6 +25,8 @@ const (
 	PROCESSOR_GIN    = "gin"
 )
 
+var service = NewService()
+
 type Service struct {
 	sbase ServBase
 
@@ -32,7 +34,11 @@ type Service struct {
 	servers map[string]interface{}
 }
 
-var service Service
+func NewService() *Service {
+	return &Service{
+		servers: make(map[string]interface{}),
+	}
+}
 
 type cmdArgs struct {
 	logMaxSize    int
