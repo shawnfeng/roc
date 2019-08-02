@@ -154,19 +154,19 @@ func (m *ClientThrift) newClient(addr string) rpcClient {
 
 	transport, err := thrift.NewTSocket(addr)
 	if err != nil {
-		slog.Errorf("%s NetTSocket addr:%s err:%s", fun, addr, err)
+		slog.Errorf("%s NetTSocket addr:%s serv:%s err:%s", fun, addr, m.clientLookup.ServKey(), err)
 		return nil
 	}
 	useTransport := transportFactory.GetTransport(transport)
 
 	if err := useTransport.Open(); err != nil {
-		slog.Errorf("%s Open addr:%s err:%s", fun, addr, err)
+		slog.Errorf("%s Open addr:%s serv:%s err:%s", fun, addr, m.clientLookup.ServKey(), err)
 		return nil
 	}
 	// 必须要close么？
 	//useTransport.Close()
 
-	slog.Infof("%s new client addr:%s", fun, addr)
+	slog.Infof("%s new client addr:%s serv:%s", fun, addr, m.clientLookup.ServKey())
 	return &rpcClient1{
 		tsock:         transport,
 		trans:         useTransport,
