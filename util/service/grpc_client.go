@@ -1,6 +1,7 @@
 package rocserv
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/opentracing-contrib/go-grpc"
@@ -8,7 +9,6 @@ import (
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/stime"
 	"google.golang.org/grpc"
-	"sync"
 	"time"
 )
 
@@ -109,11 +109,37 @@ func (m *ClientGrpc) getClient(provider *Provider) (*ServInfo, rpcClient, error)
 	if serv == nil {
 		return nil, nil, errors.New(m.processor + " server provider is emtpy ")
 	}
-	return serv, m.pool.GrtClient(serv.Addr), nil
+	return serv, m.pool.Get(serv.Addr), nil
 }
 
 func (m *ClientGrpc) Rpc(haskkey string, fnrpc func(interface{}) error) error {
-	si, rc := m.route(haskkey)
+	si, rc := m.route(context.TODO(), haskkey)
+	if rc == nil {
+		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
+	}
+
+	m.router.Pre(si)
+	defer m.router.Post(si)
+
+	call := func(si *ServInfo, rc rpcClient, fnrpc func(interface{}) error) func() error {
+		return func() error {
+			return m.rpc(si, rc, fnrpc)
+		}
+	}(si, rc, fnrpc)
+
+	funcName := GetFunName(3)
+
+	var err error
+	st := stime.NewTimeStat()
+	defer func() {
+		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
+	}()
+	err = m.breaker.Do(0, si.Servid, funcName, call, GRPC, nil)
+	return err
+}
+
+func (m *ClientGrpc) RpcWithContext(ctx context.Context, haskkey string, fnrpc func(interface{}) error) error {
+	si, rc := m.route(ctx, haskkey)
 	if rc == nil {
 		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
 	}
@@ -151,13 +177,13 @@ func (m *ClientGrpc) rpc(si *ServInfo, rc rpcClient, fnrpc func(interface{}) err
 	return err
 }
 
-func (m *ClientGrpc) route(key string) (*ServInfo, rpcClient) {
-	s := m.router.Route(m.processor, key)
+func (m *ClientGrpc) route(ctx context.Context, key string) (*ServInfo, rpcClient) {
+	s := m.router.Route(ctx, m.processor, key)
 	if s == nil {
 		return nil, nil
 	}
 	addr := s.Addr
-	return s, m.pool.GrtClient(addr)
+	return s, m.pool.Get(addr)
 }
 
 type grpcClient struct {
@@ -198,62 +224,5 @@ func (m *ClientGrpc) newClient(addr string) rpcClient {
 	return &grpcClient{
 		serviceClient: client,
 		conn:          conn,
-	}
-}
-
-type ClientPool struct {
-	poolClient sync.Map
-	poolLen    int
-	Factory    func(addr string) rpcClient
-}
-
-func NewClientPool(poolLen int, factory func(addr string) rpcClient) *ClientPool {
-	return &ClientPool{poolLen: poolLen, Factory: factory}
-}
-
-func (m *ClientPool) GrtClient(addr string) rpcClient {
-	fun := "ClientPool.GrtClient -->"
-	po := m.getPool(addr)
-
-	var c rpcClient
-	select {
-	case c = <-po:
-		slog.Tracef("%s get:%s len:%d", fun, addr, len(po))
-	default:
-		c = m.Factory(addr)
-	}
-	return c
-}
-
-func (m *ClientPool) getPool(addr string) chan rpcClient {
-	fun := "ClientPool.getPool -->"
-	var tmp chan rpcClient
-	value, ok := m.poolClient.Load(addr)
-	if ok == true {
-		tmp = value.(chan rpcClient)
-	} else {
-		slog.Infof("%s not found addr:%s", fun, addr)
-		tmp = make(chan rpcClient, m.poolLen)
-		m.poolClient.Store(addr, tmp)
-	}
-	return tmp
-}
-
-// 连接池链接回收
-func (m *ClientPool) Put(addr string, client rpcClient) {
-	fun := "ClientPool.Close -->"
-
-	// po 链接池
-	po := m.getPool(addr)
-	select {
-
-	// 回收连接 client
-	case po <- client:
-		slog.Tracef("%s payback:%s len:%d", fun, addr, len(po))
-
-	//不能回收了，关闭链接(满了)
-	default:
-		slog.Infof("%s full not payback:%s len:%d", fun, addr, len(po))
-		client.Close()
 	}
 }
