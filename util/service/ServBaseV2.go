@@ -232,7 +232,7 @@ func (m *ServBaseV2) SetGroup(group string) error {
 	slog.Infof("%s path:%s old value:%s new value:%s", fun, path, value, newValue)
 	err = m.setValueToEtcd(path, string(newValue), nil)
 	if err != nil {
-		slog.Errorf("%s getValueFromEtcd err, path:%s value:%s", fun, path, newValue)
+		slog.Errorf("%s setValueToEtcd err, path:%s value:%s", fun, path, newValue)
 	}
 
 	return err
@@ -243,7 +243,7 @@ func (m *ServBaseV2) getValueFromEtcd(path string) (value string, err error) {
 
 	r, err := m.etcdClient.Get(context.Background(), path, &etcd.GetOptions{Recursive: false, Sort: false})
 	if err != nil {
-		slog.Errorf("%s path:%s err:%v", fun, path, err)
+		slog.Warnf("%s path:%s err:%v", fun, path, err)
 		return "", err
 	}
 
