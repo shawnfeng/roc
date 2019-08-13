@@ -96,7 +96,7 @@ func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string 
 		slog.Infof("%s check dist v2 ok path:%s", fun, path)
 		for _, n := range r.Node.Nodes {
 			for _, nc := range n.Nodes {
-				if nc.Key == n.Key+"/"+BASE_LOC_THRIFT_SERV && len(nc.Value) > 0 {
+				if nc.Key == n.Key+"/"+BASE_LOC_REG_SERV && len(nc.Value) > 0 {
 					return BASE_LOC_DIST_V2
 				}
 			}
@@ -330,12 +330,10 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 		for _, nc := range n.Nodes {
 			slog.Infof("%s dist key:%s value:%s", fun, nc.Key, nc.Value)
 
-			if m.protocol == THRIFT && nc.Key == n.Key+"/"+BASE_LOC_THRIFT_SERV {
+			if nc.Key == n.Key+"/"+BASE_LOC_REG_SERV {
 				reg = nc.Value
 			} else if nc.Key == n.Key+"/"+BASE_LOC_REG_MANUAL {
 				manual = nc.Value
-			} else if m.protocol == GRPC && nc.Key == n.Key+"/"+BASE_LOC_GRPC_SERV {
-				reg = nc.Value
 			}
 		}
 		idServ[id] = &servCopyStr{

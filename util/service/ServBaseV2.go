@@ -39,10 +39,7 @@ const (
 	BASE_LOC_GLOBAL_DIST_LOCK = "lock/global"
 
 	// thrift 服务注册的位置
-	BASE_LOC_THRIFT_SERV = "serve"
-
-	// GRPC 服务注册的位置
-	BASE_LOC_GRPC_SERV = "grpc"
+	BASE_LOC_REG_SERV = "serve"
 
 	// 后门注册的位置
 	BASE_LOC_REG_BACKDOOR = "backdoor"
@@ -125,18 +122,8 @@ func (m *ServBaseV2) RegisterMetrics(servs map[string]*ServInfo) error {
 // {type:http/thrift, addr:10.3.3.3:23233, processor:fuck}
 func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) error {
 	fun := "ServBaseV2.RegisterService -->"
-	for key, val := range servs {
-		if val.Type == PROCESSOR_GRPC {
-			info := map[string]*ServInfo{key: val}
-			if err := m.RegisterServiceV2(info, BASE_LOC_GRPC_SERV); err != nil {
-				slog.Errorf("%s reg v2 err:%s", fun, err)
-				return err
-			}
-			delete(servs, key)
-		}
-	}
 
-	err := m.RegisterServiceV2(servs, BASE_LOC_THRIFT_SERV)
+	err := m.RegisterServiceV2(servs, BASE_LOC_REG_SERV)
 	if err != nil {
 		slog.Errorf("%s reg v2 err:%s", fun, err)
 		return err
