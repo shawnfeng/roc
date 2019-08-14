@@ -83,7 +83,6 @@ type ClientEtcdV2 struct {
 	breakerMutex      sync.RWMutex
 	breakerGlobalConf string
 	breakerServConf   string
-	protocol          ServProtocol
 }
 
 func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string {
@@ -119,7 +118,7 @@ func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string 
 	return BASE_LOC_DIST_V2
 }
 
-func NewClientEtcdV2(confEtcd configEtcd, servlocation string, protocol ServProtocol) (*ClientEtcdV2, error) {
+func NewClientEtcdV2(confEtcd configEtcd, servlocation string) (*ClientEtcdV2, error) {
 	//fun := "NewClientEtcdV2 -->"
 
 	cfg := etcd.Config{
@@ -149,7 +148,6 @@ func NewClientEtcdV2(confEtcd configEtcd, servlocation string, protocol ServProt
 
 		breakerServPath:   fmt.Sprintf("%s/%s/%s", confEtcd.useBaseloc, BASE_LOC_BREAKER, servlocation),
 		breakerGlobalPath: fmt.Sprintf("%s/%s", confEtcd.useBaseloc, BASE_LOC_BREAKER_GLOBAL),
-		protocol:          protocol,
 	}
 
 	cli.watch(cli.servPath, cli.parseResponse)

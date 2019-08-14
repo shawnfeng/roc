@@ -29,11 +29,7 @@ type ClientLookup interface {
 }
 
 func NewClientLookup(etcdaddrs []string, baseLoc string, servlocation string) (*ClientEtcdV2, error) {
-	return NewClientEtcdV2(configEtcd{etcdaddrs, baseLoc}, servlocation, THRIFT)
-}
-
-func NewGrpcClientLookup(etcdaddrs []string, baseLoc string, servlocation string) (*ClientEtcdV2, error) {
-	return NewClientEtcdV2(configEtcd{etcdaddrs, baseLoc}, servlocation, GRPC)
+	return NewClientEtcdV2(configEtcd{etcdaddrs, baseLoc}, servlocation)
 }
 
 type ClientWrapper struct {
