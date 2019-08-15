@@ -442,6 +442,13 @@ func (m *ClientEtcdV2) parseResponseV1(r *etcd.Response) {
 			reg: &RegData{
 				Servs: servs,
 			},
+			manual: &ManualData{
+				Ctrl: &ServCtrl{
+					Weight:  0,
+					Disable: false,
+					Groups:  []string{""},
+				},
+			},
 		}
 
 	}
