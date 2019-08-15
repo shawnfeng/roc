@@ -47,6 +47,7 @@ type cmdArgs struct {
 	logDir        string
 	sessKey       string
 	group         string
+	disable       bool
 }
 
 func (m *Service) parseFlag() (*cmdArgs, error) {
@@ -249,7 +250,7 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 		return err
 	}
 
-	sb.SetGroup(args.group)
+	sb.SetGroupAndDisable(args.group, args.disable)
 
 	m.initTracer(servLoc)
 	m.initBackdoork(sb)
@@ -395,13 +396,14 @@ func GetServId() (servId int) {
 	return
 }
 
-func Test(etcds []string, baseLoc string, initfn func(ServBase) error) error {
+func Test(etcds []string, baseLoc, servLoc string, initfn func(ServBase) error) error {
 	args := &cmdArgs{
 		logMaxSize:    0,
 		logMaxBackups: 0,
-		servLoc:       "test/test",
+		servLoc:       servLoc,
 		sessKey:       "test",
 		logDir:        "console",
+		disable:       true,
 	}
 	return service.Init(configEtcd{etcds, baseLoc}, args, initfn, nil)
 }
