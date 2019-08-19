@@ -175,8 +175,8 @@ func (m *ServBaseV2) RegisterServiceV1(servs map[string]*ServInfo) error {
 	return m.doRegister(path, string(js), true)
 }
 
-func (m *ServBaseV2) SetGroup(group string) error {
-	fun := "ServBaseV2.SetGroup -->"
+func (m *ServBaseV2) SetGroupAndDisable(group string, disable bool) error {
+	fun := "ServBaseV2.SetGroupAndDisable -->"
 
 	path := fmt.Sprintf("%s/%s/%s/%d/%s", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId, BASE_LOC_REG_MANUAL)
 	value, err := m.getValueFromEtcd(path)
@@ -209,6 +209,7 @@ func (m *ServBaseV2) SetGroup(group string) error {
 	if manual.Ctrl.Weight == 0 {
 		manual.Ctrl.Weight = 100
 	}
+	manual.Ctrl.Disable = disable
 
 	newValue, err := json.Marshal(manual)
 	if err != nil {
