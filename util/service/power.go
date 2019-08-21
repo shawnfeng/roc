@@ -5,16 +5,19 @@
 package rocserv
 
 import (
+	"context"
 	"fmt"
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
 	"github.com/julienschmidt/httprouter"
-	"github.com/opentracing-contrib/go-stdlib/nethttp"
+	"github.com/ZhengHe-MD/go-stdlib/nethttp"
 	"github.com/opentracing/opentracing-go"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/snetutil"
+	"github.com/uber/jaeger-client-go"
 	"net"
 	"net/http"
+	"time"
 )
 
 func powerHttp(addr string, router *httprouter.Router) (string, error) {
@@ -51,6 +54,22 @@ func powerHttp(addr string, router *httprouter.Router) (string, error) {
 		router,
 		nethttp.OperationNameFunc(func(r *http.Request) string {
 			return "HTTP " + r.Method + ": " + r.URL.Path
+		}),
+		nethttp.MWSpanOnStart(func(ctx context.Context, span opentracing.Span, r *http.Request) context.Context {
+			return context.WithValue(ctx, "SpanStartTime", time.Now())
+		}),
+		nethttp.MWSpanOnFinish(func(ctx context.Context, span opentracing.Span, r *http.Request) context.Context {
+			if sctx, ok := span.Context().(jaeger.SpanContext); ok {
+				if !sctx.IsSampled() {
+					v := ctx.Value("SpanStartTime")
+					if st, ok := v.(time.Time); ok {
+						et := time.Now()
+						slog.Infof("tid:%v sid:%v pid:%v st:%v ft:%v",
+							sctx.TraceID(), sctx.SpanID(), sctx.ParentID(), st.Format(time.RFC3339), et.Format(time.RFC3339))
+					}
+				}
+			}
+			return ctx
 		}))
 
 	go func() {
