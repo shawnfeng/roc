@@ -4,6 +4,8 @@ git.apache.org/thrift.git v0.0.0-20150427210205-dc799ca07862/go.mod h1:fPE2ZNJGy
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/DataDog/zstd v1.4.0/go.mod h1:1jcaCB/ufaK+sKp1NBhlGmpz41jOoPQ35bpF36t7BBo=
 github.com/ZhengHe-MD/agollo v0.0.0-20190709010021-166900f9bd56/go.mod h1:Hs1VYbuOoVlDPOMlZawvwpN7eAqDOQUFG3Lxcne0SBo=
+github.com/ZhengHe-MD/go-stdlib v0.0.0-20190519235532-cf7a6c988dc9/go.mod h1:2It7j4ROQOzFeMBmuHVwJVXmBGPsAGM7A00EHforM8I=
+github.com/ZhengHe-MD/go-stdlib v0.0.0-20190820074432-aac302bfcf17/go.mod h1:2It7j4ROQOzFeMBmuHVwJVXmBGPsAGM7A00EHforM8I=
 github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5 h1:rFw4nCn9iMW+Vajsk51NtYIcwSTkXr+JGrMd36kTDJw=
 github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5/go.mod h1:SkGFH1ia65gfNATL8TAiHDNxPzPdmEL5uirI2Uyuz6c=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973 h1:xJ4a3vCFaGF/jqvzLMYoU8P317H5OQ+Via4RmuPwCS0=
@@ -33,7 +35,6 @@ github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfU
 github.com/golang/mock v1.1.1/go.mod h1:oTYuIxOrZwtPieC+H1uAHpcLFnEyAGVDL/k47Jfbm0A=
 github.com/golang/protobuf v0.0.0-20140729232320-25535e35a86c/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
 github.com/golang/protobuf v1.2.0/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
-github.com/golang/protobuf v1.3.1 h1:YF8+flBXS5eO826T4nzqPrxfhQThhXl0YzfuUPu4SBg=
 github.com/golang/protobuf v1.3.1/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
 github.com/golang/snappy v0.0.1/go.mod h1:/XxbfmMg8lxefKM7IXC3fBNl/7bRcc72aCRzEWrmP2Q=
 github.com/google/uuid v1.1.0 h1:Jf4mxPC/ziBnoPIdpQdPJ9OeiomAUHLvxmPRSPH9m4s=
@@ -56,7 +57,6 @@ github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
 github.com/lib/pq v0.0.0-20170603225454-8837942c3e09 h1:Du8GbB9tRExpAtRRdKUY3+1Kjj8Xh86GwBAppQ6DyD0=
 github.com/lib/pq v0.0.0-20170603225454-8837942c3e09/go.mod h1:5WUZQaWbwv1U+lTReE5YruASi9Al49XbQIvNi/34Woo=
 github.com/lyft/protoc-gen-validate v0.0.13/go.mod h1:XbGvPuh87YZc5TdIa2/I4pLk0QoUACkjt2znoq26NVQ=
-github.com/mattn/go-isatty v0.0.7 h1:UvyT9uN+3r7yLEYSlJsbQGdsaB/a0DlgWP3pql6iwOc=
 github.com/mattn/go-isatty v0.0.7/go.mod h1:Iq45c/XA43vh69/j3iqttzPXn0bhXyGjM0Hdxcsrc5s=
 github.com/mattn/go-sqlite3 v1.10.0/go.mod h1:FPy6KqzDD04eiIsT53CuJW3U88zkxoIYsOqkbpncsNc=
 github.com/matttproud/golang_protobuf_extensions v1.0.1 h1:4hp9jkHxhMHkqkrB3Ix0jegS5sx/RkqARlsWZ6pIwiU=
@@ -96,6 +96,10 @@ github.com/shawnfeng/lumberjack.v2 v0.0.0-20181211043042-d38ab0a61bdb/go.mod h1:
 github.com/shawnfeng/lumberjack.v2 v0.0.0-20181226094728-63d76296ede8 h1:UEgIO+GShCTkSTPdQj+5UODyJi2FpwMnyZ982jpABs8=
 github.com/shawnfeng/lumberjack.v2 v0.0.0-20181226094728-63d76296ede8/go.mod h1:9u5PFfVGpGVlGplh2jWs0UqjcY3ptVZ/v5iXpsRGg9M=
 github.com/shawnfeng/sutil v1.0.3/go.mod h1:gC6fb29UYcWtVS0lzefv2H02cRw5AEUO8egG1mFuFo4=
+github.com/shawnfeng/sutil v1.0.6-0.20190626093359-4699e3c8ecf3 h1:8H2gjVkWRNzspqXxqjuLYek4oQJWZAf5UCB/LgcoVhU=
+github.com/shawnfeng/sutil v1.0.6-0.20190626093359-4699e3c8ecf3/go.mod h1:45Z+gXsehOU/oEjbCO5MwnhYdyh3LPSMy+XGpY0M56k=
+github.com/shawnfeng/sutil v1.0.6-0.20190626112807-161b55a87e36 h1:XoEZSqp0MwuVCo/3mzuy9P45+Y+FjZpVbDQwouaf3k0=
+github.com/shawnfeng/sutil v1.0.6-0.20190626112807-161b55a87e36/go.mod h1:45Z+gXsehOU/oEjbCO5MwnhYdyh3LPSMy+XGpY0M56k=
 github.com/shawnfeng/sutil v1.2.0 h1:6U09bNBBBSGJJeqyZsBFLrKHAG73xoekXWyh3fPbzJM=
 github.com/shawnfeng/sutil v1.2.0/go.mod h1:ltwbNl80tWis2LPTaHNBPy98wxlrOQyOj4brL/yAbdk=
 github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d/go.mod h1:OnSkiWE9lh6wB0YB77sQom3nweQdgAjqCqsofrRNTgc=
