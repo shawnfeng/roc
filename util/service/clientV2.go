@@ -83,7 +83,6 @@ type ClientEtcdV2 struct {
 	breakerMutex      sync.RWMutex
 	breakerGlobalConf string
 	breakerServConf   string
-	protocol          ServProtocol
 }
 
 func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string {
@@ -96,7 +95,7 @@ func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string 
 		slog.Infof("%s check dist v2 ok path:%s", fun, path)
 		for _, n := range r.Node.Nodes {
 			for _, nc := range n.Nodes {
-				if nc.Key == n.Key+"/"+BASE_LOC_THRIFT_SERV && len(nc.Value) > 0 {
+				if nc.Key == n.Key+"/"+BASE_LOC_REG_SERV && len(nc.Value) > 0 {
 					return BASE_LOC_DIST_V2
 				}
 			}
@@ -119,7 +118,7 @@ func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string 
 	return BASE_LOC_DIST_V2
 }
 
-func NewClientEtcdV2(confEtcd configEtcd, servlocation string, protocol ServProtocol) (*ClientEtcdV2, error) {
+func NewClientEtcdV2(confEtcd configEtcd, servlocation string) (*ClientEtcdV2, error) {
 	//fun := "NewClientEtcdV2 -->"
 
 	cfg := etcd.Config{
@@ -149,7 +148,6 @@ func NewClientEtcdV2(confEtcd configEtcd, servlocation string, protocol ServProt
 
 		breakerServPath:   fmt.Sprintf("%s/%s/%s", confEtcd.useBaseloc, BASE_LOC_BREAKER, servlocation),
 		breakerGlobalPath: fmt.Sprintf("%s/%s", confEtcd.useBaseloc, BASE_LOC_BREAKER_GLOBAL),
-		protocol:          protocol,
 	}
 
 	cli.watch(cli.servPath, cli.parseResponse)
@@ -330,12 +328,10 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 		for _, nc := range n.Nodes {
 			slog.Infof("%s dist key:%s value:%s", fun, nc.Key, nc.Value)
 
-			if m.protocol == THRIFT && nc.Key == n.Key+"/"+BASE_LOC_THRIFT_SERV {
+			if nc.Key == n.Key+"/"+BASE_LOC_REG_SERV {
 				reg = nc.Value
 			} else if nc.Key == n.Key+"/"+BASE_LOC_REG_MANUAL {
 				manual = nc.Value
-			} else if m.protocol == GRPC && nc.Key == n.Key+"/"+BASE_LOC_GRPC_SERV {
-				reg = nc.Value
 			}
 		}
 		idServ[id] = &servCopyStr{
@@ -445,6 +441,13 @@ func (m *ClientEtcdV2) parseResponseV1(r *etcd.Response) {
 			servId: i,
 			reg: &RegData{
 				Servs: servs,
+			},
+			manual: &ManualData{
+				Ctrl: &ServCtrl{
+					Weight:  0,
+					Disable: false,
+					Groups:  []string{""},
+				},
 			},
 		}
 
