@@ -23,6 +23,9 @@ const (
 	PROCESSOR_THRIFT = "thrift"
 	PROCESSOR_GRPC   = "gprc"
 	PROCESSOR_GIN    = "gin"
+
+	MODEL_SERVER      = 0
+	MODEL_MASTERSLAVE = 1
 )
 
 var service = NewService()
@@ -48,6 +51,7 @@ type cmdArgs struct {
 	sessKey       string
 	group         string
 	disable       bool
+	model         int
 }
 
 func (m *Service) parseFlag() (*cmdArgs, error) {
@@ -238,6 +242,12 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 	defer slog.Sync()
 	defer statlog.Sync()
 
+	err = m.handleModel(sb, servLoc, args.model)
+	if err != nil {
+		slog.Panicf("%s handleModel err:%s", fun, err)
+		return err
+	}
+
 	err = initfn(sb)
 	if err != nil {
 		slog.Panicf("%s callInitFunc err:%s", fun, err)
@@ -260,6 +270,22 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 
 	var pause chan bool
 	pause <- true
+
+	return nil
+}
+
+func (m *Service) handleModel(sb *ServBaseV2, servLoc string, model int) error {
+	fun := "Service.handleModel -->"
+
+	if model == MODEL_MASTERSLAVE {
+		lockKey := fmt.Sprintf("%s-master-slave", servLoc)
+		if err := sb.LockGlobal(lockKey); err != nil {
+			slog.Errorf("%s LockGlobal key: %s, err: %s", fun, lockKey, err)
+			return err
+		}
+
+		slog.Infof("%s LockGlobal succ, key: %s", fun, lockKey)
+	}
 
 	return nil
 }
@@ -368,6 +394,23 @@ func ReloadRouter(processor string, driver interface{}) error {
 
 func Serve(etcds []string, baseLoc string, initfn func(ServBase) error, procs map[string]Processor) error {
 	return service.Serve(configEtcd{etcds, baseLoc}, initfn, procs)
+}
+
+func MasterSlave(etcds []string, baseLoc string, initfn func(ServBase) error, procs map[string]Processor) error {
+	return service.MasterSlave(configEtcd{etcds, baseLoc}, initfn, procs)
+}
+
+func (m *Service) MasterSlave(confEtcd configEtcd, initfn func(ServBase) error, procs map[string]Processor) error {
+	fun := "Service.MasterSlave -->"
+
+	args, err := m.parseFlag()
+	if err != nil {
+		slog.Panicf("%s parse arg err:%s", fun, err)
+		return err
+	}
+	args.model = MODEL_MASTERSLAVE
+
+	return m.Init(confEtcd, args, initfn, procs)
 }
 
 func Init(etcds []string, baseLoc string, servLoc, servKey, logDir string, initfn func(ServBase) error, procs map[string]Processor) error {
