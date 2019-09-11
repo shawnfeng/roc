@@ -228,16 +228,22 @@ func (m *ClientEtcdV2) watch(path string, hander func(*etcd.Response)) {
 			if !ok {
 				slog.Errorf("%s chg info nil:%s", fun, path)
 				chg = nil
+
+				firstOnce.Do(func() {
+					close(firstSync)
+				})
+
 				backoff.BackOff()
 			} else {
 				slog.Infof("%s update v:%s serv:%s", fun, r.Node.Key, path)
 				hander(r)
+
+				firstOnce.Do(func() {
+					close(firstSync)
+				})
+
 				backoff.Reset()
 			}
-
-			firstOnce.Do(func() {
-				close(firstSync)
-			})
 		}
 	}()
 
