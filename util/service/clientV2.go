@@ -165,8 +165,8 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
 		r, err := m.etcdClient.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
 		if err != nil {
 			slog.Warnf("%s get path:%s err:%s", fun, path, err)
-			//close(chg)
-			//return
+			close(chg)
+			return
 
 		} else {
 			chg <- r
