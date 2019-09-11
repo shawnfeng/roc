@@ -187,6 +187,7 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
 		watcher := m.etcdClient.Watcher(path, wop)
 		if watcher == nil {
 			slog.Errorf("%s new watcher path:%s", fun, path)
+			close(chg)
 			return
 		}
 
@@ -210,8 +211,10 @@ func (m *ClientEtcdV2) watch(path string, hander func(*etcd.Response)) {
 
 	backoff := stime.NewBackOffCtrl(time.Millisecond*10, time.Second*5)
 
-	var chg chan *etcd.Response
+	firstSync := make(chan bool)
+	var firstOnce sync.Once
 
+	var chg chan *etcd.Response
 	go func() {
 		slog.Infof("%s start watch:%s", fun, path)
 		for {
@@ -232,8 +235,13 @@ func (m *ClientEtcdV2) watch(path string, hander func(*etcd.Response)) {
 				backoff.Reset()
 			}
 
+			firstOnce.Do(func() {
+				close(firstSync)
+			})
 		}
 	}()
+
+	<-firstSync
 }
 
 func (m *ClientEtcdV2) parseResponse(r *etcd.Response) {
