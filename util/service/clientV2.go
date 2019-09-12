@@ -247,7 +247,14 @@ func (m *ClientEtcdV2) watch(path string, hander func(*etcd.Response)) {
 		}
 	}()
 
-	<-firstSync
+	select {
+	case <-firstSync:
+		slog.Infof("%s init ok, serv:%s", fun, path)
+		return
+	case <-time.After(time.Duration(time.Second)):
+		slog.Errorf("%s init timeout, serv:%s", fun, path)
+		return
+	}
 }
 
 func (m *ClientEtcdV2) parseResponse(r *etcd.Response) {
