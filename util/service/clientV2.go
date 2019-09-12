@@ -226,7 +226,7 @@ func (m *ClientEtcdV2) watch(path string, hander func(*etcd.Response)) {
 
 			r, ok := <-chg
 			if !ok {
-				slog.Errorf("%s chg info nil:%s", fun, path)
+				slog.Warnf("%s chg info nil:%s", fun, path)
 				chg = nil
 
 				firstOnce.Do(func() {
