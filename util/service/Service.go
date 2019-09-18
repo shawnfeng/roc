@@ -23,6 +23,9 @@ const (
 	PROCESSOR_THRIFT = "thrift"
 	PROCESSOR_GRPC   = "gprc"
 	PROCESSOR_GIN    = "gin"
+
+	MODEL_SERVER      = 0
+	MODEL_MASTERSLAVE = 1
 )
 
 var service = NewService()
@@ -47,6 +50,8 @@ type cmdArgs struct {
 	logDir        string
 	sessKey       string
 	group         string
+	disable       bool
+	model         int
 }
 
 func (m *Service) parseFlag() (*cmdArgs, error) {
@@ -237,6 +242,12 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 	defer slog.Sync()
 	defer statlog.Sync()
 
+	err = m.handleModel(sb, servLoc, args.model)
+	if err != nil {
+		slog.Panicf("%s handleModel err:%s", fun, err)
+		return err
+	}
+
 	err = initfn(sb)
 	if err != nil {
 		slog.Panicf("%s callInitFunc err:%s", fun, err)
@@ -252,13 +263,29 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 		return err
 	}
 
-	sb.SetGroup(args.group)
+	sb.SetGroupAndDisable(args.group, args.disable)
 
 	m.initBackdoork(sb)
 	m.initMetric(sb)
 
 	var pause chan bool
 	pause <- true
+
+	return nil
+}
+
+func (m *Service) handleModel(sb *ServBaseV2, servLoc string, model int) error {
+	fun := "Service.handleModel -->"
+
+	if model == MODEL_MASTERSLAVE {
+		lockKey := fmt.Sprintf("%s-master-slave", servLoc)
+		if err := sb.LockGlobal(lockKey); err != nil {
+			slog.Errorf("%s LockGlobal key: %s, err: %s", fun, lockKey, err)
+			return err
+		}
+
+		slog.Infof("%s LockGlobal succ, key: %s", fun, lockKey)
+	}
 
 	return nil
 }
@@ -369,6 +396,23 @@ func Serve(etcds []string, baseLoc string, initfn func(ServBase) error, procs ma
 	return service.Serve(configEtcd{etcds, baseLoc}, initfn, procs)
 }
 
+func MasterSlave(etcds []string, baseLoc string, initfn func(ServBase) error, procs map[string]Processor) error {
+	return service.MasterSlave(configEtcd{etcds, baseLoc}, initfn, procs)
+}
+
+func (m *Service) MasterSlave(confEtcd configEtcd, initfn func(ServBase) error, procs map[string]Processor) error {
+	fun := "Service.MasterSlave -->"
+
+	args, err := m.parseFlag()
+	if err != nil {
+		slog.Panicf("%s parse arg err:%s", fun, err)
+		return err
+	}
+	args.model = MODEL_MASTERSLAVE
+
+	return m.Init(confEtcd, args, initfn, procs)
+}
+
 func Init(etcds []string, baseLoc string, servLoc, servKey, logDir string, initfn func(ServBase) error, procs map[string]Processor) error {
 	args := &cmdArgs{
 		logMaxSize:    0,
@@ -397,13 +441,14 @@ func GetServId() (servId int) {
 	return
 }
 
-func Test(etcds []string, baseLoc string, initfn func(ServBase) error) error {
+func Test(etcds []string, baseLoc, servLoc string, initfn func(ServBase) error) error {
 	args := &cmdArgs{
 		logMaxSize:    0,
 		logMaxBackups: 0,
-		servLoc:       "test/test",
+		servLoc:       servLoc,
 		sessKey:       "test",
 		logDir:        "console",
+		disable:       true,
 	}
 	return service.Init(configEtcd{etcds, baseLoc}, args, initfn, nil)
 }

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"github.com/shawnfeng/hystrix-go/hystrix"
 	"github.com/shawnfeng/sutil/slog"
-	"github.com/shawnfeng/sutil/stime"
 	"sync"
 	"time"
 )
@@ -39,11 +38,13 @@ func NewBreakerConf() *BreakerConf {
 func (m *BreakerConf) tryUpdate(servname, rawGlobalConf, rawServConf string) {
 	fun := "BreakerConf.tryUpdate -->"
 
-	st := stime.NewTimeStat()
-	defer func() {
-		dur := st.Duration()
-		slog.Infof("%s servname:%s rawGlobalConf:%s rawServConf:%s dur:%d", fun, servname, rawGlobalConf, rawServConf, dur)
-	}()
+	/*
+		st := stime.NewTimeStat()
+		defer func() {
+			dur := st.Duration()
+			slog.Infof("%s servname:%s rawGlobalConf:%s rawServConf:%s dur:%d", fun, servname, rawGlobalConf, rawServConf, dur)
+		}()
+	*/
 
 	if len(rawGlobalConf) > 0 && rawGlobalConf != m.getRawGlobalConf() {
 
@@ -221,8 +222,6 @@ func (m *Breaker) monitor() {
 				if stat.fail > 5 && stat.total > 5 &&
 					(float64(stat.fail)/float64(stat.total)) > 0.02 {
 					slog.Errorf("%s breaker stat, key:%s, total:%d, fail:%d", fun, stat.key, stat.total, stat.fail)
-				} else {
-					slog.Infof("%s breaker stat, key:%s, total:%d, fail:%d", fun, stat.key, stat.total, stat.fail)
 				}
 			}
 
