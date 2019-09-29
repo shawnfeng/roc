@@ -39,10 +39,7 @@ const (
 	BASE_LOC_GLOBAL_DIST_LOCK = "lock/global"
 
 	// thrift 服务注册的位置
-	BASE_LOC_THRIFT_SERV = "serve"
-
-	// GRPC 服务注册的位置
-	BASE_LOC_GRPC_SERV = "grpc"
+	BASE_LOC_REG_SERV = "serve"
 
 	// 后门注册的位置
 	BASE_LOC_REG_BACKDOOR = "backdoor"
@@ -125,18 +122,8 @@ func (m *ServBaseV2) RegisterMetrics(servs map[string]*ServInfo) error {
 // {type:http/thrift, addr:10.3.3.3:23233, processor:fuck}
 func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) error {
 	fun := "ServBaseV2.RegisterService -->"
-	for key, val := range servs {
-		if val.Type == PROCESSOR_GRPC {
-			info := map[string]*ServInfo{key: val}
-			if err := m.RegisterServiceV2(info, BASE_LOC_GRPC_SERV); err != nil {
-				slog.Errorf("%s reg v2 err:%s", fun, err)
-				return err
-			}
-			delete(servs, key)
-		}
-	}
 
-	err := m.RegisterServiceV2(servs, BASE_LOC_THRIFT_SERV)
+	err := m.RegisterServiceV2(servs, BASE_LOC_REG_SERV)
 	if err != nil {
 		slog.Errorf("%s reg v2 err:%s", fun, err)
 		return err
@@ -186,6 +173,86 @@ func (m *ServBaseV2) RegisterServiceV1(servs map[string]*ServInfo) error {
 	path := fmt.Sprintf("%s/%s/%s/%d", m.confEtcd.useBaseloc, BASE_LOC_DIST, m.servLocation, m.servId)
 
 	return m.doRegister(path, string(js), true)
+}
+
+func (m *ServBaseV2) SetGroupAndDisable(group string, disable bool) error {
+	fun := "ServBaseV2.SetGroupAndDisable -->"
+
+	path := fmt.Sprintf("%s/%s/%s/%d/%s", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId, BASE_LOC_REG_MANUAL)
+	value, err := m.getValueFromEtcd(path)
+	if err != nil {
+		slog.Warnf("%s getValueFromEtcd err, path:%s, err:%v", fun, path, err)
+	}
+
+	manual := &ManualData{}
+	err = json.Unmarshal([]byte(value), manual)
+	if len(value) > 0 && err != nil {
+		slog.Errorf("%s unmarshal err, value:%s, err:%v", fun, value, err)
+		return err
+	}
+
+	if manual.Ctrl == nil {
+		manual.Ctrl = &ServCtrl{}
+	}
+
+	isFind := false
+	for _, g := range manual.Ctrl.Groups {
+		if g == group {
+			isFind = true
+			break
+		}
+	}
+
+	if isFind == false {
+		manual.Ctrl.Groups = append(manual.Ctrl.Groups, group)
+	}
+	if manual.Ctrl.Weight == 0 {
+		manual.Ctrl.Weight = 100
+	}
+	manual.Ctrl.Disable = disable
+
+	newValue, err := json.Marshal(manual)
+	if err != nil {
+		slog.Errorf("%s marshal err, manual:%v, err:%v", fun, manual, err)
+		return err
+	}
+
+	slog.Infof("%s path:%s old value:%s new value:%s", fun, path, value, newValue)
+	err = m.setValueToEtcd(path, string(newValue), nil)
+	if err != nil {
+		slog.Errorf("%s setValueToEtcd err, path:%s value:%s", fun, path, newValue)
+	}
+
+	return err
+}
+
+func (m *ServBaseV2) getValueFromEtcd(path string) (value string, err error) {
+	fun := "ServBaseV2.getValueFromEtcd -->"
+
+	r, err := m.etcdClient.Get(context.Background(), path, &etcd.GetOptions{Recursive: false, Sort: false})
+	if err != nil {
+		slog.Warnf("%s path:%s err:%v", fun, path, err)
+		return "", err
+	}
+
+	for _, n := range r.Node.Nodes {
+		for _, nc := range n.Nodes {
+			return nc.Value, nil
+		}
+	}
+
+	return "", nil
+}
+
+func (m *ServBaseV2) setValueToEtcd(path, value string, opts *etcd.SetOptions) error {
+	fun := "ServBaseV2.setValueToEtcd -->"
+
+	_, err := m.etcdClient.Set(context.Background(), path, value, opts)
+	if err != nil {
+		slog.Errorf("%s path:%s value:%s opts:%v", fun, path, value, opts)
+	}
+
+	return err
 }
 
 func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {

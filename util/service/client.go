@@ -5,6 +5,7 @@
 package rocserv
 
 import (
+	"context"
 	"fmt"
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/shawnfeng/sutil/slog"
@@ -18,7 +19,9 @@ import (
 type ClientLookup interface {
 	GetServAddr(processor, key string) *ServInfo
 	GetServAddrWithServid(servid int, processor, key string) *ServInfo
+	GetServAddrWithGroup(group string, processor, key string) *ServInfo
 	GetAllServAddr(processor string) []*ServInfo
+	GetAllServAddrWithGroup(group, processor string) []*ServInfo
 	ServKey() string
 	ServPath() string
 	GetBreakerServConf() string
@@ -26,11 +29,7 @@ type ClientLookup interface {
 }
 
 func NewClientLookup(etcdaddrs []string, baseLoc string, servlocation string) (*ClientEtcdV2, error) {
-	return NewClientEtcdV2(configEtcd{etcdaddrs, baseLoc}, servlocation, THRIFT)
-}
-
-func NewGrpcClientLookup(etcdaddrs []string, baseLoc string, servlocation string) (*ClientEtcdV2, error) {
-	return NewClientEtcdV2(configEtcd{etcdaddrs, baseLoc}, servlocation, GRPC)
+	return NewClientEtcdV2(configEtcd{etcdaddrs, baseLoc}, servlocation)
 }
 
 type ClientWrapper struct {
@@ -59,7 +58,7 @@ func NewClientWrapperWithRouterType(cb ClientLookup, processor string, routerTyp
 
 func (m *ClientWrapper) Do(haskkey string, timeout time.Duration, run func(addr string, timeout time.Duration) error) error {
 	fun := "ClientWrapper.Do -->"
-	si := m.router.Route(m.processor, haskkey)
+	si := m.router.Route(context.TODO(), m.processor, haskkey)
 	if si == nil {
 		return fmt.Errorf("%s not find service:%s processor:%s", fun, m.clientLookup.ServPath(), m.processor)
 	}
@@ -73,6 +72,31 @@ func (m *ClientWrapper) Do(haskkey string, timeout time.Duration, run func(addr 
 	}(si.Addr, timeout)
 
 	funcName := GetFunName(3)
+	var err error
+	st := stime.NewTimeStat()
+	defer func() {
+		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
+	}()
+	err = m.breaker.Do(0, si.Servid, funcName, call, HTTP, nil)
+	return err
+}
+
+func (m *ClientWrapper) Call(ctx context.Context, haskkey, funcName string, run func(addr string) error) error {
+	fun := "ClientWrapper.Call -->"
+
+	si := m.router.Route(ctx, m.processor, haskkey)
+	if si == nil {
+		return fmt.Errorf("%s not find service:%s processor:%s", fun, m.clientLookup.ServPath(), m.processor)
+	}
+	m.router.Pre(si)
+	defer m.router.Post(si)
+
+	call := func(addr string) func() error {
+		return func() error {
+			return run(addr)
+		}
+	}(si.Addr)
+
 	var err error
 	st := stime.NewTimeStat()
 	defer func() {
@@ -174,19 +198,46 @@ func (m *ClientThrift) newClient(addr string) rpcClient {
 	}
 }
 
-func (m *ClientThrift) route(key string) (*ServInfo, rpcClient) {
-	s := m.router.Route(m.processor, key)
+func (m *ClientThrift) route(ctx context.Context, key string) (*ServInfo, rpcClient) {
+	s := m.router.Route(ctx, m.processor, key)
 	if s == nil {
 		return nil, nil
 	}
 	addr := s.Addr
-	return s, m.pool.GrtClient(addr)
+	return s, m.pool.Get(addr)
 }
 
 func (m *ClientThrift) Rpc(haskkey string, timeout time.Duration, fnrpc func(interface{}) error) error {
 	//fun := "ClientThrift.Rpc-->"
 
-	si, rc := m.route(haskkey)
+	si, rc := m.route(context.TODO(), haskkey)
+	if rc == nil {
+		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
+	}
+
+	m.router.Pre(si)
+	defer m.router.Post(si)
+
+	call := func(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(interface{}) error) func() error {
+		return func() error {
+			return m.rpc(si, rc, timeout, fnrpc)
+		}
+	}(si, rc, timeout, fnrpc)
+
+	funcName := GetFunName(3)
+	var err error
+	st := stime.NewTimeStat()
+	defer func() {
+		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
+	}()
+	err = m.breaker.Do(0, si.Servid, funcName, call, THRIFT, nil)
+	return err
+}
+
+func (m *ClientThrift) RpcWithContext(ctx context.Context, haskkey string, timeout time.Duration, fnrpc func(interface{}) error) error {
+	//fun := "ClientThrift.Rpc-->"
+
+	si, rc := m.route(ctx, haskkey)
 	if rc == nil {
 		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
 	}

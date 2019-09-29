@@ -75,7 +75,7 @@ type ClientEtcdV2 struct {
 
 	muServlist sync.Mutex
 	servCopy   servCopyCollect
-	servHash   *consistent.Consistent
+	servHash   map[string]*consistent.Consistent
 
 	breakerGlobalPath string
 	breakerServPath   string
@@ -83,7 +83,6 @@ type ClientEtcdV2 struct {
 	breakerMutex      sync.RWMutex
 	breakerGlobalConf string
 	breakerServConf   string
-	protocol          ServProtocol
 }
 
 func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string {
@@ -96,7 +95,7 @@ func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string 
 		slog.Infof("%s check dist v2 ok path:%s", fun, path)
 		for _, n := range r.Node.Nodes {
 			for _, nc := range n.Nodes {
-				if nc.Key == n.Key+"/"+BASE_LOC_THRIFT_SERV && len(nc.Value) > 0 {
+				if nc.Key == n.Key+"/"+BASE_LOC_REG_SERV && len(nc.Value) > 0 {
 					return BASE_LOC_DIST_V2
 				}
 			}
@@ -119,7 +118,7 @@ func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string 
 	return BASE_LOC_DIST_V2
 }
 
-func NewClientEtcdV2(confEtcd configEtcd, servlocation string, protocol ServProtocol) (*ClientEtcdV2, error) {
+func NewClientEtcdV2(confEtcd configEtcd, servlocation string) (*ClientEtcdV2, error) {
 	//fun := "NewClientEtcdV2 -->"
 
 	cfg := etcd.Config{
@@ -149,7 +148,6 @@ func NewClientEtcdV2(confEtcd configEtcd, servlocation string, protocol ServProt
 
 		breakerServPath:   fmt.Sprintf("%s/%s/%s", confEtcd.useBaseloc, BASE_LOC_BREAKER, servlocation),
 		breakerGlobalPath: fmt.Sprintf("%s/%s", confEtcd.useBaseloc, BASE_LOC_BREAKER_GLOBAL),
-		protocol:          protocol,
 	}
 
 	cli.watch(cli.servPath, cli.parseResponse)
@@ -167,8 +165,8 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
 		r, err := m.etcdClient.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
 		if err != nil {
 			slog.Warnf("%s get path:%s err:%s", fun, path, err)
-			//close(chg)
-			//return
+			close(chg)
+			return
 
 		} else {
 			chg <- r
@@ -189,6 +187,7 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
 		watcher := m.etcdClient.Watcher(path, wop)
 		if watcher == nil {
 			slog.Errorf("%s new watcher path:%s", fun, path)
+			close(chg)
 			return
 		}
 
@@ -212,8 +211,10 @@ func (m *ClientEtcdV2) watch(path string, hander func(*etcd.Response)) {
 
 	backoff := stime.NewBackOffCtrl(time.Millisecond*10, time.Second*5)
 
-	var chg chan *etcd.Response
+	firstSync := make(chan bool)
+	var firstOnce sync.Once
 
+	var chg chan *etcd.Response
 	go func() {
 		slog.Infof("%s start watch:%s", fun, path)
 		for {
@@ -225,17 +226,35 @@ func (m *ClientEtcdV2) watch(path string, hander func(*etcd.Response)) {
 
 			r, ok := <-chg
 			if !ok {
-				slog.Errorf("%s chg info nil:%s", fun, path)
+				slog.Warnf("%s chg info nil:%s", fun, path)
 				chg = nil
+
+				firstOnce.Do(func() {
+					close(firstSync)
+				})
+
 				backoff.BackOff()
 			} else {
 				slog.Infof("%s update v:%s serv:%s", fun, r.Node.Key, path)
 				hander(r)
+
+				firstOnce.Do(func() {
+					close(firstSync)
+				})
+
 				backoff.Reset()
 			}
-
 		}
 	}()
+
+	select {
+	case <-firstSync:
+		slog.Infof("%s init ok, serv:%s", fun, path)
+		return
+	case <-time.After(time.Duration(time.Second)):
+		slog.Errorf("%s init timeout, serv:%s", fun, path)
+		return
+	}
 }
 
 func (m *ClientEtcdV2) parseResponse(r *etcd.Response) {
@@ -330,12 +349,10 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 		for _, nc := range n.Nodes {
 			slog.Infof("%s dist key:%s value:%s", fun, nc.Key, nc.Value)
 
-			if m.protocol == THRIFT && nc.Key == n.Key+"/"+BASE_LOC_THRIFT_SERV {
+			if nc.Key == n.Key+"/"+BASE_LOC_REG_SERV {
 				reg = nc.Value
 			} else if nc.Key == n.Key+"/"+BASE_LOC_REG_MANUAL {
 				manual = nc.Value
-			} else if m.protocol == GRPC && nc.Key == n.Key+"/"+BASE_LOC_GRPC_SERV {
-				reg = nc.Value
 			}
 		}
 		idServ[id] = &servCopyStr{
@@ -380,6 +397,14 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 			if err != nil {
 				slog.Errorf("%s servpath:%s json:%s error:%s", fun, m.servPath, is.manual, err)
 			}
+		}
+
+		if manual.Ctrl == nil {
+			manual.Ctrl = &ServCtrl{}
+		}
+
+		if len(manual.Ctrl.Groups) == 0 {
+			manual.Ctrl.Groups = append(manual.Ctrl.Groups, "")
 		}
 
 		servCopy[i] = &servCopyData{
@@ -438,6 +463,13 @@ func (m *ClientEtcdV2) parseResponseV1(r *etcd.Response) {
 			reg: &RegData{
 				Servs: servs,
 			},
+			manual: &ManualData{
+				Ctrl: &ServCtrl{
+					Weight:  0,
+					Disable: false,
+					Groups:  []string{""},
+				},
+			},
 		}
 
 	}
@@ -448,7 +480,7 @@ func (m *ClientEtcdV2) parseResponseV1(r *etcd.Response) {
 func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 	fun := "ClientEtcdV2.upServlist -->"
 
-	var slist []string
+	slist := make(map[string][]string)
 	for sid, c := range scopy {
 		if c == nil {
 			slog.Infof("%s not found copy path:%s sid:%d", fun, m.servPath, sid)
@@ -465,12 +497,15 @@ func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 			continue
 		}
 
+		var groups []string
 		var weight int
 		var disable bool
 		if c.manual != nil && c.manual.Ctrl != nil {
 			weight = c.manual.Ctrl.Weight
+			groups = c.manual.Ctrl.Groups
 			disable = c.manual.Ctrl.Disable
 		}
+
 		if weight == 0 {
 			weight = 100
 		}
@@ -480,12 +515,26 @@ func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 			continue
 		}
 
-		for i := 0; i < weight; i++ {
-			slist = append(slist, fmt.Sprintf("%d-%d", sid, i))
+		var tmpList []string
+		for _, g := range groups {
+			if _, ok := slist[g]; ok {
+				tmpList = slist[g]
+			}
+			for i := 0; i < weight; i++ {
+				tmpList = append(tmpList, fmt.Sprintf("%d-%d", sid, i))
+			}
+
+			slist[g] = tmpList
 		}
 	}
 
-	shash := consistent.NewWithElts(slist)
+	shash := make(map[string]*consistent.Consistent)
+	for group, list := range slist {
+		hash := consistent.NewWithElts(list)
+		if hash != nil {
+			shash[group] = hash
+		}
+	}
 	slog.Infof("%s path:%s serv:%d", fun, m.servPath, len(slist))
 
 	m.muServlist.Lock()
@@ -498,16 +547,31 @@ func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 }
 
 func (m *ClientEtcdV2) GetServAddr(processor, key string) *ServInfo {
-	fun := "ClientEtcdV2.GetServAddr -->"
+	//fun := "ClientEtcdV2.GetServAddr -->"
+	return m.GetServAddrWithGroup("", processor, key)
+}
+
+func (m *ClientEtcdV2) GetServAddrWithGroup(group string, processor, key string) *ServInfo {
+	fun := "ClientEtcdV2.GetServAddrWithGroup-->"
 	m.muServlist.Lock()
 	defer m.muServlist.Unlock()
 
 	if m.servHash == nil {
-		slog.Errorf("%s empty serv path:%s hash circle processor:%s key:%s", fun, m.servPath, processor, key)
+		slog.Errorf("%s m.servHash == nil, serv path:%s hash circle processor:%s key:%s", fun, m.servPath, processor, key)
 		return nil
 	}
 
-	s, err := m.servHash.Get(key)
+	if m.servHash[""] == nil {
+		slog.Errorf("%s m.servHash[\"\"] == nil, serv path:%s hash circle processor:%s key:%s", fun, m.servPath, processor, key)
+		return nil
+	}
+
+	shash, _ := m.servHash[group]
+	if shash == nil {
+		shash = m.servHash[""]
+	}
+
+	s, err := shash.Get(key)
 	if err != nil {
 		slog.Errorf("%s get serv path:%s processor:%s key:%s err:%s", fun, m.servPath, processor, key, err)
 		return nil
@@ -524,13 +588,7 @@ func (m *ClientEtcdV2) GetServAddr(processor, key string) *ServInfo {
 		slog.Fatalf("%s servid path:%s processor:%s key:%s sid:%s id:%d err:%s", fun, m.servPath, processor, key, s, sid, err)
 		return nil
 	}
-
-	info := m.getServAddrWithServid(sid, processor, key)
-	if info != nil {
-		info.Servid = sid
-	}
-
-	return info
+	return m.getServAddrWithServid(sid, processor, key)
 }
 
 func (m *ClientEtcdV2) getServAddrWithServid(servid int, processor, key string) *ServInfo {
@@ -565,6 +623,39 @@ func (m *ClientEtcdV2) GetAllServAddr(processor string) []*ServInfo {
 			if c.manual != nil && c.manual.Ctrl != nil && c.manual.Ctrl.Disable {
 				continue
 			}
+			if p := c.reg.Servs[processor]; p != nil {
+				servs = append(servs, p)
+			}
+		}
+	}
+
+	return servs
+}
+
+func (m *ClientEtcdV2) GetAllServAddrWithGroup(group, processor string) []*ServInfo {
+	m.muServlist.Lock()
+	defer m.muServlist.Unlock()
+
+	servs := make([]*ServInfo, 0)
+	for _, c := range m.servCopy {
+		if c.reg != nil {
+			if c.manual != nil && c.manual.Ctrl != nil && c.manual.Ctrl.Disable {
+				continue
+			}
+
+			isFind := false
+			groups := c.manual.Ctrl.Groups
+			for _, g := range groups {
+				if g == group {
+					isFind = true
+					break
+				}
+			}
+
+			if isFind == false {
+				continue
+			}
+
 			if p := c.reg.Servs[processor]; p != nil {
 				servs = append(servs, p)
 			}

@@ -5,6 +5,8 @@
 package rocserv
 
 import (
+	"context"
+	"github.com/shawnfeng/sutil/scontext"
 	"github.com/shawnfeng/sutil/slog"
 	"sync"
 )
@@ -24,7 +26,7 @@ func NewRouter(routerType int, cb ClientLookup) Router {
 }
 
 type Router interface {
-	Route(processor, key string) *ServInfo
+	Route(ctx context.Context, processor, key string) *ServInfo
 	Pre(s *ServInfo) error
 	Post(s *ServInfo) error
 }
@@ -39,8 +41,14 @@ type Hash struct {
 	cb ClientLookup
 }
 
-func (m *Hash) Route(processor, key string) *ServInfo {
-	return m.cb.GetServAddr(processor, key)
+func (m *Hash) Route(ctx context.Context, processor, key string) *ServInfo {
+	fun := "Hash.Route -->"
+
+	group := scontext.GetGroup(ctx)
+	s := m.cb.GetServAddrWithGroup(group, processor, key)
+
+	slog.Infof("%s group:%s, processor:%s, key:%s, s:%v", fun, group, processor, key, s)
+	return s
 }
 
 func (m *Hash) Pre(s *ServInfo) error {
@@ -64,10 +72,25 @@ type Concurrent struct {
 	counter map[string]int64
 }
 
-func (m *Concurrent) Route(processor, key string) *ServInfo {
-	fun := "Route -->"
+func (m *Concurrent) Route(ctx context.Context, processor, key string) *ServInfo {
+	fun := "Concurrent.Route -->"
 
-	list := m.cb.GetAllServAddr(processor)
+	group := scontext.GetGroup(ctx)
+	s := m.route(group, processor, key)
+	if s != nil {
+		slog.Infof("%s group:%s, processor:%s, key:%s, s:%v", fun, group, processor, key, s)
+		return s
+	}
+
+	s = m.route("", processor, key)
+	slog.Infof("%s group:%s, new group:%s, processor:%s, key:%s, s:%v", fun, group, "", processor, key, s)
+	return s
+}
+
+func (m *Concurrent) route(group, processor, key string) *ServInfo {
+	fun := "route -->"
+
+	list := m.cb.GetAllServAddrWithGroup(group, processor)
 	if list == nil {
 		return nil
 	}

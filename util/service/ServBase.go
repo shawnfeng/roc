@@ -54,8 +54,9 @@ func (m *RegData) String() string {
 }
 
 type ServCtrl struct {
-	Weight  int  `json:"weight"`
-	Disable bool `json:"disable"`
+	Weight  int      `json:"weight"`
+	Disable bool     `json:"disable"`
+	Groups  []string `json:"groups"`
 }
 
 type ManualData struct {
