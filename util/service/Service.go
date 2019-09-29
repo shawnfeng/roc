@@ -237,6 +237,7 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 		slog.Panicf("%s init servbase loc:%s key:%s err:%s", fun, servLoc, sessKey, err)
 		return err
 	}
+	m.sbase = sb
 
 	m.initLog(sb, args)
 	defer slog.Sync()
