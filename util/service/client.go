@@ -265,6 +265,30 @@ func (m *ClientThrift) RpcWithContext(ctx context.Context, haskkey string, timeo
 	return err
 }
 
+func (m *ClientThrift) RpcWithAddr(ctx context.Context, addr string, timeout time.Duration, fnrpc func(interface{}) error) error {
+	//fun := "ClientThrift.RpcWithAddr -->"
+	si := &ServInfo{
+		Type:   "thrift",
+		Addr:   addr,
+		Servid: 0,
+	}
+
+	call := func(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(interface{}) error) func() error {
+		return func() error {
+			return m.rpc(si, rc, timeout, fnrpc)
+		}
+	}(si, m.pool.Get(addr), timeout, fnrpc)
+
+	funcName := GetFunName(3)
+	var err error
+	st := stime.NewTimeStat()
+	defer func() {
+		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
+	}()
+	err = m.breaker.Do(0, si.Servid, funcName, call, THRIFT, nil)
+	return err
+}
+
 func (m *ClientThrift) rpc(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(interface{}) error) error {
 	fun := "ClientThrift.rpc -->"
 
