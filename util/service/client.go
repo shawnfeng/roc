@@ -56,9 +56,9 @@ func NewClientWrapperWithRouterType(cb ClientLookup, processor string, routerTyp
 	}
 }
 
-func (m *ClientWrapper) Do(haskkey string, timeout time.Duration, run func(addr string, timeout time.Duration) error) error {
+func (m *ClientWrapper) Do(hashKey string, timeout time.Duration, run func(addr string, timeout time.Duration) error) error {
 	fun := "ClientWrapper.Do -->"
-	si := m.router.Route(context.TODO(), m.processor, haskkey)
+	si := m.router.Route(context.TODO(), m.processor, hashKey)
 	if si == nil {
 		return fmt.Errorf("%s not find service:%s processor:%s", fun, m.clientLookup.ServPath(), m.processor)
 	}
@@ -81,10 +81,10 @@ func (m *ClientWrapper) Do(haskkey string, timeout time.Duration, run func(addr 
 	return err
 }
 
-func (m *ClientWrapper) Call(ctx context.Context, haskkey, funcName string, run func(addr string) error) error {
+func (m *ClientWrapper) Call(ctx context.Context, hashKey, funcName string, run func(addr string) error) error {
 	fun := "ClientWrapper.Call -->"
 
-	si := m.router.Route(ctx, m.processor, haskkey)
+	si := m.router.Route(ctx, m.processor, hashKey)
 	if si == nil {
 		return fmt.Errorf("%s not find service:%s processor:%s", fun, m.clientLookup.ServPath(), m.processor)
 	}
@@ -211,13 +211,14 @@ func (m *ClientThrift) route(ctx context.Context, key string) (*ServInfo, rpcCli
 	return s, m.pool.Get(addr)
 }
 
-func (m *ClientThrift) Rpc(haskkey string, timeout time.Duration, fnrpc func(interface{}) error) error {
+func (m *ClientThrift) Rpc(ctx context.Context, hashKey string, timeout time.Duration, fnrpc func(interface{}) error) error {
 	//fun := "ClientThrift.Rpc-->"
-
-	si, rc := m.route(context.TODO(), haskkey)
+	si, rc := m.route(ctx, hashKey)
 	if rc == nil {
 		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
 	}
+
+	logTrafficForClientThrift(ctx, m, si)
 
 	m.router.Pre(si)
 	defer m.router.Post(si)
@@ -238,31 +239,9 @@ func (m *ClientThrift) Rpc(haskkey string, timeout time.Duration, fnrpc func(int
 	return err
 }
 
-func (m *ClientThrift) RpcWithContext(ctx context.Context, haskkey string, timeout time.Duration, fnrpc func(interface{}) error) error {
-	//fun := "ClientThrift.Rpc-->"
-
-	si, rc := m.route(ctx, haskkey)
-	if rc == nil {
-		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
-	}
-
-	m.router.Pre(si)
-	defer m.router.Post(si)
-
-	call := func(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(interface{}) error) func() error {
-		return func() error {
-			return m.rpc(si, rc, timeout, fnrpc)
-		}
-	}(si, rc, timeout, fnrpc)
-
-	funcName := GetFunName(3)
-	var err error
-	st := stime.NewTimeStat()
-	defer func() {
-		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
-	}()
-	err = m.breaker.Do(0, si.Servid, funcName, call, THRIFT, nil)
-	return err
+// NOTE: deprecated.
+func (m *ClientThrift) RpcWithContext(ctx context.Context, hashKey string, timeout time.Duration, fnrpc func(interface{}) error) error {
+	return m.Rpc(ctx, hashKey, timeout, fnrpc)
 }
 
 func (m *ClientThrift) rpc(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(interface{}) error) error {
