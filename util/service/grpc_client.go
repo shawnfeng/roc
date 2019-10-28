@@ -112,11 +112,14 @@ func (m *ClientGrpc) getClient(provider *Provider) (*ServInfo, rpcClient, error)
 	return serv, m.pool.Get(serv.Addr), nil
 }
 
-func (m *ClientGrpc) Rpc(haskkey string, fnrpc func(interface{}) error) error {
-	si, rc := m.route(context.TODO(), haskkey)
+func (m *ClientGrpc) Rpc(ctx context.Context, hashKey string, fnrpc func(interface{}) error) error {
+
+	si, rc := m.route(ctx, hashKey)
 	if rc == nil {
 		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
 	}
+
+	logTrafficForClientGrpc(ctx, m, si)
 
 	m.router.Pre(si)
 	defer m.router.Post(si)
@@ -138,30 +141,8 @@ func (m *ClientGrpc) Rpc(haskkey string, fnrpc func(interface{}) error) error {
 	return err
 }
 
-func (m *ClientGrpc) RpcWithContext(ctx context.Context, haskkey string, fnrpc func(interface{}) error) error {
-	si, rc := m.route(ctx, haskkey)
-	if rc == nil {
-		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
-	}
-
-	m.router.Pre(si)
-	defer m.router.Post(si)
-
-	call := func(si *ServInfo, rc rpcClient, fnrpc func(interface{}) error) func() error {
-		return func() error {
-			return m.rpc(si, rc, fnrpc)
-		}
-	}(si, rc, fnrpc)
-
-	funcName := GetFunName(3)
-
-	var err error
-	st := stime.NewTimeStat()
-	defer func() {
-		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
-	}()
-	err = m.breaker.Do(0, si.Servid, funcName, call, GRPC, nil)
-	return err
+func (m *ClientGrpc) RpcWithContext(ctx context.Context, hashKey string, fnrpc func(interface{}) error) error {
+	return m.Rpc(ctx, hashKey, fnrpc)
 }
 
 func (m *ClientGrpc) rpc(si *ServInfo, rc rpcClient, fnrpc func(interface{}) error) error {
