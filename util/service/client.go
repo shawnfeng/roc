@@ -207,8 +207,12 @@ func (m *ClientThrift) route(ctx context.Context, key string) (*ServInfo, rpcCli
 	return s, m.pool.Get(addr)
 }
 
-func (m *ClientThrift) Rpc(ctx context.Context, hashKey string, timeout time.Duration, fnrpc func(interface{}) error) error {
-	//fun := "ClientThrift.Rpc-->"
+func (m *ClientThrift) Rpc(hashKey string, timeout time.Duration, fnrpc func(interface{}) error) error {
+	return m.RpcWithContext(context.TODO(), hashKey, timeout, fnrpc)
+}
+
+// NOTE: deprecated.
+func (m *ClientThrift) RpcWithContext(ctx context.Context, hashKey string, timeout time.Duration, fnrpc func(interface{}) error) error {
 	si, rc := m.route(ctx, hashKey)
 	if rc == nil {
 		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
@@ -233,11 +237,6 @@ func (m *ClientThrift) Rpc(ctx context.Context, hashKey string, timeout time.Dur
 	}()
 	err = m.breaker.Do(0, si.Servid, funcName, call, THRIFT, nil)
 	return err
-}
-
-// NOTE: deprecated.
-func (m *ClientThrift) RpcWithContext(ctx context.Context, hashKey string, timeout time.Duration, fnrpc func(interface{}) error) error {
-	return m.Rpc(ctx, hashKey, timeout, fnrpc)
 }
 
 func (m *ClientThrift) rpc(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(interface{}) error) error {

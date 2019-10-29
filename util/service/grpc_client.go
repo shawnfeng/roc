@@ -112,8 +112,11 @@ func (m *ClientGrpc) getClient(provider *Provider) (*ServInfo, rpcClient, error)
 	return serv, m.pool.Get(serv.Addr), nil
 }
 
-func (m *ClientGrpc) Rpc(ctx context.Context, hashKey string, fnrpc func(interface{}) error) error {
+func (m *ClientGrpc) Rpc(hashKey string, fnrpc func(interface{}) error) error {
+	return m.RpcWithContext(context.TODO(), hashKey, fnrpc)
+}
 
+func (m *ClientGrpc) RpcWithContext(ctx context.Context, hashKey string, fnrpc func(interface{}) error) error {
 	si, rc := m.route(ctx, hashKey)
 	if rc == nil {
 		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
@@ -139,10 +142,6 @@ func (m *ClientGrpc) Rpc(ctx context.Context, hashKey string, fnrpc func(interfa
 	}()
 	err = m.breaker.Do(0, si.Servid, funcName, call, GRPC, nil)
 	return err
-}
-
-func (m *ClientGrpc) RpcWithContext(ctx context.Context, hashKey string, fnrpc func(interface{}) error) error {
-	return m.Rpc(ctx, hashKey, fnrpc)
 }
 
 func (m *ClientGrpc) rpc(si *ServInfo, rc rpcClient, fnrpc func(interface{}) error) error {
