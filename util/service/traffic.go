@@ -16,9 +16,9 @@ const TrafficLogID = "TRAFFIC"
 
 func httpTrafficLogMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		next.ServeHTTP(w, r)
-		// NOTE: log after handling business logic
+		// NOTE: log before handling business logic
 		logTrafficForHttpServer(r.Context())
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -72,6 +72,7 @@ func logTrafficForClientGrpc(ctx context.Context, cg *ClientGrpc, si *ServInfo) 
 		kv[k] = v
 	}
 
+	kv["stype"] = si.Type
 	kv["srvid"] = si.Servid
 	kv["sname"] = serviceFromServPath(cg.clientLookup.ServPath())
 	logTrafficByKV(ctx, kv)
