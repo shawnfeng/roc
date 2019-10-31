@@ -33,10 +33,16 @@ func trafficKVFromContext(ctx context.Context) (kv map[string]interface{}) {
 		return
 	}
 
-	if spanCtx, ok := span.Context().(jaeger.SpanContext); ok {
-		kv["tid"] = fmt.Sprint(spanCtx.TraceID())
-		kv["sid"] = fmt.Sprint(spanCtx.SpanID())
-		kv["pid"] = fmt.Sprint(spanCtx.ParentID())
+	if jaegerSpan, ok := span.(*jaeger.Span); ok {
+		jaegerSpanCtx, ok := jaegerSpan.Context().(jaeger.SpanContext)
+		if !ok {
+			return
+		}
+
+		kv["op"] = jaegerSpan.OperationName()
+		kv["tid"] = fmt.Sprint(jaegerSpanCtx.TraceID())
+		kv["sid"] = fmt.Sprint(jaegerSpanCtx.SpanID())
+		kv["pid"] = fmt.Sprint(jaegerSpanCtx.ParentID())
 	}
 	return
 }
