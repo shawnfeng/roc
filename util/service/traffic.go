@@ -16,9 +16,9 @@ const TrafficLogID = "TRAFFIC"
 
 func httpTrafficLogMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		next.ServeHTTP(w, r)
-		// NOTE: log after handling business logic
+		// NOTE: log before handling business logic
 		logTrafficForHttpServer(r.Context())
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -33,10 +33,16 @@ func trafficKVFromContext(ctx context.Context) (kv map[string]interface{}) {
 		return
 	}
 
-	if spanCtx, ok := span.Context().(jaeger.SpanContext); ok {
-		kv["tid"] = fmt.Sprint(spanCtx.TraceID())
-		kv["sid"] = fmt.Sprint(spanCtx.SpanID())
-		kv["pid"] = fmt.Sprint(spanCtx.ParentID())
+	if jaegerSpan, ok := span.(*jaeger.Span); ok {
+		jaegerSpanCtx, ok := jaegerSpan.Context().(jaeger.SpanContext)
+		if !ok {
+			return
+		}
+
+		kv["op"] = jaegerSpan.OperationName()
+		kv["tid"] = fmt.Sprint(jaegerSpanCtx.TraceID())
+		kv["sid"] = fmt.Sprint(jaegerSpanCtx.SpanID())
+		kv["pid"] = fmt.Sprint(jaegerSpanCtx.ParentID())
 	}
 	return
 }
@@ -72,6 +78,7 @@ func logTrafficForClientGrpc(ctx context.Context, cg *ClientGrpc, si *ServInfo) 
 		kv[k] = v
 	}
 
+	kv["stype"] = si.Type
 	kv["srvid"] = si.Servid
 	kv["sname"] = serviceFromServPath(cg.clientLookup.ServPath())
 	logTrafficByKV(ctx, kv)
