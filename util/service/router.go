@@ -42,12 +42,12 @@ type Hash struct {
 }
 
 func (m *Hash) Route(ctx context.Context, processor, key string) *ServInfo {
-	fun := "Hash.Route -->"
+	//fun := "Hash.Route -->"
 
 	group := scontext.GetGroup(ctx)
 	s := m.cb.GetServAddrWithGroup(group, processor, key)
 
-	slog.Infof("%s group:%s, processor:%s, key:%s, s:%v", fun, group, processor, key, s)
+	//slog.Infof("%s group:%s, processor:%s, key:%s, s:%v", fun, group, processor, key, s)
 	return s
 }
 
@@ -83,7 +83,7 @@ func (m *Concurrent) Route(ctx context.Context, processor, key string) *ServInfo
 	}
 
 	s = m.route("", processor, key)
-	slog.Infof("%s group:%s, new group:%s, processor:%s, key:%s, s:%v", fun, group, "", processor, key, s)
+	//slog.Infof("%s group:%s, new group:%s, processor:%s, key:%s, s:%v", fun, group, "", processor, key, s)
 	return s
 }
 
@@ -116,7 +116,7 @@ func (m *Concurrent) route(group, processor, key string) *ServInfo {
 		}
 	}
 	if s != nil {
-		slog.Infof("%s processor:%s, addr:%s", fun, processor, s.Addr)
+		//slog.Infof("%s processor:%s, addr:%s", fun, processor, s.Addr)
 	} else {
 		slog.Errorf("%s processor:%s, route fail", fun, processor)
 	}
