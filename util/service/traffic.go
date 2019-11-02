@@ -12,7 +12,19 @@ import (
 	"strings"
 )
 
-const TrafficLogID = "TRAFFIC"
+const (
+	TrafficLogID              = "TRAFFIC"
+	TrafficLogKeyUID          = "uid"
+	TrafficLogKeyGroup        = "group"
+	TrafficLogKeyTraceID      = "tid"
+	TrafficLogKeySpanID       = "sid"
+	TrafficLogKeyParentSpanID = "pid"
+	TrafficLogKeyOperation    = "op"
+	TrafficLogKeyCaller       = "caller"
+	TrafficLogKeyServerType   = "stype"
+	TrafficLogKeyServerID     = "srvid"
+	TrafficLogKeyServerName   = "sname"
+)
 
 func httpTrafficLogMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -25,8 +37,12 @@ func httpTrafficLogMiddleware(next http.Handler) http.Handler {
 func trafficKVFromContext(ctx context.Context) (kv map[string]interface{}) {
 	kv = map[string]interface{}{}
 
-	kv["uid"], _ = scontext.GetUid(ctx)
-	kv["group"] = scontext.GetGroup(ctx)
+	kv[TrafficLogKeyUID], _ = scontext.GetUid(ctx)
+	kv[TrafficLogKeyGroup] = scontext.GetControlRouteGroupWithDefault(ctx, scontext.DefaultGroup)
+
+	if callerName, ok := scontext.GetControlCallerServerName(ctx); ok {
+		kv[TrafficLogKeyCaller] = callerName
+	}
 
 	span := opentracing.SpanFromContext(ctx)
 	if span == nil {
@@ -39,16 +55,17 @@ func trafficKVFromContext(ctx context.Context) (kv map[string]interface{}) {
 			return
 		}
 
-		kv["op"] = jaegerSpan.OperationName()
-		kv["tid"] = fmt.Sprint(jaegerSpanCtx.TraceID())
-		kv["sid"] = fmt.Sprint(jaegerSpanCtx.SpanID())
-		kv["pid"] = fmt.Sprint(jaegerSpanCtx.ParentID())
+		kv[TrafficLogKeyOperation] = jaegerSpan.OperationName()
+		kv[TrafficLogKeyTraceID] = fmt.Sprint(jaegerSpanCtx.TraceID())
+		kv[TrafficLogKeySpanID] = fmt.Sprint(jaegerSpanCtx.SpanID())
+		kv[TrafficLogKeyParentSpanID] = fmt.Sprint(jaegerSpanCtx.ParentID())
 	}
 	return
 }
 
 func logTrafficForHttpServer(ctx context.Context) {
 	kv := make(map[string]interface{})
+	kv[TrafficLogKeyServerType] = "http"
 	for k, v := range trafficKVFromContext(ctx) {
 		kv[k] = v
 	}
@@ -61,30 +78,7 @@ func serviceFromServPath(spath string) string {
 	return parts[len(parts)-1]
 }
 
-func logTrafficForClientThrift(ctx context.Context, ct *ClientThrift, si *ServInfo) {
-	kv := make(map[string]interface{})
-	for k, v := range trafficKVFromContext(ctx) {
-		kv[k] = v
-	}
-
-	kv["srvid"] = si.Servid
-	kv["sname"] = serviceFromServPath(ct.clientLookup.ServPath())
-	logTrafficByKV(ctx, kv)
-}
-
-func logTrafficForClientGrpc(ctx context.Context, cg *ClientGrpc, si *ServInfo) {
-	kv := make(map[string]interface{})
-	for k, v := range trafficKVFromContext(ctx) {
-		kv[k] = v
-	}
-
-	kv["stype"] = si.Type
-	kv["srvid"] = si.Servid
-	kv["sname"] = serviceFromServPath(cg.clientLookup.ServPath())
-	logTrafficByKV(ctx, kv)
-}
-
 func logTrafficByKV(ctx context.Context, kv map[string]interface{}) {
 	bs, _ := json.Marshal(kv)
-	slog.Infof(ctx, "%s %s", TrafficLogID, string(bs))
+	slog.Infof(ctx, "%s\t%s", TrafficLogID, string(bs))
 }

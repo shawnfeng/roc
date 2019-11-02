@@ -8,9 +8,12 @@ import (
 	"context"
 	"fmt"
 	"git.apache.org/thrift.git/lib/go/thrift"
+	"github.com/opentracing/opentracing-go"
+	"github.com/shawnfeng/sutil/scontext"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/smetric"
 	"github.com/shawnfeng/sutil/stime"
+	"github.com/uber/jaeger-client-go"
 	"runtime"
 	"strings"
 	"time"
@@ -211,25 +214,29 @@ func (m *ClientThrift) route(ctx context.Context, key string) (*ServInfo, rpcCli
 	return s, m.pool.Get(addr)
 }
 
+// deprecated
 func (m *ClientThrift) Rpc(hashKey string, timeout time.Duration, fnrpc func(interface{}) error) error {
-	return m.RpcWithContext(context.TODO(), hashKey, timeout, fnrpc)
+	wrapper := func(ctx context.Context, client interface{}) error {
+		return fnrpc(client)
+	}
+	return m.RpcWithContext(context.Background(), hashKey, timeout, wrapper)
 }
 
-// NOTE: deprecated.
-func (m *ClientThrift) RpcWithContext(ctx context.Context, hashKey string, timeout time.Duration, fnrpc func(interface{}) error) error {
+func (m *ClientThrift) RpcWithContext(ctx context.Context, hashKey string, timeout time.Duration, fnrpc func(context.Context, interface{}) error) error {
 	si, rc := m.route(ctx, hashKey)
 	if rc == nil {
 		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
 	}
 
-	logTrafficForClientThrift(ctx, m, si)
+	ctx = m.injectServInfo(ctx, si)
+	m.logTraffic(ctx, si)
 
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
-	call := func(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(interface{}) error) func() error {
+	call := func(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(context.Context, interface{}) error) func() error {
 		return func() error {
-			return m.rpc(si, rc, timeout, fnrpc)
+			return m.rpcWithContext(ctx, si, rc, timeout, fnrpc)
 		}
 	}(si, rc, timeout, fnrpc)
 
@@ -253,10 +260,61 @@ func (m *ClientThrift) rpc(si *ServInfo, rc rpcClient, timeout time.Duration, fn
 	if err == nil {
 		m.pool.Put(si.Addr, rc)
 	} else {
-		slog.Warnf("%s close rpcclient s:%s", fun, si)
+		slog.Warnf("%s close thrift client s:%s", fun, si)
 		rc.Close()
 	}
 	return err
+}
+
+func (m *ClientThrift) rpcWithContext(ctx context.Context, si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(context.Context, interface{}) error) error {
+	fun := "ClientThrift.rpcWithContext -->"
+
+	rc.SetTimeout(timeout)
+	c := rc.GetServiceClient()
+
+	err := fnrpc(ctx, c)
+	if err == nil {
+		m.pool.Put(si.Addr, rc)
+	} else {
+		slog.Warnf("%s close thrift client s:%s", fun, si)
+		rc.Close()
+	}
+	return err
+}
+
+func (m *ClientThrift) injectServInfo(ctx context.Context, si *ServInfo) context.Context {
+	ctx, err := scontext.SetControlCallerServerName(ctx, serviceFromServPath(m.clientLookup.ServPath()))
+	if err != nil {
+		return ctx
+	}
+
+	ctx, err = scontext.SetControlCallerServerId(ctx, fmt.Sprint(si.Servid))
+	if err != nil {
+		return ctx
+	}
+
+	span := opentracing.SpanFromContext(ctx)
+	if span == nil {
+		return ctx
+	}
+
+	if jaegerSpan, ok := span.(*jaeger.Span); ok {
+		ctx, err = scontext.SetControlCallerMethod(ctx, jaegerSpan.OperationName())
+	}
+
+	return ctx
+}
+
+func (m *ClientThrift) logTraffic(ctx context.Context, si *ServInfo) {
+	kv := make(map[string]interface{})
+	for k, v := range trafficKVFromContext(ctx) {
+		kv[k] = v
+	}
+
+	kv[TrafficLogKeyServerType] = si.Type
+	kv[TrafficLogKeyServerID] = si.Servid
+	kv[TrafficLogKeyServerName] = serviceFromServPath(m.clientLookup.ServPath())
+	logTrafficByKV(ctx, kv)
 }
 
 func GetFunName(index int) string {
