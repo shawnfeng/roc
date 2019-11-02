@@ -12,6 +12,7 @@ github.com/ZhengHe-MD/agollo/v4 v4.1.3/go.mod h1:Cze1dOFujMfuqY5mZWzz1vvJ0ZdpDQ7
 github.com/ZhengHe-MD/go-stdlib v0.0.0-20190519235532-cf7a6c988dc9/go.mod h1:2It7j4ROQOzFeMBmuHVwJVXmBGPsAGM7A00EHforM8I=
 github.com/ZhengHe-MD/go-stdlib v0.0.0-20190820074432-aac302bfcf17/go.mod h1:2It7j4ROQOzFeMBmuHVwJVXmBGPsAGM7A00EHforM8I=
 github.com/ZhengHe-MD/properties v0.2.1/go.mod h1:6d7Dapy6sSqC/QRwv8HTZ7h6yxvYQsyIcKBdYJJbyLE=
+github.com/ZhengHe-MD/sutil v1.0.6-0.20191102124741-b4eb310a8771/go.mod h1:A6O9+ZAJCeDIbZfiBYIyg3q3qtttzptN9qmCxbcuYu4=
 github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5 h1:rFw4nCn9iMW+Vajsk51NtYIcwSTkXr+JGrMd36kTDJw=
 github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5/go.mod h1:SkGFH1ia65gfNATL8TAiHDNxPzPdmEL5uirI2Uyuz6c=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
