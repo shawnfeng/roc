@@ -1,5 +1,7 @@
 module github.com/shawnfeng/roc
 
+replace github.com/shawnfeng/sutil => github.com/ZhengHe-MD/sutil v1.0.6-0.20191102124741-b4eb310a8771
+
 require (
 	git.apache.org/thrift.git v0.0.0-20150427210205-dc799ca07862
 	github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5 // indirect
