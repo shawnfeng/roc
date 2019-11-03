@@ -212,13 +212,36 @@ func (m *ClientThrift) route(ctx context.Context, key string) (*ServInfo, rpcCli
 
 // deprecated
 func (m *ClientThrift) Rpc(hashKey string, timeout time.Duration, fnrpc func(interface{}) error) error {
-	wrapper := func(ctx context.Context, client interface{}) error {
-		return fnrpc(client)
-	}
-	return m.RpcWithContext(context.Background(), hashKey, timeout, wrapper)
+	return m.RpcWithContext(context.Background(), hashKey, timeout, fnrpc)
 }
 
-func (m *ClientThrift) RpcWithContext(ctx context.Context, hashKey string, timeout time.Duration, fnrpc func(context.Context, interface{}) error) error {
+// deprecated
+func (m *ClientThrift) RpcWithContext(ctx context.Context, hashKey string, timeout time.Duration, fnrpc func(interface{}) error) error {
+	si, rc := m.route(ctx, hashKey)
+	if rc == nil {
+		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
+	}
+
+	m.router.Pre(si)
+	defer m.router.Post(si)
+
+	call := func(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(interface{}) error) func() error {
+		return func() error {
+			return m.rpc(si, rc, timeout, fnrpc)
+		}
+	}(si, rc, timeout, fnrpc)
+
+	funcName := GetFunName(3)
+	var err error
+	st := stime.NewTimeStat()
+	defer func() {
+		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
+	}()
+	err = m.breaker.Do(0, si.Servid, funcName, call, THRIFT, nil)
+	return err
+}
+
+func (m *ClientThrift) RpcWithContextV2(ctx context.Context, hashKey string, timeout time.Duration, fnrpc func(context.Context, interface{}) error) error {
 	si, rc := m.route(ctx, hashKey)
 	if rc == nil {
 		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
