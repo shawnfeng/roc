@@ -247,8 +247,8 @@ func (m *ClientThrift) RpcWithContextV2(ctx context.Context, hashKey string, tim
 		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
 	}
 
-	ctx = m.injectServInfo(ctx, si)
 	m.logTraffic(ctx, si)
+	ctx = m.injectServInfo(ctx, si)
 
 	m.router.Pre(si)
 	defer m.router.Post(si)

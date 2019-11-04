@@ -1,7 +1,5 @@
 module github.com/shawnfeng/roc
 
-replace github.com/shawnfeng/sutil => github.com/ZhengHe-MD/sutil v1.3.8-0.20191102124741-b4eb310a8771
-
 require (
 	git.apache.org/thrift.git v0.0.0-20150427210205-dc799ca07862
 	github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5 // indirect
@@ -22,7 +20,7 @@ require (
 	github.com/shawnfeng/consistent v1.0.3
 	github.com/shawnfeng/dbrouter v1.0.2
 	github.com/shawnfeng/hystrix-go v0.0.0-20190320120533-5e2bc39f173a
-	github.com/shawnfeng/sutil v1.3.8
+	github.com/shawnfeng/sutil v1.3.9
 
 	// nn
 	github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d // indirect
