@@ -154,7 +154,7 @@ type Addr struct {
 func (m *Addr) Route(ctx context.Context, processor, addr string) (si *ServInfo) {
 	fun := "Addr.Route -->"
 
-	group := scontext.GetGroup(ctx)
+	group := scontext.GetControlRouteGroupWithDefault(ctx, scontext.DefaultGroup)
 	servList := m.cb.GetAllServAddrWithGroup(group, processor)
 
 	if servList == nil {
