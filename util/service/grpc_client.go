@@ -151,8 +151,8 @@ func (m *ClientGrpc) RpcWithContextV2(ctx context.Context, hashKey string, fnrpc
 		return fmt.Errorf("not find grpc service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
 	}
 
-	ctx = m.injectServInfo(ctx, si)
 	m.logTraffic(ctx, si)
+	ctx = m.injectServInfo(ctx, si)
 
 	m.router.Pre(si)
 	defer m.router.Post(si)
