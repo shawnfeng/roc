@@ -7,15 +7,17 @@ package rocserv
 import (
 	"flag"
 	"fmt"
+	"reflect"
+	"sync"
+
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
 	"github.com/julienschmidt/httprouter"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/slog/statlog"
-	"github.com/shawnfeng/sutil/smetric"
 	"github.com/shawnfeng/sutil/trace"
-	"reflect"
-	"sync"
+
+	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 )
 
 const (
@@ -370,7 +372,7 @@ func (m *Service) initBackdoork(sb *ServBaseV2) error {
 func (m *Service) initMetric(sb *ServBaseV2) error {
 	fun := "Service.initMetric -->"
 
-	metrics := smetric.NewMetricsprocessor()
+	metrics := xporm.NewMetricsprocessor()
 	err := metrics.Init()
 	if err != nil {
 		slog.Warnf("%s init metrics err:%s", fun, err)

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/shawnfeng/sutil/slog"
-	"github.com/shawnfeng/sutil/smetric"
 	"github.com/shawnfeng/sutil/stime"
 	"runtime"
 	"strings"
@@ -112,7 +111,8 @@ func collector(servkey string, processor string, duration time.Duration, source 
 	if servBase != nil {
 		instance = servBase.Copyname()
 	}
-	smetric.CollectServ(instance, servkey, servid, processor, duration, source, funcName, err)
+	// record request duration to prometheus
+	_metricRequestDuration.With(labelServName, servkey, labelServID, servid, labelInstance, instance, labelAPI, funcName, labelSource, source, labelType, processor).Observe(duration.Seconds())
 }
 
 type ClientThrift struct {
@@ -230,6 +230,7 @@ func (m *ClientThrift) Rpc(haskkey string, timeout time.Duration, fnrpc func(int
 
 	funcName := GetFunName(3)
 	var err error
+	// record request duration
 	st := stime.NewTimeStat()
 	defer func() {
 		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
