@@ -7,12 +7,15 @@ package rocserv
 import (
 	"context"
 	"fmt"
-	"git.apache.org/thrift.git/lib/go/thrift"
-	"github.com/shawnfeng/sutil/slog"
-	"github.com/shawnfeng/sutil/stime"
 	"runtime"
 	"strings"
 	"time"
+
+	"git.apache.org/thrift.git/lib/go/thrift"
+	"github.com/shawnfeng/sutil/slog"
+	"github.com/shawnfeng/sutil/stime"
+
+	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 )
 
 type ClientLookup interface {
@@ -112,7 +115,7 @@ func collector(servkey string, processor string, duration time.Duration, source 
 		instance = servBase.Copyname()
 	}
 	// record request duration to prometheus
-	_metricRequestDuration.With(labelServName, servkey, labelServID, servid, labelInstance, instance, labelAPI, funcName, labelSource, source, labelType, processor).Observe(duration.Seconds())
+	_metricRequestDuration.With(xprom.LabelServiceName, servkey, xprom.LabelServiceID, servid, xprom.LabelInstance, instance, xprom.LabelAPI, funcName, xprom.LabelSource, source, xprom.LabelType, processor).Observe(duration.Seconds())
 }
 
 type ClientThrift struct {

@@ -8,13 +8,6 @@ const (
 	namespacePalfish     = "palfish"
 	serverDurationSecond = "server_duration_second"
 	buckets              = []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
-
-	labelServName = "servname"
-	labelServID   = "servid"
-	labelInstance = "instance"
-	labelAPI      = "api"
-	labelType     = "type"
-	labelSource   = "source"
 )
 
 var (
