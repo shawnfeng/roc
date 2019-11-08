@@ -19,6 +19,8 @@ func NewRouter(routerType int, cb ClientLookup) Router {
 		return NewHash(cb)
 	case 1:
 		return NewConcurrent(cb)
+	case 2:
+		return NewAddr(cb)
 	default:
 		slog.Errorf("%s routerType err: %d", fun, routerType)
 		return NewHash(cb)
@@ -137,5 +139,48 @@ func (m *Concurrent) Post(s *ServInfo) error {
 	m.counter[s.Addr] -= 1
 	m.mutex.Unlock()
 
+	return nil
+}
+
+func NewAddr(cb ClientLookup) *Addr {
+	return &Addr{ cb: cb }
+}
+
+type Addr struct {
+	cb ClientLookup
+}
+
+// NOTE: 这里复用 key，作为 addr，用途同样是从一堆服务实例中找到目标实例
+func (m *Addr) Route(ctx context.Context, processor, addr string) (si *ServInfo) {
+	fun := "Addr.Route -->"
+
+	group := scontext.GetGroup(ctx)
+	servList := m.cb.GetAllServAddrWithGroup(group, processor)
+
+	if servList == nil {
+		return
+	}
+
+	for _, serv := range servList {
+		if serv.Addr == addr {
+			si = serv
+			break
+		}
+	}
+
+	if si != nil {
+		slog.Infof("%s processor:%s, addr:%s", fun, processor, addr)
+	} else {
+		slog.Errorf("%s processor:%s, route failed", fun, processor)
+	}
+
+	return
+}
+
+func (m *Addr) Pre(s *ServInfo) error {
+	return nil
+}
+
+func (m *Addr) Post(s *ServInfo) error {
 	return nil
 }

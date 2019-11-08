@@ -156,6 +156,10 @@ func NewClientThriftByConcurrentRouter(cb ClientLookup, processor string, fn fun
 	return NewClientThriftWithRouterType(cb, processor, fn, poollen, 1)
 }
 
+func NewClientThriftByAddrRouter(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, poollen int) *ClientThrift {
+	return NewClientThriftWithRouterType(cb, processor, fn, poollen, 2)
+}
+
 func NewClientThriftWithRouterType(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, poollen, routerType int) *ClientThrift {
 
 	ct := &ClientThrift{
