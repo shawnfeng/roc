@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -115,7 +116,7 @@ func collector(servkey string, processor string, duration time.Duration, source 
 		instance = servBase.Copyname()
 	}
 	// record request duration to prometheus
-	_metricRequestDuration.With(xprom.LabelServiceName, servkey, xprom.LabelServiceID, servid, xprom.LabelInstance, instance, xprom.LabelAPI, funcName, xprom.LabelSource, source, xprom.LabelType, processor).Observe(duration.Seconds())
+	_metricRequestDuration.With(xprom.LabelServiceName, servkey, xprom.LabelServiceID, strconv.Itoa(servid), xprom.LabelInstance, instance, xprom.LabelAPI, funcName, xprom.LabelSource, strconv.Itoa(source), xprom.LabelType, processor).Observe(duration.Seconds())
 }
 
 type ClientThrift struct {

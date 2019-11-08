@@ -372,7 +372,7 @@ func (m *Service) initBackdoork(sb *ServBaseV2) error {
 func (m *Service) initMetric(sb *ServBaseV2) error {
 	fun := "Service.initMetric -->"
 
-	metrics := xporm.NewMetricsprocessor()
+	metrics := xprom.NewMetricProcessor()
 	err := metrics.Init()
 	if err != nil {
 		slog.Warnf("%s init metrics err:%s", fun, err)
