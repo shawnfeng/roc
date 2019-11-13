@@ -44,12 +44,12 @@ type Hash struct {
 }
 
 func (m *Hash) Route(ctx context.Context, processor, key string) *ServInfo {
-	fun := "Hash.Route -->"
+	//fun := "Hash.Route -->"
 
-	group := scontext.GetGroup(ctx)
+	group := scontext.GetControlRouteGroupWithDefault(ctx, scontext.DefaultGroup)
 	s := m.cb.GetServAddrWithGroup(group, processor, key)
 
-	slog.Infof("%s group:%s, processor:%s, key:%s, s:%v", fun, group, processor, key, s)
+	//slog.Infof("%s group:%s, processor:%s, key:%s, s:%v", fun, group, processor, key, s)
 	return s
 }
 
@@ -77,7 +77,7 @@ type Concurrent struct {
 func (m *Concurrent) Route(ctx context.Context, processor, key string) *ServInfo {
 	fun := "Concurrent.Route -->"
 
-	group := scontext.GetGroup(ctx)
+	group := scontext.GetControlRouteGroupWithDefault(ctx, scontext.DefaultGroup)
 	s := m.route(group, processor, key)
 	if s != nil {
 		slog.Infof("%s group:%s, processor:%s, key:%s, s:%v", fun, group, processor, key, s)
@@ -85,7 +85,7 @@ func (m *Concurrent) Route(ctx context.Context, processor, key string) *ServInfo
 	}
 
 	s = m.route("", processor, key)
-	slog.Infof("%s group:%s, new group:%s, processor:%s, key:%s, s:%v", fun, group, "", processor, key, s)
+	//slog.Infof("%s group:%s, new group:%s, processor:%s, key:%s, s:%v", fun, group, "", processor, key, s)
 	return s
 }
 
@@ -118,7 +118,7 @@ func (m *Concurrent) route(group, processor, key string) *ServInfo {
 		}
 	}
 	if s != nil {
-		slog.Infof("%s processor:%s, addr:%s", fun, processor, s.Addr)
+		//slog.Infof("%s processor:%s, addr:%s", fun, processor, s.Addr)
 	} else {
 		slog.Errorf("%s processor:%s, route fail", fun, processor)
 	}
@@ -154,7 +154,7 @@ type Addr struct {
 func (m *Addr) Route(ctx context.Context, processor, addr string) (si *ServInfo) {
 	fun := "Addr.Route -->"
 
-	group := scontext.GetGroup(ctx)
+	group := scontext.GetControlRouteGroupWithDefault(ctx, scontext.DefaultGroup)
 	servList := m.cb.GetAllServAddrWithGroup(group, processor)
 
 	if servList == nil {
