@@ -7,13 +7,16 @@ package rocserv
 import (
 	"context"
 	"fmt"
-	"git.apache.org/thrift.git/lib/go/thrift"
-	"github.com/shawnfeng/sutil/slog"
-	"github.com/shawnfeng/sutil/smetric"
-	"github.com/shawnfeng/sutil/stime"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
+
+	"git.apache.org/thrift.git/lib/go/thrift"
+	"github.com/shawnfeng/sutil/slog"
+	"github.com/shawnfeng/sutil/stime"
+
+	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 )
 
 type ClientLookup interface {
@@ -112,7 +115,8 @@ func collector(servkey string, processor string, duration time.Duration, source 
 	if servBase != nil {
 		instance = servBase.Copyname()
 	}
-	smetric.CollectServ(instance, servkey, servid, processor, duration, source, funcName, err)
+	// record request duration to prometheus
+	_metricRequestDuration.With(xprom.LabelServiceName, servkey, xprom.LabelServiceID, strconv.Itoa(servid), xprom.LabelInstance, instance, xprom.LabelAPI, funcName, xprom.LabelSource, strconv.Itoa(source), xprom.LabelType, processor).Observe(duration.Seconds())
 }
 
 type ClientThrift struct {
@@ -230,6 +234,7 @@ func (m *ClientThrift) Rpc(haskkey string, timeout time.Duration, fnrpc func(int
 
 	funcName := GetFunName(3)
 	var err error
+	// record request duration
 	st := stime.NewTimeStat()
 	defer func() {
 		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
