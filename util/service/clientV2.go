@@ -100,20 +100,21 @@ func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string 
 				}
 			}
 		}
-
 	}
 
 	slog.Warnf("%s check dist v2 path:%s err:%s", fun, path, err)
 
 	path = fmt.Sprintf("%s/%s/%s", prefloc, BASE_LOC_DIST, servlocation)
 
-	_, err = client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
+	r, err = client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
 	if err == nil {
 		slog.Infof("%s check dist v1 ok path:%s", fun, path)
-		return BASE_LOC_DIST
+		if len(r.Node.Nodes) > 0 {
+			return BASE_LOC_DIST
+		}
 	}
 
-	slog.Warnf("%s user v2 if check dist v1 path:%s err:%s", fun, path, err)
+	slog.Warnf("%s use v2 if check dist v1 path:%s err:%s", fun, path, err)
 
 	return BASE_LOC_DIST_V2
 }
@@ -251,8 +252,8 @@ func (m *ClientEtcdV2) watch(path string, hander func(*etcd.Response)) {
 	case <-firstSync:
 		slog.Infof("%s init ok, serv:%s", fun, path)
 		return
-	case <-time.After(time.Duration(time.Second)):
-		slog.Errorf("%s init timeout, serv:%s", fun, path)
+	case <-time.After(time.Second):
+		slog.Warnf("%s init timeout, serv:%s", fun, path)
 		return
 	}
 }
