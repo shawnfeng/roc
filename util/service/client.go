@@ -117,8 +117,28 @@ func collector(servkey string, processor string, duration time.Duration, source 
 	if servBase != nil {
 		instance = servBase.Copyname()
 	}
+	servidVal := strconv.Itoa(servid)
+	sourceVal := strconv.Itoa(source)
 	// record request duration to prometheus
-	_metricRequestDuration.With(xprom.LabelServiceName, servkey, xprom.LabelServiceID, strconv.Itoa(servid), xprom.LabelInstance, instance, xprom.LabelAPI, funcName, xprom.LabelSource, strconv.Itoa(source), xprom.LabelType, processor).Observe(duration.Seconds())
+	_metricRequestDuration.With(
+		xprom.LabelServiceName, servkey,
+		xprom.LabelServiceID, servidVal,
+		xprom.LabelInstance, instance,
+		xprom.LabelAPI, funcName,
+		xprom.LabelSource, sourceVal,
+		xprom.LabelType, processor).Observe(duration.Seconds())
+	statusVal := "1"
+	if err != nil {
+		statusVal = "0"
+	}
+	_metricRequestTotal.With(
+		xprom.LabelServiceName, servkey,
+		xprom.LabelServiceID, servidVal,
+		xprom.LabelInstance, instance,
+		xprom.LabelAPI, funcName,
+		xprom.LabelSource, sourceVal,
+		xprom.LabelType, processor,
+		labelStatus, statusVal).Inc()
 }
 
 type ClientThrift struct {
