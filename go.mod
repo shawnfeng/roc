@@ -3,8 +3,7 @@ module github.com/shawnfeng/roc
 require (
 	git.apache.org/thrift.git v0.0.0-20150427210205-dc799ca07862
 	github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5 // indirect
-	github.com/coreos/etcd v3.3.13+incompatible
-	github.com/coreos/go-semver v0.3.0 // indirect
+	github.com/coreos/etcd v3.3.17+incompatible
 	github.com/gin-gonic/gin v1.4.0
 	// nn
 	github.com/gopherjs/gopherjs v0.0.0-20181103185306-d547d1d9531e // indirect
@@ -27,11 +26,11 @@ require (
 	// nn
 	github.com/smartystreets/goconvey v0.0.0-20181108003508-044398e4856c // indirect
 	github.com/uber/jaeger-client-go v2.16.0+incompatible
-	gitlab.pri.ibanyu.com/middleware/seaweed v1.0.1
+	gitlab.pri.ibanyu.com/middleware/seaweed v1.0.3
 	// 这个库，老的依赖拷贝没有.git目录，不知道对应哪个版本，这个就用最新的吧
 	// 官方的库应该问题不大
 
-	golang.org/x/net v0.0.0-20190613194153-d28f0bde5980
+	golang.org/x/net v0.0.0-20191002035440-2ec189313ef0
 	google.golang.org/grpc v1.20.0
 
 )
