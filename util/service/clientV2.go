@@ -165,7 +165,7 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
 	for i := 0; ; i++ {
 		r, err := m.etcdClient.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
 		if err != nil {
-			slog.Warnf("%s get path:%s err:%s", fun, path, err)
+			slog.Infof("%s get path:%s err:%s", fun, path, err)
 			close(chg)
 			return
 
@@ -227,7 +227,6 @@ func (m *ClientEtcdV2) watch(path string, hander func(*etcd.Response), d time.Du
 
 			r, ok := <-chg
 			if !ok {
-				//slog.Infof("%s chg info nil:%s", fun, path)
 				chg = nil
 
 				firstOnce.Do(func() {
