@@ -1,12 +1,15 @@
 package rocserv
 
 import (
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 )
 
 const (
 	namespacePalfish     = "palfish"
 	serverDurationSecond = "server_duration_second"
+	serverRequstTotal    = "server_request_total"
+	labelStatus          = "status"
 )
 
 var (
@@ -19,4 +22,17 @@ var (
 		Buckets:    buckets,
 		LabelNames: []string{xprom.LabelServiceName, xprom.LabelServiceID, xprom.LabelInstance, xprom.LabelAPI, xprom.LabelSource, xprom.LabelType},
 	})
+	_metricRequestTotal = xprom.NewCounter(&xprom.CounterVecOpts{
+		Namespace:  namespacePalfish,
+		Name:       serverRequstTotal,
+		Help:       "sla calc request total.",
+		LabelNames: []string{xprom.LabelServiceName, xprom.LabelServiceID, xprom.LabelInstance, xprom.LabelAPI, xprom.LabelSource, xprom.LabelType, labelStatus},
+	})
 )
+
+func GetSlaDurationMetric() xmetric.Histogram {
+	return _metricRequestDuration
+}
+func GetSlaRequestTotalMetric() xmetric.Counter {
+	return _metricRequestTotal
+}
