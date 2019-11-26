@@ -3,6 +3,7 @@ package rocserv
 import (
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/shawnfeng/sutil/slog"
 )
@@ -23,7 +24,7 @@ func (m *ClientPool) Get(addr string) rpcClient {
 
 	po := m.getPool(addr)
 	var c rpcClient
-	// if pool full, retry get 3 times
+	// if pool full, retry get 3 times, each time sleep 500ms
 	i := 0
 	for i < 3 {
 		select {
@@ -34,9 +35,13 @@ func (m *ClientPool) Get(addr string) rpcClient {
 			if atomic.LoadInt32(&m.count) > int32(m.poolLen) {
 				slog.Errorf("get client from addr: %s reach max: %d, retry: %d", addr, m.count, i)
 				i++
+				time.Sleep(time.Millisecond * 500)
 			} else {
 				atomic.AddInt32(&m.count, 1)
 				c = m.Factory(addr)
+				if c != nil {
+					atomic.AddInt32(&m.count, 1)
+				}
 				return c
 			}
 		}
@@ -63,6 +68,10 @@ func (m *ClientPool) getPool(addr string) chan rpcClient {
 // 连接池链接回收
 func (m *ClientPool) Put(addr string, client rpcClient) {
 	fun := "ClientPool.Put -->"
+	// do nothing
+	if client == nil {
+		return
+	}
 
 	// po 链接池
 	po := m.getPool(addr)
