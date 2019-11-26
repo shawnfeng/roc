@@ -29,7 +29,7 @@ func (m *ClientPool) Get(addr string) rpcClient {
 	for i < 3 {
 		select {
 		case c = <-po:
-			slog.Tracef("%s get:%s len:%d", fun, addr, len(po))
+			slog.Tracef("%s get:%s len:%d, count:%d", fun, addr, len(po), atomic.LoadInt32(&m.count))
 			return c
 		default:
 			if atomic.LoadInt32(&m.count) > int32(m.poolLen) {
@@ -78,11 +78,11 @@ func (m *ClientPool) Put(addr string, client rpcClient) {
 
 	// 回收连接 client
 	case po <- client:
-		slog.Tracef("%s payback:%s len:%d", fun, addr, len(po))
+		slog.Tracef("%s payback:%s len:%d, count:%d", fun, addr, len(po), atomic.LoadInt32(&m.count))
 
 	//不能回收了，关闭链接(满了)
 	default:
-		slog.Infof("%s full not payback:%s len:%d", fun, addr, len(po))
+		slog.Infof("%s full not payback:%s len:%d, count:%d", fun, addr, len(po), atomic.LoadInt32(&m.count))
 		atomic.AddInt32(&m.count, -1)
 		client.Close()
 	}
