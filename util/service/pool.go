@@ -1,18 +1,22 @@
 package rocserv
 
 import (
-	"github.com/shawnfeng/sutil/slog"
 	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/shawnfeng/sutil/slog"
 )
 
 type ClientPool struct {
 	poolClient sync.Map
 	poolLen    int
+	count      int32
 	Factory    func(addr string) rpcClient
 }
 
 func NewClientPool(poolLen int, factory func(addr string) rpcClient) *ClientPool {
-	return &ClientPool{poolLen: poolLen, Factory: factory}
+	return &ClientPool{poolLen: poolLen, Factory: factory, count: 0}
 }
 
 func (m *ClientPool) Get(addr string) rpcClient {
@@ -20,13 +24,29 @@ func (m *ClientPool) Get(addr string) rpcClient {
 
 	po := m.getPool(addr)
 	var c rpcClient
-	select {
-	case c = <-po:
-		slog.Tracef("%s get:%s len:%d", fun, addr, len(po))
-	default:
-		c = m.Factory(addr)
+	// if pool full, retry get 3 times, each time sleep 500ms
+	i := 0
+	for i < 3 {
+		select {
+		case c = <-po:
+			slog.Tracef("%s get:%s len:%d, count:%d", fun, addr, len(po), atomic.LoadInt32(&m.count))
+			return c
+		default:
+			if atomic.LoadInt32(&m.count) > int32(m.poolLen) {
+				slog.Errorf("get client from addr: %s reach max: %d, retry: %d", addr, m.count, i)
+				i++
+				time.Sleep(time.Millisecond * 500)
+			} else {
+				c = m.Factory(addr)
+				if c != nil {
+					atomic.AddInt32(&m.count, 1)
+				}
+				return c
+			}
+		}
 	}
-	return c
+	slog.Errorf("get client from addr: %s reach max: %d after retry 3 times", addr, m.count)
+	return nil
 }
 
 func (m *ClientPool) getPool(addr string) chan rpcClient {
@@ -47,6 +67,10 @@ func (m *ClientPool) getPool(addr string) chan rpcClient {
 // 连接池链接回收
 func (m *ClientPool) Put(addr string, client rpcClient) {
 	fun := "ClientPool.Put -->"
+	// do nothing
+	if client == nil {
+		return
+	}
 
 	// po 链接池
 	po := m.getPool(addr)
@@ -54,11 +78,12 @@ func (m *ClientPool) Put(addr string, client rpcClient) {
 
 	// 回收连接 client
 	case po <- client:
-		slog.Tracef("%s payback:%s len:%d", fun, addr, len(po))
+		slog.Tracef("%s payback:%s len:%d, count:%d", fun, addr, len(po), atomic.LoadInt32(&m.count))
 
 	//不能回收了，关闭链接(满了)
 	default:
-		slog.Infof("%s full not payback:%s len:%d", fun, addr, len(po))
+		slog.Infof("%s full not payback:%s len:%d, count:%d", fun, addr, len(po), atomic.LoadInt32(&m.count))
+		atomic.AddInt32(&m.count, -1)
 		client.Close()
 	}
 }
