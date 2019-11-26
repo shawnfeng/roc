@@ -35,6 +35,7 @@ func (m *ClientPool) Get(addr string) rpcClient {
 				slog.Errorf("get client from addr: %s reach max: %d, retry: %d", addr, m.count, i)
 				i++
 			} else {
+				atomic.AddInt32(&m.count, 1)
 				c = m.Factory(addr)
 				return c
 			}
