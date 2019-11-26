@@ -37,7 +37,6 @@ func (m *ClientPool) Get(addr string) rpcClient {
 				i++
 				time.Sleep(time.Millisecond * 500)
 			} else {
-				atomic.AddInt32(&m.count, 1)
 				c = m.Factory(addr)
 				if c != nil {
 					atomic.AddInt32(&m.count, 1)
