@@ -205,6 +205,8 @@ gitlab.pri.ibanyu.com/middleware/seaweed v1.0.1 h1:7IS83ONwORIvfTnODe6LxVp3mtBvK
 gitlab.pri.ibanyu.com/middleware/seaweed v1.0.1/go.mod h1:iGCzF/sQpg6NeeZBCa0ZdwpbLkwDcpTtWR1jSYb06BI=
 gitlab.pri.ibanyu.com/middleware/seaweed v1.0.3 h1:oACm9+62nPr3z5aPoVIx9KMrMc7lZmHOBI0V58484aY=
 gitlab.pri.ibanyu.com/middleware/seaweed v1.0.3/go.mod h1:iCFyLPlxZOk9Z6sJ+b92gN+mN1OsmZ67Ez8j/1wtp14=
+gitlab.pri.ibanyu.com/middleware/seaweed v1.0.5 h1:VD3q7KIDoXFaRaC6Mf+bKMmCdMx5vxcElejga7LdwYc=
+gitlab.pri.ibanyu.com/middleware/seaweed v1.0.5/go.mod h1:iCFyLPlxZOk9Z6sJ+b92gN+mN1OsmZ67Ez8j/1wtp14=
 go.opencensus.io v0.20.1/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=
 go.uber.org/atomic v1.3.2 h1:2Oa65PReHzfn29GpvgsYwloV9AVFHPDk8tYxt2c2tr4=
 go.uber.org/atomic v1.3.2/go.mod h1:gD2HeocX3+yG+ygLZcrzQJaqmWj9AIm7n08wl/qW/PE=

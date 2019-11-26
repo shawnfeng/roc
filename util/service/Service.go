@@ -10,6 +10,8 @@ import (
 	"reflect"
 	"sync"
 
+	stat "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/sys"
+
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
 	"github.com/julienschmidt/httprouter"
@@ -242,6 +244,10 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 	m.sbase = sb
 
 	m.initLog(sb, args)
+
+	//服务进程打点
+	stat.Init(sb.servGroup, sb.servName, "")
+
 	defer slog.Sync()
 	defer statlog.Sync()
 

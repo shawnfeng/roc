@@ -7,6 +7,7 @@ package rocserv
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 	// now use 73a8ef737e8ea002281a28b4cb92a1de121ad4c6
 	//"github.com/coreos/go-etcd/etcd"
@@ -66,6 +67,8 @@ type ServBaseV2 struct {
 
 	dbLocation   string
 	servLocation string
+	servGroup    string
+	servName     string
 	copyName     string
 	sessKey      string
 
@@ -403,10 +406,14 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey string) (*ServBaseV2,
 		}
 	}
 
+	svrInfo := strings.Split(servLocation, "/")
+
 	reg := &ServBaseV2{
 		confEtcd:     confEtcd,
 		dbLocation:   dbloc,
 		servLocation: servLocation,
+		servGroup:    svrInfo[0],
+		servName:     svrInfo[1],
 		sessKey:      skey,
 		etcdClient:   client,
 		servId:       sid,
