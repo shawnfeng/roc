@@ -406,14 +406,10 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey string) (*ServBaseV2,
 		}
 	}
 
-	svrInfo := strings.Split(servLocation, "/")
-
 	reg := &ServBaseV2{
 		confEtcd:     confEtcd,
 		dbLocation:   dbloc,
 		servLocation: servLocation,
-		servGroup:    svrInfo[0],
-		servName:     svrInfo[1],
 		sessKey:      skey,
 		etcdClient:   client,
 		servId:       sid,
@@ -421,6 +417,14 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey string) (*ServBaseV2,
 		hearts:       make(map[string]*distLockHeart),
 
 		dbRouter: dr,
+	}
+
+	svrInfo := strings.SplitN(servLocation, "/", 2)
+	if len(svrInfo) == 2 {
+		reg.servGroup = svrInfo[0]
+		reg.servName = svrInfo[1]
+	} else {
+		slog.Warnf("%s servLocation:%s do not match group/service format", fun, servLocation)
 	}
 
 	sf, err := initSnowflake(sid)
