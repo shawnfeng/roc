@@ -176,28 +176,16 @@ func (m *ClientGrpc) RpcWithContextV2(ctx context.Context, hashKey string, fnrpc
 }
 
 func (m *ClientGrpc) rpc(si *ServInfo, rc rpcClient, fnrpc func(interface{}) error) error {
-	fun := "ClientGrpc.rpc -->"
 	c := rc.GetServiceClient()
 	err := fnrpc(c)
-	if err == nil {
-		m.pool.Put(si.Addr, rc, err)
-	} else {
-		slog.Warnf("%s close grpc client s:%s", fun, si)
-		m.pool.Put(si.Addr, rc, err)
-	}
+	m.pool.Put(si.Addr, rc, err)
 	return err
 }
 
 func (m *ClientGrpc) rpcWithContext(ctx context.Context, si *ServInfo, rc rpcClient, fnrpc func(context.Context, interface{}) error) error {
-	fun := "ClientGrpc.rpcWithContext -->"
 	c := rc.GetServiceClient()
 	err := fnrpc(ctx, c)
-	if err == nil {
-		m.pool.Put(si.Addr, rc, err)
-	} else {
-		slog.Warnf("%s close grpc client s:%s", fun, si)
-		m.pool.Put(si.Addr, rc, err)
-	}
+	m.pool.Put(si.Addr, rc, err)
 	return err
 }
 

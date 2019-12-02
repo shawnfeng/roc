@@ -69,12 +69,12 @@ func (m *ClientPool) Put(addr string, client rpcClient, err error) {
 	fun := "ClientPool.Put -->"
 	// do nothing，应该不会发生
 	if client == nil {
-		slog.Warnf("%s put nil rpc client to pool: %s", fun, addr)
+		slog.Errorf("%s put nil rpc client to pool: %s", fun, addr)
 		return
 	}
 	// close client and don't put to pool but decr count
 	if err != nil {
-		slog.Warnf("%s put rpc client to pool: %s, with err: %v", fun, addr, err)
+		slog.Errorf("%s put rpc client to pool: %s, with err: %v", fun, addr, err)
 		client.Close()
 		atomic.AddInt32(&m.count, -1)
 	}
