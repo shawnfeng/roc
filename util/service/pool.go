@@ -64,18 +64,24 @@ func (m *ClientPool) getPool(addr string) chan rpcClient {
 	return tmp
 }
 
-// 连接池链接回收
-func (m *ClientPool) Put(addr string, client rpcClient) {
+// Put 连接池回收连接
+func (m *ClientPool) Put(addr string, client rpcClient, err error) {
 	fun := "ClientPool.Put -->"
-	// do nothing
+	// do nothing，应该不会发生
 	if client == nil {
+		slog.Errorf("%s put nil rpc client to pool: %s", fun, addr)
 		return
+	}
+	// close client and don't put to pool but decr count
+	if err != nil {
+		slog.Errorf("%s put rpc client to pool: %s, with err: %v", fun, addr, err)
+		client.Close()
+		atomic.AddInt32(&m.count, -1)
 	}
 
 	// po 链接池
 	po := m.getPool(addr)
 	select {
-
 	// 回收连接 client
 	case po <- client:
 		slog.Tracef("%s payback:%s len:%d, count:%d", fun, addr, len(po), atomic.LoadInt32(&m.count))

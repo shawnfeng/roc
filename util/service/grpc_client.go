@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/opentracing-contrib/go-grpc"
+	"time"
+
+	otgrpc "github.com/opentracing-contrib/go-grpc"
 	"github.com/opentracing/opentracing-go"
 	"github.com/shawnfeng/sutil/scontext"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/stime"
 	"github.com/uber/jaeger-client-go"
 	"google.golang.org/grpc"
-	"time"
 )
 
 type ServProtocol int
@@ -175,28 +176,16 @@ func (m *ClientGrpc) RpcWithContextV2(ctx context.Context, hashKey string, fnrpc
 }
 
 func (m *ClientGrpc) rpc(si *ServInfo, rc rpcClient, fnrpc func(interface{}) error) error {
-	fun := "ClientGrpc.rpc -->"
 	c := rc.GetServiceClient()
 	err := fnrpc(c)
-	if err == nil {
-		m.pool.Put(si.Addr, rc)
-	} else {
-		slog.Warnf("%s close grpc client s:%s", fun, si)
-		rc.Close()
-	}
+	m.pool.Put(si.Addr, rc, err)
 	return err
 }
 
 func (m *ClientGrpc) rpcWithContext(ctx context.Context, si *ServInfo, rc rpcClient, fnrpc func(context.Context, interface{}) error) error {
-	fun := "ClientGrpc.rpcWithContext -->"
 	c := rc.GetServiceClient()
 	err := fnrpc(ctx, c)
-	if err == nil {
-		m.pool.Put(si.Addr, rc)
-	} else {
-		slog.Warnf("%s close grpc client s:%s", fun, si)
-		rc.Close()
-	}
+	m.pool.Put(si.Addr, rc, err)
 	return err
 }
 
