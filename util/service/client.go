@@ -305,10 +305,10 @@ func (m *ClientThrift) rpc(si *ServInfo, rc rpcClient, timeout time.Duration, fn
 
 	err := fnrpc(c)
 	if err == nil {
-		m.pool.Put(si.Addr, rc)
+		m.pool.Put(si.Addr, rc, err)
 	} else {
 		slog.Warnf("%s close thrift client s:%s", fun, si)
-		rc.Close()
+		m.pool.Put(si.Addr, rc, err)
 	}
 	return err
 }
@@ -321,10 +321,10 @@ func (m *ClientThrift) rpcWithContext(ctx context.Context, si *ServInfo, rc rpcC
 
 	err := fnrpc(ctx, c)
 	if err == nil {
-		m.pool.Put(si.Addr, rc)
+		m.pool.Put(si.Addr, rc, err)
 	} else {
 		slog.Warnf("%s close thrift client s:%s", fun, si)
-		rc.Close()
+		m.pool.Put(si.Addr, rc, err)
 	}
 	return err
 }
