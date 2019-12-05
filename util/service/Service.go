@@ -7,15 +7,19 @@ package rocserv
 import (
 	"flag"
 	"fmt"
+	"reflect"
+	"sync"
+
+	stat "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/sys"
+
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
 	"github.com/julienschmidt/httprouter"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/slog/statlog"
-	"github.com/shawnfeng/sutil/smetric"
 	"github.com/shawnfeng/sutil/trace"
-	"reflect"
-	"sync"
+
+	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 )
 
 const (
@@ -237,8 +241,13 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 		slog.Panicf("%s init servbase loc:%s key:%s err:%s", fun, servLoc, sessKey, err)
 		return err
 	}
+	m.sbase = sb
 
 	m.initLog(sb, args)
+
+	//服务进程打点
+	stat.Init(sb.servGroup, sb.servName, "")
+
 	defer slog.Sync()
 	defer statlog.Sync()
 
@@ -254,6 +263,9 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 		return err
 	}
 
+	// NOTE: processor 在初始化 trace middleware 前需要保证 opentracing.GlobalTracer() 初始化完毕
+	m.initTracer(servLoc)
+
 	err = m.initProcessor(sb, procs)
 	if err != nil {
 		slog.Panicf("%s initProcessor err:%s", fun, err)
@@ -262,7 +274,6 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 
 	sb.SetGroupAndDisable(args.group, args.disable)
 
-	m.initTracer(servLoc)
 	m.initBackdoork(sb)
 	m.initMetric(sb)
 
@@ -367,7 +378,7 @@ func (m *Service) initBackdoork(sb *ServBaseV2) error {
 func (m *Service) initMetric(sb *ServBaseV2) error {
 	fun := "Service.initMetric -->"
 
-	metrics := smetric.NewMetricsprocessor()
+	metrics := xprom.NewMetricProcessor()
 	err := metrics.Init()
 	if err != nil {
 		slog.Warnf("%s init metrics err:%s", fun, err)

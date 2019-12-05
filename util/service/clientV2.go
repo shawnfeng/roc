@@ -251,8 +251,8 @@ func (m *ClientEtcdV2) watch(path string, hander func(*etcd.Response), d time.Du
 	case <-firstSync:
 		slog.Infof("%s init ok, serv:%s", fun, path)
 		return
-	case <-time.After(time.Duration(time.Second)):
-		slog.Errorf("%s init timeout, serv:%s", fun, path)
+	case <-time.After(time.Second):
+		slog.Warnf("%s init timeout, serv:%s", fun, path)
 		return
 	}
 }

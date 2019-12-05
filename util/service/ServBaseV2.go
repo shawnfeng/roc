@@ -7,6 +7,7 @@ package rocserv
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 	// now use 73a8ef737e8ea002281a28b4cb92a1de121ad4c6
 	//"github.com/coreos/go-etcd/etcd"
@@ -66,6 +67,8 @@ type ServBaseV2 struct {
 
 	dbLocation   string
 	servLocation string
+	servGroup    string
+	servName     string
 	copyName     string
 	sessKey      string
 
@@ -414,6 +417,14 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey string) (*ServBaseV2,
 		hearts:       make(map[string]*distLockHeart),
 
 		dbRouter: dr,
+	}
+
+	svrInfo := strings.SplitN(servLocation, "/", 2)
+	if len(svrInfo) == 2 {
+		reg.servGroup = svrInfo[0]
+		reg.servName = svrInfo[1]
+	} else {
+		slog.Warnf("%s servLocation:%s do not match group/service format", fun, servLocation)
 	}
 
 	sf, err := initSnowflake(sid)

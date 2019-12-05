@@ -48,7 +48,8 @@ func powerHttp(addr string, router *httprouter.Router) (string, error) {
 	// tracing
 	mw := nethttp.Middleware(
 		opentracing.GlobalTracer(),
-		router,
+		// add logging middleware
+		httpTrafficLogMiddleware(router),
 		nethttp.OperationNameFunc(func(r *http.Request) string {
 			return "HTTP " + r.Method + ": " + r.URL.Path
 		}))
@@ -165,7 +166,7 @@ func powerGin(addr string, router *gin.Engine) (string, *http.Server, error) {
 	// tracing
 	mw := nethttp.Middleware(
 		opentracing.GlobalTracer(),
-		router,
+		httpTrafficLogMiddleware(router),
 		nethttp.OperationNameFunc(func(r *http.Request) string {
 			return "HTTP " + r.Method + ": " + r.URL.Path
 		}))
