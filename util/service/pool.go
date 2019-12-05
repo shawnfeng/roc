@@ -77,6 +77,7 @@ func (m *ClientPool) Put(addr string, client rpcClient, err error) {
 		slog.Errorf("%s put rpc client to pool: %s, with err: %v", fun, addr, err)
 		client.Close()
 		atomic.AddInt32(&m.count, -1)
+        return
 	}
 
 	// po 链接池
