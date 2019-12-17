@@ -236,7 +236,7 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 	servLoc := args.servLoc
 	sessKey := args.sessKey
 
-	sb, err := NewServBaseV2(confEtcd, servLoc, sessKey)
+	sb, err := NewServBaseV2(confEtcd, servLoc, sessKey, args.group)
 	if err != nil {
 		slog.Panicf("%s init servbase loc:%s key:%s err:%s", fun, servLoc, sessKey, err)
 		return err

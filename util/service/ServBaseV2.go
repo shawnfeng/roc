@@ -53,6 +53,9 @@ const (
 	PROCESSOR_GRPC_PROPERTY_NAME = "proc_grpc"
 
 	PROCESSOR_THRIFT_PROPERTY_NAME = "proc_thrift"
+
+	//预演环境分组标识
+	ENV_GROUP_PRE = "pre"
 )
 
 type configEtcd struct {
@@ -71,6 +74,8 @@ type ServBaseV2 struct {
 	servName     string
 	copyName     string
 	sessKey      string
+
+	envGroup string
 
 	etcdClient etcd.KeysAPI
 	servId     int
@@ -366,7 +371,7 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 }
 
 // etcd v2 接口
-func NewServBaseV2(confEtcd configEtcd, servLocation, skey string) (*ServBaseV2, error) {
+func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string) (*ServBaseV2, error) {
 	fun := "NewServBaseV2 -->"
 
 	cfg := etcd.Config{
@@ -391,7 +396,7 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey string) (*ServBaseV2,
 		return nil, err
 	}
 
-	slog.Infof("%s path:%s sid:%d skey:%s", fun, path, sid, skey)
+	slog.Infof("%s path:%s sid:%d skey:%s, envGroup", fun, path, sid, skey, envGroup)
 
 	dbloc := fmt.Sprintf("%s/%s", confEtcd.useBaseloc, BASE_LOC_DB)
 
@@ -417,6 +422,8 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey string) (*ServBaseV2,
 		hearts:       make(map[string]*distLockHeart),
 
 		dbRouter: dr,
+
+		envGroup: envGroup,
 	}
 
 	svrInfo := strings.SplitN(servLocation, "/", 2)
@@ -438,6 +445,14 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey string) (*ServBaseV2,
 
 	return reg, nil
 
+}
+
+func (m *ServBaseV2) isPreEnvGroup() bool {
+	if m.envGroup == ENV_GROUP_PRE {
+		return true
+	}
+
+	return false
 }
 
 // mutex
