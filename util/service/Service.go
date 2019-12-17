@@ -7,8 +7,11 @@ package rocserv
 import (
 	"flag"
 	"fmt"
+	"os"
+	"os/signal"
 	"reflect"
 	"sync"
+	"syscall"
 
 	stat "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/sys"
 
@@ -251,6 +254,8 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 	defer slog.Sync()
 	defer statlog.Sync()
 
+	m.initBackdoork(sb)
+
 	err = m.handleModel(sb, servLoc, args.model)
 	if err != nil {
 		slog.Panicf("%s handleModel err:%s", fun, err)
@@ -273,14 +278,24 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 	}
 
 	sb.SetGroupAndDisable(args.group, args.disable)
-
-	m.initBackdoork(sb)
 	m.initMetric(sb)
+	m.awaitSignal(sb)
+
+	return nil
+}
+
+func (m *Service) awaitSignal(sb *ServBaseV2) {
+	c := make(chan os.Signal, 1)
+	signal.Reset(syscall.SIGTERM)
+	signal.Notify(c, syscall.SIGTERM)
+	select {
+	case s := <-c:
+		slog.Infof("receive a signal:%s", s.String())
+		sb.Stop()
+	}
 
 	var pause chan bool
 	pause <- true
-
-	return nil
 }
 
 func (m *Service) handleModel(sb *ServBaseV2, servLoc string, model int) error {

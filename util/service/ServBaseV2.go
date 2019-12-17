@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 	// now use 73a8ef737e8ea002281a28b4cb92a1de121ad4c6
 	//"github.com/coreos/go-etcd/etcd"
@@ -87,6 +88,21 @@ type ServBaseV2 struct {
 
 	muHearts ssync.Mutex
 	hearts   map[string]*distLockHeart
+
+	muStop sync.Mutex
+	stop   bool
+}
+
+func (m *ServBaseV2) isStop() bool {
+	m.muStop.Lock()
+	defer m.muStop.Unlock()
+	return m.stop
+}
+
+func (m *ServBaseV2) Stop() {
+	m.muStop.Lock()
+	defer m.muStop.Unlock()
+	m.stop = true
 }
 
 func (m *ServBaseV2) RegisterBackDoor(servs map[string]*ServInfo) error {
@@ -283,7 +299,6 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 			} else {
 				if refresh {
 					// 在刷新ttl时候，不允许变更value
-					// 节点超时时间为120秒
 					slog.Infof("%s refresh ttl idx:%d servs:%s", fun, i, js)
 					r, err = m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions{
 						PrevExist: etcd.PrevExist,
@@ -308,8 +323,12 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 				slog.Infof("%s reg idx:%d ok:%s", fun, i, jr)
 			}
 
-			// 每分发起一次注册
 			time.Sleep(time.Second * 20)
+
+			if m.isStop() {
+				slog.Infof("%s service stop, register stop", fun)
+				return
+			}
 		}
 
 	}()
