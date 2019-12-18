@@ -289,18 +289,19 @@ func (m *Service) awaitSignal(sb *ServBaseV2) {
 	signal.Reset(syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGPIPE, syscall.SIGUSR1)
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGPIPE, syscall.SIGUSR1)
 
-	select {
-	case s := <-c:
-		slog.Infof("receive a signal:%s", s.String())
+	for {
+		select {
+		case s := <-c:
+			slog.Infof("receive a signal:%s", s.String())
 
-		if s.String() == syscall.SIGTERM.String() {
-			slog.Infof("receive a signal:%s, stop service", s.String())
-			sb.Stop()
+			if s.String() == syscall.SIGTERM.String() {
+				slog.Infof("receive a signal:%s, stop service", s.String())
+				sb.Stop()
+				<-(chan int)(nil)
+			}
 		}
-		break
 	}
 
-	<-(chan int)(nil)
 }
 
 func (m *Service) handleModel(sb *ServBaseV2, servLoc string, model int) error {
