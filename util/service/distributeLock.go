@@ -209,7 +209,7 @@ func (m *ServBaseV2) localLockPath(name string) string {
 func (m *ServBaseV2) Lock(name string) error {
 	if m.isPreEnvGroup() {
 		<-(chan int)(nil)
-		return fmt.Errorf("pre environment cannot be locked.")
+		return fmt.Errorf("pre environment cannot acquire the lock")
 	}
 
 	return m.lock(m.localLockPath(name))
@@ -239,7 +239,7 @@ func (m *ServBaseV2) globalLockPath(name string) string {
 func (m *ServBaseV2) LockGlobal(name string) error {
 	if m.isPreEnvGroup() {
 		<-(chan int)(nil)
-		return fmt.Errorf("pre environment cannot be locked.")
+		return fmt.Errorf("pre environment cannot acquire the lock")
 	}
 
 	return m.lock(m.globalLockPath(name))
