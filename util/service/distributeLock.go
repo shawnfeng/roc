@@ -217,7 +217,7 @@ func (m *ServBaseV2) Lock(name string) error {
 
 func (m *ServBaseV2) Unlock(name string) error {
 	if m.isPreEnvGroup() {
-		return nil
+		return fmt.Errorf("pre environment cannot acquire the lock")
 	}
 
 	return m.unlock(m.localLockPath(name))
@@ -247,7 +247,7 @@ func (m *ServBaseV2) LockGlobal(name string) error {
 
 func (m *ServBaseV2) UnlockGlobal(name string) error {
 	if m.isPreEnvGroup() {
-		return nil
+		return fmt.Errorf("pre environment cannot acquire the lock")
 	}
 
 	return m.unlock(m.globalLockPath(name))
