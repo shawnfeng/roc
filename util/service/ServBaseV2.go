@@ -91,18 +91,53 @@ type ServBaseV2 struct {
 
 	muStop sync.Mutex
 	stop   bool
+
+	muReg    sync.Mutex
+	regInfos map[string]string
 }
 
 func (m *ServBaseV2) isStop() bool {
 	m.muStop.Lock()
 	defer m.muStop.Unlock()
+
 	return m.stop
 }
 
 func (m *ServBaseV2) Stop() {
+	m.setStatusToStop()
+	m.clearRegisterInfos()
+}
+
+func (m *ServBaseV2) setStatusToStop() {
 	m.muStop.Lock()
 	defer m.muStop.Unlock()
+
 	m.stop = true
+}
+
+func (m *ServBaseV2) addRegisterInfo(path, regInfo string) {
+	m.muReg.Lock()
+	defer m.muReg.Unlock()
+
+	m.regInfos[path] = regInfo
+}
+
+func (m *ServBaseV2) clearRegisterInfos() {
+	fun := "ServBaseV2.clearRegisterInfos -->"
+
+	m.muReg.Lock()
+	defer m.muReg.Unlock()
+
+	for path, _ := range m.regInfos {
+		_, err := m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions{
+			PrevExist: etcd.PrevExist,
+			TTL:       0,
+			Refresh:   true,
+		})
+		if err != nil {
+			slog.Warnf("%s path:%s err:%v", fun, path, err)
+		}
+	}
 }
 
 func (m *ServBaseV2) RegisterBackDoor(servs map[string]*ServInfo) error {
@@ -281,6 +316,9 @@ func (m *ServBaseV2) setValueToEtcd(path, value string, opts *etcd.SetOptions) e
 
 func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 	fun := "ServBaseV2.doRegister -->"
+
+	m.addRegisterInfo(path, js)
+
 	// 创建完成标志
 	var iscreate bool
 
@@ -439,6 +477,7 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string) (*S
 		servId:       sid,
 		locks:        make(map[string]*ssync.Mutex),
 		hearts:       make(map[string]*distLockHeart),
+		regInfos:     make(map[string]string),
 
 		dbRouter: dr,
 

@@ -286,16 +286,21 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 
 func (m *Service) awaitSignal(sb *ServBaseV2) {
 	c := make(chan os.Signal, 1)
-	signal.Reset(syscall.SIGTERM)
-	signal.Notify(c, syscall.SIGTERM)
+	signal.Reset(syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGPIPE, syscall.SIGUSR1)
+	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGPIPE, syscall.SIGUSR1)
+
 	select {
 	case s := <-c:
 		slog.Infof("receive a signal:%s", s.String())
-		sb.Stop()
+
+		if s.String() == syscall.SIGTERM.String() {
+			slog.Infof("receive a signal:%s, stop service", s.String())
+			sb.Stop()
+		}
+		break
 	}
 
-	var pause chan bool
-	pause <- true
+	<-(chan int)(nil)
 }
 
 func (m *Service) handleModel(sb *ServBaseV2, servLoc string, model int) error {
