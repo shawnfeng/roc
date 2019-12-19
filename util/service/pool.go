@@ -8,6 +8,10 @@ import (
 	"github.com/shawnfeng/sutil/slog"
 )
 
+const (
+	defaultPoolLen = 512
+)
+
 type ClientPool struct {
 	poolClient sync.Map
 	poolLen    int
@@ -16,6 +20,10 @@ type ClientPool struct {
 }
 
 func NewClientPool(poolLen int, factory func(addr string) rpcClient) *ClientPool {
+	// 如果连接数过低，修正为默认值
+	if poolLen < defaultPoolLen {
+		poolLen = defaultPoolLen
+	}
 	return &ClientPool{poolLen: poolLen, Factory: factory, count: 0}
 }
 
@@ -77,7 +85,7 @@ func (m *ClientPool) Put(addr string, client rpcClient, err error) {
 		slog.Errorf("%s put rpc client to pool: %s, with err: %v", fun, addr, err)
 		client.Close()
 		atomic.AddInt32(&m.count, -1)
-        return
+		return
 	}
 
 	// po 链接池
