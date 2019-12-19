@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 	// now use 73a8ef737e8ea002281a28b4cb92a1de121ad4c6
 	//"github.com/coreos/go-etcd/etcd"
@@ -54,9 +53,6 @@ const (
 	PROCESSOR_GRPC_PROPERTY_NAME = "proc_grpc"
 
 	PROCESSOR_THRIFT_PROPERTY_NAME = "proc_thrift"
-
-	//预演环境分组标识
-	ENV_GROUP_PRE = "pre"
 )
 
 type configEtcd struct {
@@ -76,8 +72,6 @@ type ServBaseV2 struct {
 	copyName     string
 	sessKey      string
 
-	envGroup string
-
 	etcdClient etcd.KeysAPI
 	servId     int
 
@@ -88,56 +82,6 @@ type ServBaseV2 struct {
 
 	muHearts ssync.Mutex
 	hearts   map[string]*distLockHeart
-
-	muStop sync.Mutex
-	stop   bool
-
-	muReg    sync.Mutex
-	regInfos map[string]string
-}
-
-func (m *ServBaseV2) isStop() bool {
-	m.muStop.Lock()
-	defer m.muStop.Unlock()
-
-	return m.stop
-}
-
-func (m *ServBaseV2) Stop() {
-	m.setStatusToStop()
-	m.clearRegisterInfos()
-}
-
-func (m *ServBaseV2) setStatusToStop() {
-	m.muStop.Lock()
-	defer m.muStop.Unlock()
-
-	m.stop = true
-}
-
-func (m *ServBaseV2) addRegisterInfo(path, regInfo string) {
-	m.muReg.Lock()
-	defer m.muReg.Unlock()
-
-	m.regInfos[path] = regInfo
-}
-
-func (m *ServBaseV2) clearRegisterInfos() {
-	fun := "ServBaseV2.clearRegisterInfos -->"
-
-	m.muReg.Lock()
-	defer m.muReg.Unlock()
-
-	for path, _ := range m.regInfos {
-		_, err := m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions{
-			PrevExist: etcd.PrevExist,
-			TTL:       0,
-			Refresh:   true,
-		})
-		if err != nil {
-			slog.Warnf("%s path:%s err:%v", fun, path, err)
-		}
-	}
 }
 
 func (m *ServBaseV2) RegisterBackDoor(servs map[string]*ServInfo) error {
@@ -316,9 +260,6 @@ func (m *ServBaseV2) setValueToEtcd(path, value string, opts *etcd.SetOptions) e
 
 func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 	fun := "ServBaseV2.doRegister -->"
-
-	m.addRegisterInfo(path, js)
-
 	// 创建完成标志
 	var iscreate bool
 
@@ -337,6 +278,7 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 			} else {
 				if refresh {
 					// 在刷新ttl时候，不允许变更value
+					// 节点超时时间为120秒
 					slog.Infof("%s refresh ttl idx:%d servs:%s", fun, i, js)
 					r, err = m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions{
 						PrevExist: etcd.PrevExist,
@@ -361,12 +303,8 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 				slog.Infof("%s reg idx:%d ok:%s", fun, i, jr)
 			}
 
+			// 每分发起一次注册
 			time.Sleep(time.Second * 20)
-
-			if m.isStop() {
-				slog.Infof("%s service stop, register stop", fun)
-				return
-			}
 		}
 
 	}()
@@ -428,7 +366,7 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 }
 
 // etcd v2 接口
-func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string) (*ServBaseV2, error) {
+func NewServBaseV2(confEtcd configEtcd, servLocation, skey string) (*ServBaseV2, error) {
 	fun := "NewServBaseV2 -->"
 
 	cfg := etcd.Config{
@@ -453,7 +391,7 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string) (*S
 		return nil, err
 	}
 
-	slog.Infof("%s path:%s sid:%d skey:%s, envGroup", fun, path, sid, skey, envGroup)
+	slog.Infof("%s path:%s sid:%d skey:%s", fun, path, sid, skey)
 
 	dbloc := fmt.Sprintf("%s/%s", confEtcd.useBaseloc, BASE_LOC_DB)
 
@@ -477,11 +415,8 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string) (*S
 		servId:       sid,
 		locks:        make(map[string]*ssync.Mutex),
 		hearts:       make(map[string]*distLockHeart),
-		regInfos:     make(map[string]string),
 
 		dbRouter: dr,
-
-		envGroup: envGroup,
 	}
 
 	svrInfo := strings.SplitN(servLocation, "/", 2)
@@ -503,14 +438,6 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string) (*S
 
 	return reg, nil
 
-}
-
-func (m *ServBaseV2) isPreEnvGroup() bool {
-	if m.envGroup == ENV_GROUP_PRE {
-		return true
-	}
-
-	return false
 }
 
 // mutex

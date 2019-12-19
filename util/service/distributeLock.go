@@ -207,27 +207,14 @@ func (m *ServBaseV2) localLockPath(name string) string {
 }
 
 func (m *ServBaseV2) Lock(name string) error {
-	if m.isPreEnvGroup() {
-		<-(chan int)(nil)
-		return fmt.Errorf("pre environment cannot acquire the lock")
-	}
-
 	return m.lock(m.localLockPath(name))
 }
 
 func (m *ServBaseV2) Unlock(name string) error {
-	if m.isPreEnvGroup() {
-		return fmt.Errorf("pre environment cannot acquire the lock")
-	}
-
 	return m.unlock(m.localLockPath(name))
 }
 
 func (m *ServBaseV2) Trylock(name string) (bool, error) {
-	if m.isPreEnvGroup() {
-		return false, nil
-	}
-
 	return m.trylock(m.localLockPath(name))
 }
 
@@ -237,27 +224,15 @@ func (m *ServBaseV2) globalLockPath(name string) string {
 }
 
 func (m *ServBaseV2) LockGlobal(name string) error {
-	if m.isPreEnvGroup() {
-		<-(chan int)(nil)
-		return fmt.Errorf("pre environment cannot acquire the lock")
-	}
-
 	return m.lock(m.globalLockPath(name))
 }
 
 func (m *ServBaseV2) UnlockGlobal(name string) error {
-	if m.isPreEnvGroup() {
-		return fmt.Errorf("pre environment cannot acquire the lock")
-	}
-
 	return m.unlock(m.globalLockPath(name))
+
 }
 
 func (m *ServBaseV2) TrylockGlobal(name string) (bool, error) {
-	if m.isPreEnvGroup() {
-		return false, nil
-	}
-
 	return m.trylock(m.globalLockPath(name))
 }
 

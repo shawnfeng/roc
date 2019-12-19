@@ -7,11 +7,8 @@ package rocserv
 import (
 	"flag"
 	"fmt"
-	"os"
-	"os/signal"
 	"reflect"
 	"sync"
-	"syscall"
 
 	stat "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/sys"
 
@@ -239,7 +236,7 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 	servLoc := args.servLoc
 	sessKey := args.sessKey
 
-	sb, err := NewServBaseV2(confEtcd, servLoc, sessKey, args.group)
+	sb, err := NewServBaseV2(confEtcd, servLoc, sessKey)
 	if err != nil {
 		slog.Panicf("%s init servbase loc:%s key:%s err:%s", fun, servLoc, sessKey, err)
 		return err
@@ -253,8 +250,6 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 
 	defer slog.Sync()
 	defer statlog.Sync()
-
-	m.initBackdoork(sb)
 
 	err = m.handleModel(sb, servLoc, args.model)
 	if err != nil {
@@ -278,31 +273,14 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 	}
 
 	sb.SetGroupAndDisable(args.group, args.disable)
+
+	m.initBackdoork(sb)
 	m.initMetric(sb)
-	m.awaitSignal(sb)
+
+	var pause chan bool
+	pause <- true
 
 	return nil
-}
-
-func (m *Service) awaitSignal(sb *ServBaseV2) {
-	c := make(chan os.Signal, 1)
-	signals := []os.Signal{syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGPIPE, syscall.SIGUSR1}
-	signal.Reset(signals...)
-	signal.Notify(c, signals...)
-
-	for {
-		select {
-		case s := <-c:
-			slog.Infof("receive a signal:%s", s.String())
-
-			if s.String() == syscall.SIGTERM.String() {
-				slog.Infof("receive a signal:%s, stop service", s.String())
-				sb.Stop()
-				<-(chan int)(nil)
-			}
-		}
-	}
-
 }
 
 func (m *Service) handleModel(sb *ServBaseV2, servLoc string, model int) error {
