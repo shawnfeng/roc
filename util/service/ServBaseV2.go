@@ -125,6 +125,9 @@ func (m *ServBaseV2) addRegisterInfo(path, regInfo string) {
 func (m *ServBaseV2) clearRegisterInfos() {
 	fun := "ServBaseV2.clearRegisterInfos -->"
 
+	//延迟清理注册信息,防止新实例还没有完成注册
+	time.Sleep(time.Second * 2)
+
 	m.muReg.Lock()
 	defer m.muReg.Unlock()
 
