@@ -57,6 +57,11 @@ func (m *ClientPool) getPool(addr string) chan rpcClient {
 // Put 连接池回收连接
 func (m *ClientPool) Put(addr string, client rpcClient, err error) {
 	fun := "ClientPool.Put -->"
+	// do nothing，应该不会发生
+	if client == nil {
+		slog.Errorf("%s put nil rpc client to pool: %s", fun, addr)
+		return
+	}
 	// close client and don't put to pool
 	if err != nil {
 		slog.Errorf("%s put rpc client to pool: %s, with err: %v", fun, addr, err)
