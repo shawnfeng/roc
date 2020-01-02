@@ -2,8 +2,6 @@ package rocserv
 
 import (
 	"sync"
-	"sync/atomic"
-	"time"
 
 	"github.com/shawnfeng/sutil/slog"
 )
@@ -15,46 +13,30 @@ const (
 type ClientPool struct {
 	poolClient sync.Map
 	poolLen    int
-	count      int32
 	Factory    func(addr string) rpcClient
 }
 
+// NewClientPool constructor of pool, 如果连接数过低，修正为默认值
 func NewClientPool(poolLen int, factory func(addr string) rpcClient) *ClientPool {
-	// 如果连接数过低，修正为默认值
 	if poolLen < defaultPoolLen {
 		poolLen = defaultPoolLen
 	}
-	return &ClientPool{poolLen: poolLen, Factory: factory, count: 0}
+	return &ClientPool{poolLen: poolLen, Factory: factory}
 }
 
+// Get get connection from pool, if reach max, create new connection and return
 func (m *ClientPool) Get(addr string) rpcClient {
 	fun := "ClientPool.Get -->"
 
 	po := m.getPool(addr)
 	var c rpcClient
-	// if pool full, retry get 3 times, each time sleep 500ms
-	i := 0
-	for i < 3 {
-		select {
-		case c = <-po:
-			slog.Tracef("%s get:%s len:%d, count:%d", fun, addr, len(po), atomic.LoadInt32(&m.count))
-			return c
-		default:
-			if atomic.LoadInt32(&m.count) > int32(m.poolLen) {
-				slog.Errorf("get client from addr: %s reach max: %d, retry: %d", addr, m.count, i)
-				i++
-				time.Sleep(time.Millisecond * 500)
-			} else {
-				c = m.Factory(addr)
-				if c != nil {
-					atomic.AddInt32(&m.count, 1)
-				}
-				return c
-			}
-		}
+	select {
+	case c = <-po:
+		slog.Tracef("%s get: %s len:%d", fun, addr, len(po))
+	default:
+		c = m.Factory(addr)
 	}
-	slog.Errorf("get client from addr: %s reach max: %d after retry 3 times", addr, m.count)
-	return nil
+	return c
 }
 
 func (m *ClientPool) getPool(addr string) chan rpcClient {
@@ -75,16 +57,10 @@ func (m *ClientPool) getPool(addr string) chan rpcClient {
 // Put 连接池回收连接
 func (m *ClientPool) Put(addr string, client rpcClient, err error) {
 	fun := "ClientPool.Put -->"
-	// do nothing，应该不会发生
-	if client == nil {
-		slog.Errorf("%s put nil rpc client to pool: %s", fun, addr)
-		return
-	}
-	// close client and don't put to pool but decr count
+	// close client and don't put to pool
 	if err != nil {
 		slog.Errorf("%s put rpc client to pool: %s, with err: %v", fun, addr, err)
 		client.Close()
-		atomic.AddInt32(&m.count, -1)
 		return
 	}
 
@@ -93,12 +69,11 @@ func (m *ClientPool) Put(addr string, client rpcClient, err error) {
 	select {
 	// 回收连接 client
 	case po <- client:
-		slog.Tracef("%s payback:%s len:%d, count:%d", fun, addr, len(po), atomic.LoadInt32(&m.count))
+		slog.Tracef("%s payback:%s len:%d", fun, addr, len(po))
 
 	//不能回收了，关闭链接(满了)
 	default:
-		slog.Infof("%s full not payback:%s len:%d, count:%d", fun, addr, len(po), atomic.LoadInt32(&m.count))
-		atomic.AddInt32(&m.count, -1)
+		slog.Warnf("%s full not payback: %s len: %d", fun, addr, len(po))
 		client.Close()
 	}
 }
