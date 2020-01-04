@@ -387,7 +387,7 @@ func (m *Service) initBackdoork(sb *ServBaseV2) error {
 	if err == nil {
 		err = sb.RegisterBackDoor(binfos)
 		if err != nil {
-			slog.Errorf("%s regist backdoor err:%s", fun, err)
+			slog.Errorf("%s register backdoor err:%s", fun, err)
 		}
 
 	} else {
@@ -410,7 +410,7 @@ func (m *Service) initMetric(sb *ServBaseV2) error {
 	if err == nil {
 		err = sb.RegisterMetrics(minfos)
 		if err != nil {
-			slog.Warnf("%s regist backdoor err:%s", fun, err)
+			slog.Warnf("%s register backdoor err:%s", fun, err)
 		}
 
 	} else {
