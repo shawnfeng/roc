@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/julienschmidt/httprouter"
 
@@ -16,9 +17,25 @@ import (
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xfile"
 )
 
-type backDoorHttp struct{}
+type backDoorHttp struct {
+}
+
+var (
+	serviceMD5  string
+	startUpTime string
+)
 
 func (m *backDoorHttp) Init() error {
+	if len(os.Args) > 0 {
+		filePath, err := os.Executable()
+		if err == nil {
+			md5, err := xfile.MD5Sum(filePath)
+			if err == nil {
+				serviceMD5 = fmt.Sprintf("%x", md5)
+			}
+		}
+	}
+	startUpTime = time.Now().Format("2006-01-02 15:04:05")
 	return nil
 }
 
@@ -77,19 +94,12 @@ func FactoryMD5() snetutil.HandleRequest {
 }
 
 func (m *MD5) Handle(r *snetutil.HttpRequest) snetutil.HttpResponse {
-	fun := "HealthCheck -->"
-	slog.Infof("%s in", fun)
 	res := struct {
-		Md5 string `json:"md5"`
-	}{}
-	if len(os.Args) > 0 {
-		filePath, err := os.Executable()
-		if err == nil {
-			md5, err := xfile.MD5Sum(filePath)
-			if err == nil {
-				res.Md5 = fmt.Sprintf("%x", md5)
-			}
-		}
+		Md5     string `json:"md5"`
+		StartUp string `json:"start_up"`
+	}{
+		Md5:     serviceMD5,
+		StartUp: startUpTime,
 	}
 	s, _ := json.Marshal(res)
 	return snetutil.NewHttpRespString(200, string(s))
