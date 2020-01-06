@@ -207,7 +207,7 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
 
 }
 
-func (m *ClientEtcdV2) watch(path string, hander func(*etcd.Response), d time.Duration) {
+func (m *ClientEtcdV2) watch(path string, handler func(*etcd.Response), d time.Duration) {
 	fun := "ClientEtcdV2.watch -->"
 
 	backoff := stime.NewBackOffCtrl(time.Millisecond*100, d)
@@ -236,7 +236,7 @@ func (m *ClientEtcdV2) watch(path string, hander func(*etcd.Response), d time.Du
 				backoff.BackOff()
 			} else {
 				slog.Infof("%s update v:%s serv:%s", fun, r.Node.Key, path)
-				hander(r)
+				handler(r)
 
 				firstOnce.Do(func() {
 					close(firstSync)
