@@ -25,8 +25,8 @@ require (
 	github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d // indirect
 	// nn
 	github.com/smartystreets/goconvey v0.0.0-20181108003508-044398e4856c // indirect
-	github.com/uber/jaeger-client-go v2.16.0+incompatible
-	gitlab.pri.ibanyu.com/middleware/seaweed v1.0.5
+	github.com/uber/jaeger-client-go v2.20.1+incompatible
+	gitlab.pri.ibanyu.com/middleware/seaweed v1.0.20
 	// 这个库，老的依赖拷贝没有.git目录，不知道对应哪个版本，这个就用最新的吧
 	// 官方的库应该问题不大
 
