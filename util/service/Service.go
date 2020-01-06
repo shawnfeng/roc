@@ -7,8 +7,13 @@ package rocserv
 import (
 	"flag"
 	"fmt"
+	"os"
+	"os/signal"
 	"reflect"
 	"sync"
+	"syscall"
+
+	stat "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/sys"
 
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
@@ -234,7 +239,7 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 	servLoc := args.servLoc
 	sessKey := args.sessKey
 
-	sb, err := NewServBaseV2(confEtcd, servLoc, sessKey)
+	sb, err := NewServBaseV2(confEtcd, servLoc, sessKey, args.group)
 	if err != nil {
 		slog.Panicf("%s init servbase loc:%s key:%s err:%s", fun, servLoc, sessKey, err)
 		return err
@@ -242,8 +247,14 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 	m.sbase = sb
 
 	m.initLog(sb, args)
+
+	//服务进程打点
+	stat.Init(sb.servGroup, sb.servName, "")
+
 	defer slog.Sync()
 	defer statlog.Sync()
+
+	m.initBackdoork(sb)
 
 	err = m.handleModel(sb, servLoc, args.model)
 	if err != nil {
@@ -267,14 +278,31 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 	}
 
 	sb.SetGroupAndDisable(args.group, args.disable)
-
-	m.initBackdoork(sb)
 	m.initMetric(sb)
-
-	var pause chan bool
-	pause <- true
+	m.awaitSignal(sb)
 
 	return nil
+}
+
+func (m *Service) awaitSignal(sb *ServBaseV2) {
+	c := make(chan os.Signal, 1)
+	signals := []os.Signal{syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGPIPE}
+	signal.Reset(signals...)
+	signal.Notify(c, signals...)
+
+	for {
+		select {
+		case s := <-c:
+			slog.Infof("receive a signal:%s", s.String())
+
+			if s.String() == syscall.SIGTERM.String() {
+				slog.Infof("receive a signal:%s, stop service", s.String())
+				sb.Stop()
+				<-(chan int)(nil)
+			}
+		}
+	}
+
 }
 
 func (m *Service) handleModel(sb *ServBaseV2, servLoc string, model int) error {

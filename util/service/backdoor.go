@@ -5,16 +5,37 @@
 package rocserv
 
 import (
-	"github.com/julienschmidt/httprouter"
+	"encoding/json"
+	"fmt"
 	"os"
+	"time"
+
+	"github.com/julienschmidt/httprouter"
 
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/snetutil"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xfile"
 )
 
-type backDoorHttp struct{}
+type backDoorHttp struct {
+}
+
+var (
+	serviceMD5  string
+	startUpTime string
+)
 
 func (m *backDoorHttp) Init() error {
+	if len(os.Args) > 0 {
+		filePath, err := os.Executable()
+		if err == nil {
+			md5, err := xfile.MD5Sum(filePath)
+			if err == nil {
+				serviceMD5 = fmt.Sprintf("%x", md5)
+			}
+		}
+	}
+	startUpTime = time.Now().Format("2006-01-02 15:04:05")
 	return nil
 }
 
@@ -25,6 +46,9 @@ func (m *backDoorHttp) Driver() (string, interface{}) {
 	// 重启
 	//router.POST("/restart", snetutil.HttpRequestWrapper(FactoryRestart))
 	router.GET("/backdoor/health/check", snetutil.HttpRequestWrapper(FactoryHealthCheck))
+
+	// 获取实例md5值
+	router.GET("/backdoor/md5", snetutil.HttpRequestWrapper(FactoryMD5))
 
 	return "0.0.0.0:60000", router
 }
@@ -58,4 +82,25 @@ func (m *HealthCheck) Handle(r *snetutil.HttpRequest) snetutil.HttpResponse {
 	slog.Infof("%s in", fun)
 
 	return snetutil.NewHttpRespString(200, "{}")
+}
+
+//MD5 ...
+type MD5 struct {
+}
+
+//FactoryMD5 ...
+func FactoryMD5() snetutil.HandleRequest {
+	return new(MD5)
+}
+
+func (m *MD5) Handle(r *snetutil.HttpRequest) snetutil.HttpResponse {
+	res := struct {
+		Md5     string `json:"md5"`
+		StartUp string `json:"start_up"`
+	}{
+		Md5:     serviceMD5,
+		StartUp: startUpTime,
+	}
+	s, _ := json.Marshal(res)
+	return snetutil.NewHttpRespString(200, string(s))
 }

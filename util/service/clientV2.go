@@ -151,9 +151,9 @@ func NewClientEtcdV2(confEtcd configEtcd, servlocation string) (*ClientEtcdV2, e
 		breakerGlobalPath: fmt.Sprintf("%s/%s", confEtcd.useBaseloc, BASE_LOC_BREAKER_GLOBAL),
 	}
 
-	cli.watch(cli.servPath, cli.parseResponse)
-	cli.watch(cli.breakerServPath, cli.handleBreakerServResponse)
-	cli.watch(cli.breakerGlobalPath, cli.handleBreakerGlobalResponse)
+	cli.watch(cli.servPath, cli.parseResponse, time.Second*5)
+	cli.watch(cli.breakerServPath, cli.handleBreakerServResponse, time.Second*60)
+	cli.watch(cli.breakerGlobalPath, cli.handleBreakerGlobalResponse, time.Second*60)
 
 	return cli, nil
 
@@ -165,7 +165,7 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
 	for i := 0; ; i++ {
 		r, err := m.etcdClient.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
 		if err != nil {
-			slog.Warnf("%s get path:%s err:%s", fun, path, err)
+			slog.Infof("%s get path:%s err:%s", fun, path, err)
 			close(chg)
 			return
 
@@ -207,10 +207,10 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
 
 }
 
-func (m *ClientEtcdV2) watch(path string, hander func(*etcd.Response)) {
+func (m *ClientEtcdV2) watch(path string, hander func(*etcd.Response), d time.Duration) {
 	fun := "ClientEtcdV2.watch -->"
 
-	backoff := stime.NewBackOffCtrl(time.Millisecond*10, time.Second*5)
+	backoff := stime.NewBackOffCtrl(time.Millisecond*100, d)
 
 	firstSync := make(chan bool)
 	var firstOnce sync.Once
@@ -227,7 +227,6 @@ func (m *ClientEtcdV2) watch(path string, hander func(*etcd.Response)) {
 
 			r, ok := <-chg
 			if !ok {
-				slog.Warnf("%s chg info nil:%s", fun, path)
 				chg = nil
 
 				firstOnce.Do(func() {
