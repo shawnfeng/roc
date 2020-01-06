@@ -286,7 +286,7 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 
 func (m *Service) awaitSignal(sb *ServBaseV2) {
 	c := make(chan os.Signal, 1)
-	signals := []os.Signal{syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGPIPE, syscall.SIGUSR1}
+	signals := []os.Signal{syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGPIPE}
 	signal.Reset(signals...)
 	signal.Notify(c, signals...)
 
