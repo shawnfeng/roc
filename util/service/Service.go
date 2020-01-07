@@ -254,6 +254,9 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 	defer slog.Sync()
 	defer statlog.Sync()
 
+	// NOTE: processor 在初始化 trace middleware 前需要保证 opentracing.GlobalTracer() 初始化完毕
+	m.initTracer(servLoc)
+
 	m.initBackdoork(sb)
 
 	err = m.handleModel(sb, servLoc, args.model)
@@ -267,9 +270,6 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 		slog.Panicf("%s callInitFunc err:%s", fun, err)
 		return err
 	}
-
-	// NOTE: processor 在初始化 trace middleware 前需要保证 opentracing.GlobalTracer() 初始化完毕
-	m.initTracer(servLoc)
 
 	err = m.initProcessor(sb, procs)
 	if err != nil {
