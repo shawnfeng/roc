@@ -254,9 +254,7 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 	defer slog.Sync()
 	defer statlog.Sync()
 
-	// NOTE: processor 在初始化 trace middleware 前需要保证 opentracing.GlobalTracer() 初始化完毕
-	m.initTracer(servLoc)
-
+	// NOTE: initBackdoork会启动http服务，但由于health check的http请求不需要追踪，且它是判断服务启动与否的关键，所以initTracer可以放在它之后进行
 	m.initBackdoork(sb)
 
 	err = m.handleModel(sb, servLoc, args.model)
@@ -270,6 +268,9 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 		slog.Panicf("%s callInitFunc err:%s", fun, err)
 		return err
 	}
+
+	// NOTE: processor 在初始化 trace middleware 前需要保证 opentracing.GlobalTracer() 初始化完毕
+	m.initTracer(servLoc)
 
 	err = m.initProcessor(sb, procs)
 	if err != nil {
@@ -368,6 +369,11 @@ func (m *Service) initTracer(servLoc string) error {
 	err := trace.InitDefaultTracer(servLoc)
 	if err != nil {
 		slog.Errorf("%s init tracer fail:%v", fun, err)
+	}
+
+	err = trace.InitTraceSpanFilter()
+	if err != nil {
+		slog.Errorf("%s init trace span filter fail: %s", fun, err.Error())
 	}
 
 	return err
