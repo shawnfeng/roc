@@ -71,8 +71,7 @@ func monitorServerInterceptor() grpc.UnaryServerInterceptor {
 		fun := info.FullMethod
 		st := stime.NewTimeStat()
 		resp, err = handler(ctx, req)
-		dur := st.Duration()
-		slog.Infof("%s req: %v ctx: %v cost: %d", fun, req, ctx, dur)
+		slog.Infof("%s req: %v ctx: %v cost: %d us", fun, req, ctx, st.Microsecond())
 		_metricAPIRequestTime.Observe(float64(st.Millisecond()))
 		return resp, err
 	}
@@ -85,8 +84,7 @@ func monitorStreamServerInterceptor() grpc.StreamServerInterceptor {
 		fun := info.FullMethod
 		st := stime.NewTimeStat()
 		err := handler(srv, ss)
-		dur := st.Duration()
-		slog.Infof("%s req: %v ctx: %v cost: %d", fun, srv, ss.Context(), dur)
+		slog.Infof("%s req: %v ctx: %v cost: %d us", fun, srv, ss.Context(), st.Microsecond())
 		_metricAPIRequestTime.Observe(float64(st.Millisecond()))
 		return err
 	}
