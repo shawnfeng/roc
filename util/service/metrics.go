@@ -10,6 +10,9 @@ const (
 	serverDurationSecond = "server_duration_second"
 	serverRequstTotal    = "server_request_total"
 	labelStatus          = "status"
+
+	namespace = "biz"
+	apiType = "api"
 )
 
 var (
@@ -27,6 +30,24 @@ var (
 		Name:       serverRequstTotal,
 		Help:       "sla calc request total.",
 		LabelNames: []string{xprom.LabelServiceName, xprom.LabelServiceID, xprom.LabelInstance, xprom.LabelAPI, xprom.LabelSource, xprom.LabelType, labelStatus},
+	})
+
+	// monitor系统当前打点元信息, 同server/go/util/servbase/monitor
+	_metricAPIRequestCount = xprom.NewCounter(&xprom.CounterVecOpts{
+		Namespace:  namespace,
+		Subsystem:  apiType,
+		Name:       "request_count",
+		Help:       "api request count",
+		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI},
+	})
+
+	_metricAPIRequestTime = xprom.NewHistogram(&xprom.HistogramVecOpts{
+		Namespace:  namespace,
+		Subsystem:  apiType,
+		Name:       "request_duration",
+		Buckets:    buckets,
+		Help:       "api request duration in millisecond",
+		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI},
 	})
 )
 

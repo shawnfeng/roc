@@ -254,6 +254,7 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 	defer slog.Sync()
 	defer statlog.Sync()
 
+	// NOTE: initBackdoork会启动http服务，但由于health check的http请求不需要追踪，且它是判断服务启动与否的关键，所以initTracer可以放在它之后进行
 	m.initBackdoork(sb)
 
 	err = m.handleModel(sb, servLoc, args.model)
@@ -370,6 +371,11 @@ func (m *Service) initTracer(servLoc string) error {
 		slog.Errorf("%s init tracer fail:%v", fun, err)
 	}
 
+	err = trace.InitTraceSpanFilter()
+	if err != nil {
+		slog.Errorf("%s init trace span filter fail: %s", fun, err.Error())
+	}
+
 	return err
 }
 
@@ -387,7 +393,7 @@ func (m *Service) initBackdoork(sb *ServBaseV2) error {
 	if err == nil {
 		err = sb.RegisterBackDoor(binfos)
 		if err != nil {
-			slog.Errorf("%s regist backdoor err:%s", fun, err)
+			slog.Errorf("%s register backdoor err:%s", fun, err)
 		}
 
 	} else {
@@ -410,7 +416,7 @@ func (m *Service) initMetric(sb *ServBaseV2) error {
 	if err == nil {
 		err = sb.RegisterMetrics(minfos)
 		if err != nil {
-			slog.Warnf("%s regist backdoor err:%s", fun, err)
+			slog.Warnf("%s register backdoor err:%s", fun, err)
 		}
 
 	} else {
