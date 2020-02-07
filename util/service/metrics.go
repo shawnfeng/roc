@@ -43,7 +43,7 @@ var (
 	_metricAPMRequestDuration = xprom.NewHistogram(&xprom.HistogramVecOpts{
 		Namespace:  namespaceAPM,
 		Name:       clientRequestDuration,
-		Help:       "apm request duration in seconds",
+		Help:       "apm client side request duration in seconds",
 		Buckets:    buckets,
 		LabelNames: []string{xprom.LabelCallerService, xprom.LabelCalleeService, xprom.LabelCallerEndpoint, xprom.LabelCalleeEndpoint, xprom.LabelCallerServiceID},
 	})
@@ -51,7 +51,7 @@ var (
 	_metricAPMRequestTotal = xprom.NewCounter(&xprom.CounterVecOpts{
 		Namespace:  namespaceAPM,
 		Name:       clientRequestTotal,
-		Help:       "apm request total",
+		Help:       "apm client side request total",
 		LabelNames: []string{xprom.LabelCallerService, xprom.LabelCalleeService, xprom.LabelCallerEndpoint, xprom.LabelCalleeEndpoint, xprom.LabelCallerServiceID, xprom.LabelCallStatus},
 	})
 
