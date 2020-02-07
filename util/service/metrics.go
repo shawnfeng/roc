@@ -55,23 +55,24 @@ var (
 		LabelNames: []string{xprom.LabelCallerService, xprom.LabelCalleeService, xprom.LabelCallerEndpoint, xprom.LabelCalleeEndpoint, xprom.LabelCallerServiceID, xprom.LabelCallStatus},
 	})
 
+	// TODO 临时注释掉，等servmonitor系统重构完成后，统一打点，目前存在升级不平滑问题
 	// monitor系统当前打点元信息, 同server/go/util/servbase/monitor
-	_metricAPIRequestCount = xprom.NewCounter(&xprom.CounterVecOpts{
-		Namespace:  namespace,
-		Subsystem:  apiType,
-		Name:       "request_count",
-		Help:       "api request count",
-		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI},
-	})
+	//_metricAPIRequestCount = xprom.NewCounter(&xprom.CounterVecOpts{
+	//	Namespace:  namespace,
+	//	Subsystem:  apiType,
+	//	Name:       "request_count",
+	//	Help:       "api request count",
+	//	LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI},
+	//})
 
-	_metricAPIRequestTime = xprom.NewHistogram(&xprom.HistogramVecOpts{
-		Namespace:  namespace,
-		Subsystem:  apiType,
-		Name:       "request_duration",
-		Buckets:    buckets,
-		Help:       "api request duration in millisecond",
-		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI},
-	})
+	//_metricAPIRequestTime = xprom.NewHistogram(&xprom.HistogramVecOpts{
+	//	Namespace:  namespace,
+	//	Subsystem:  apiType,
+	//	Name:       "request_duration",
+	//	Buckets:    buckets,
+	//	Help:       "api request duration in millisecond",
+	//	LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI},
+	//})
 )
 
 func GetSlaDurationMetric() xmetric.Histogram {
@@ -82,11 +83,11 @@ func GetSlaRequestTotalMetric() xmetric.Counter {
 }
 
 // GetAPIRequestCountMetric 解决server/go/util/servbase/monitor与roc循环引用及重名metric的问题
-func GetAPIRequestCountMetric() xmetric.Counter{
-	return _metricAPIRequestCount
-}
-
-// GetAPIRequestTimeMetric 解决server/go/util/servbase/monitor与roc循环引用及重名metric的问题
-func GetAPIRequestTimeMetric() xmetric.Histogram{
-	return _metricAPIRequestTime
-}
+//func GetAPIRequestCountMetric() xmetric.Counter{
+//	return _metricAPIRequestCount
+//}
+//
+//// GetAPIRequestTimeMetric 解决server/go/util/servbase/monitor与roc循环引用及重名metric的问题
+//func GetAPIRequestTimeMetric() xmetric.Histogram{
+//	return _metricAPIRequestTime
+//}
