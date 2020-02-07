@@ -207,6 +207,7 @@ github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c/go.mod h1:lB8K/P019DLNhe
 github.com/xdg/stringprep v1.0.0/go.mod h1:Jhud4/sHMO4oL310DaZAKk9ZaJ08SJfe+sJh0HrGL1Y=
 gitlab.pri.ibanyu.com/middleware/seaweed v1.0.20 h1:YZcUyy1D748m1N8geRNI3osz5VxvIcJKsVDs/XhvZ38=
 gitlab.pri.ibanyu.com/middleware/seaweed v1.0.20/go.mod h1:MpSbv4ZwqbtESMEils0BcjET3+Qp+XeWtAwLqbk07fg=
+gitlab.pri.ibanyu.com/middleware/seaweed v1.0.21/go.mod h1:MpSbv4ZwqbtESMEils0BcjET3+Qp+XeWtAwLqbk07fg=
 go.opencensus.io v0.20.1/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=
 go.uber.org/atomic v1.3.2/go.mod h1:gD2HeocX3+yG+ygLZcrzQJaqmWj9AIm7n08wl/qW/PE=
 go.uber.org/atomic v1.5.0/go.mod h1:sABNBOSYdrvTF6hTgEIbc7YasKWGhgEQZyfxyTvoXHQ=

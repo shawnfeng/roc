@@ -7,12 +7,19 @@ import (
 
 const (
 	namespacePalfish     = "palfish"
+	namespaceAPM         = "apm"
 	serverDurationSecond = "server_duration_second"
-	serverRequstTotal    = "server_request_total"
-	labelStatus          = "status"
+	serverRequestTotal   = "server_request_total"
+	// client means that the duration is count from client side,
+	//   which includes the network round-trip time and the server
+	//   processing time.
+	clientRequestTotal    = "client_request_total"
+	clientRequestDuration = "client_request_duration"
+
+	labelStatus = "status"
 
 	namespace = "biz"
-	apiType = "api"
+	apiType   = "api"
 )
 
 var (
@@ -27,9 +34,25 @@ var (
 	})
 	_metricRequestTotal = xprom.NewCounter(&xprom.CounterVecOpts{
 		Namespace:  namespacePalfish,
-		Name:       serverRequstTotal,
+		Name:       serverRequestTotal,
 		Help:       "sla calc request total.",
 		LabelNames: []string{xprom.LabelServiceName, xprom.LabelServiceID, xprom.LabelInstance, xprom.LabelAPI, xprom.LabelSource, xprom.LabelType, labelStatus},
+	})
+
+	// apm 打点
+	_metricAPMRequestDuration = xprom.NewHistogram(&xprom.HistogramVecOpts{
+		Namespace:  namespaceAPM,
+		Name:       clientRequestDuration,
+		Help:       "apm client side request duration in seconds",
+		Buckets:    buckets,
+		LabelNames: []string{xprom.LabelCallerService, xprom.LabelCalleeService, xprom.LabelCallerEndpoint, xprom.LabelCalleeEndpoint, xprom.LabelCallerServiceID},
+	})
+
+	_metricAPMRequestTotal = xprom.NewCounter(&xprom.CounterVecOpts{
+		Namespace:  namespaceAPM,
+		Name:       clientRequestTotal,
+		Help:       "apm client side request total",
+		LabelNames: []string{xprom.LabelCallerService, xprom.LabelCalleeService, xprom.LabelCallerEndpoint, xprom.LabelCalleeEndpoint, xprom.LabelCallerServiceID, xprom.LabelCallStatus},
 	})
 
 	// monitor系统当前打点元信息, 同server/go/util/servbase/monitor
