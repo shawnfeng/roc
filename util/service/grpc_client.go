@@ -140,7 +140,9 @@ func (m *ClientGrpc) RpcWithContext(ctx context.Context, hashKey string, fnrpc f
 	var err error
 	st := stime.NewTimeStat()
 	defer func() {
-		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
+		dur := st.Duration()
+		collector(m.clientLookup.ServKey(), m.processor, dur, 0, si.Servid, funcName, err)
+		collectAPM(ctx, m.clientLookup.ServKey(), funcName, si.Servid, dur, err)
 	}()
 	err = m.breaker.Do(0, si.Servid, funcName, call, GRPC, nil)
 	return err
@@ -169,7 +171,9 @@ func (m *ClientGrpc) RpcWithContextV2(ctx context.Context, hashKey string, fnrpc
 	var err error
 	st := stime.NewTimeStat()
 	defer func() {
-		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
+		dur := st.Duration()
+		collector(m.clientLookup.ServKey(), m.processor, dur, 0, si.Servid, funcName, err)
+		collectAPM(ctx, m.clientLookup.ServKey(), funcName, si.Servid, dur, err)
 	}()
 	err = m.breaker.Do(0, si.Servid, funcName, call, GRPC, nil)
 	return err
