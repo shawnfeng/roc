@@ -5,6 +5,8 @@ import (
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/stime"
 
+	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
+
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/opentracing-contrib/go-grpc"
 	"github.com/opentracing/opentracing-go"
@@ -67,12 +69,13 @@ func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
 // server rpc cost, record to log and prometheus
 func monitorServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-		_metricAPIRequestCount.Inc()
+		group, service := GetGroupAndService()
 		fun := info.FullMethod
+		_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun).Inc()
 		st := stime.NewTimeStat()
 		resp, err = handler(ctx, req)
 		slog.Infof("%s req: %v ctx: %v cost: %d us", fun, req, ctx, st.Microsecond())
-		_metricAPIRequestTime.Observe(float64(st.Millisecond()))
+		_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun).Observe(float64(st.Millisecond()))
 		return resp, err
 	}
 }
@@ -80,12 +83,13 @@ func monitorServerInterceptor() grpc.UnaryServerInterceptor {
 // stream server rpc cost, record to log and prometheus
 func monitorStreamServerInterceptor() grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-		_metricAPIRequestCount.Inc()
 		fun := info.FullMethod
+		group, service := GetGroupAndService()
+		_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun).Inc()
 		st := stime.NewTimeStat()
 		err := handler(srv, ss)
 		slog.Infof("%s req: %v ctx: %v cost: %d us", fun, srv, ss.Context(), st.Microsecond())
-		_metricAPIRequestTime.Observe(float64(st.Millisecond()))
+		_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun).Observe(float64(st.Millisecond()))
 		return err
 	}
 }

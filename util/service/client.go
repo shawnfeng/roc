@@ -302,7 +302,12 @@ func (m *ClientThrift) RpcWithContext(ctx context.Context, hashKey string, timeo
 		}
 	}(si, rc, timeout, fnrpc)
 
+	// 目前Adapter内通过Rpc函数调用RpcWithContext时层次会出错，直接调用RpcWithContext和RpcWithContextV2的层次是正确的，所以修正前者进行兼容
 	funcName := GetFunName(3)
+	if funcName == "rpc" {
+		funcName = GetFunName(4)
+	}
+
 	var err error
 	// record request duration
 	st := stime.NewTimeStat()

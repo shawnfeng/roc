@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"reflect"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -471,6 +472,18 @@ func GetServName() (servName string) {
 	}
 	return
 }
+
+// GetGroupAndService return group and service name of this service
+func GetGroupAndService() (group, service string) {
+	serviceKey := GetServName()
+	serviceKeyArray := strings.Split(serviceKey, "/")
+	if len(serviceKeyArray) == 2 {
+		group = serviceKeyArray[0]
+		service = serviceKeyArray[1]
+	}
+	return
+}
+
 func GetServId() (servId int) {
 	if service.sbase != nil {
 		servId = service.sbase.Servid()

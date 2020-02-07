@@ -80,3 +80,13 @@ func GetSlaDurationMetric() xmetric.Histogram {
 func GetSlaRequestTotalMetric() xmetric.Counter {
 	return _metricRequestTotal
 }
+
+// GetAPIRequestCountMetric 解决server/go/util/servbase/monitor与roc循环引用及重名metric的问题
+func GetAPIRequestCountMetric() xmetric.Counter{
+	return _metricAPIRequestCount
+}
+
+// GetAPIRequestTimeMetric 解决server/go/util/servbase/monitor与roc循环引用及重名metric的问题
+func GetAPIRequestTimeMetric() xmetric.Histogram{
+	return _metricAPIRequestTime
+}
