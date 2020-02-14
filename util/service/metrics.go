@@ -19,6 +19,8 @@ const (
 	labelStatus = "status"
 
 	apiType = "api"
+	logType = "log"
+	dbType  = "db"
 )
 
 var (
@@ -70,6 +72,32 @@ var (
 		Help:       "api request duration in millisecond",
 		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI},
 	})
+
+	// warn log count
+	_metricLogCount = xprom.NewCounter(&xprom.CounterVecOpts{
+		Namespace:  namespacePalfish,
+		Subsystem:  logType,
+		Name:       "request_count",
+		Help:       "log count",
+		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelType},
+	})
+
+	_metricDBRequestCount = xprom.NewCounter(&xprom.CounterVecOpts{
+		Namespace:  namespacePalfish,
+		Subsystem:  dbType,
+		Name:       "request_count",
+		Help:       "db request count",
+		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelSource},
+	})
+
+	_metricDBRequestTime = xprom.NewHistogram(&xprom.HistogramVecOpts{
+		Namespace:  namespacePalfish,
+		Subsystem:  dbType,
+		Name:       "request_duration",
+		Buckets:    []float64{5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000},
+		Help:       "db request time",
+		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelSource},
+	})
 )
 
 func GetSlaDurationMetric() xmetric.Histogram {
@@ -87,4 +115,19 @@ func GetAPIRequestCountMetric() xmetric.Counter {
 // GetAPIRequestTimeMetric export api request time metric
 func GetAPIRequestTimeMetric() xmetric.Histogram {
 	return _metricAPIRequestTime
+}
+
+// GetLogCountMetric export log request count metric
+func GetLogCountMetric() xmetric.Counter {
+	return _metricLogCount
+}
+
+// GetDBRequestCountMetric export db request count metric
+func GetDBRequestCountMetric() xmetric.Counter {
+	return _metricDBRequestCount
+}
+
+// GetDBRequestTimeMetric export db request time metric
+func GetDBRequestTimeMetric() xmetric.Histogram {
+	return _metricDBRequestTime
 }
