@@ -18,8 +18,9 @@ const (
 
 	labelStatus = "status"
 
-	namespace = "biz"
-	apiType   = "api"
+	apiType = "api"
+	logType = "log"
+	dbType  = "db"
 )
 
 var (
@@ -55,24 +56,48 @@ var (
 		LabelNames: []string{xprom.LabelCallerService, xprom.LabelCalleeService, xprom.LabelCallerEndpoint, xprom.LabelCalleeEndpoint, xprom.LabelCallerServiceID, xprom.LabelCallStatus},
 	})
 
-	// TODO 临时注释掉，等servmonitor系统重构完成后，统一打点，目前存在升级不平滑问题
-	// monitor系统当前打点元信息, 同server/go/util/servbase/monitor
-	//_metricAPIRequestCount = xprom.NewCounter(&xprom.CounterVecOpts{
-	//	Namespace:  namespace,
-	//	Subsystem:  apiType,
-	//	Name:       "request_count",
-	//	Help:       "api request count",
-	//	LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI},
-	//})
+	_metricAPIRequestCount = xprom.NewCounter(&xprom.CounterVecOpts{
+		Namespace:  namespacePalfish,
+		Subsystem:  apiType,
+		Name:       "request_count",
+		Help:       "api request count",
+		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI},
+	})
 
-	//_metricAPIRequestTime = xprom.NewHistogram(&xprom.HistogramVecOpts{
-	//	Namespace:  namespace,
-	//	Subsystem:  apiType,
-	//	Name:       "request_duration",
-	//	Buckets:    buckets,
-	//	Help:       "api request duration in millisecond",
-	//	LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI},
-	//})
+	_metricAPIRequestTime = xprom.NewHistogram(&xprom.HistogramVecOpts{
+		Namespace:  namespacePalfish,
+		Subsystem:  apiType,
+		Name:       "request_duration",
+		Buckets:    []float64{10, 50, 100, 200, 300, 500, 1000, 3000, 5000, 10000},
+		Help:       "api request duration in millisecond",
+		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI},
+	})
+
+	// warn log count
+	_metricLogCount = xprom.NewCounter(&xprom.CounterVecOpts{
+		Namespace:  namespacePalfish,
+		Subsystem:  logType,
+		Name:       "request_count",
+		Help:       "log count",
+		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelType},
+	})
+
+	_metricDBRequestCount = xprom.NewCounter(&xprom.CounterVecOpts{
+		Namespace:  namespacePalfish,
+		Subsystem:  dbType,
+		Name:       "request_count",
+		Help:       "db request count",
+		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelSource},
+	})
+
+	_metricDBRequestTime = xprom.NewHistogram(&xprom.HistogramVecOpts{
+		Namespace:  namespacePalfish,
+		Subsystem:  dbType,
+		Name:       "request_duration",
+		Buckets:    []float64{5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000},
+		Help:       "db request time",
+		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelSource},
+	})
 )
 
 func GetSlaDurationMetric() xmetric.Histogram {
@@ -82,12 +107,27 @@ func GetSlaRequestTotalMetric() xmetric.Counter {
 	return _metricRequestTotal
 }
 
-// GetAPIRequestCountMetric 解决server/go/util/servbase/monitor与roc循环引用及重名metric的问题
-//func GetAPIRequestCountMetric() xmetric.Counter{
-//	return _metricAPIRequestCount
-//}
-//
-//// GetAPIRequestTimeMetric 解决server/go/util/servbase/monitor与roc循环引用及重名metric的问题
-//func GetAPIRequestTimeMetric() xmetric.Histogram{
-//	return _metricAPIRequestTime
-//}
+// GetAPIRequestCountMetric export api request count metric
+func GetAPIRequestCountMetric() xmetric.Counter {
+	return _metricAPIRequestCount
+}
+
+// GetAPIRequestTimeMetric export api request time metric
+func GetAPIRequestTimeMetric() xmetric.Histogram {
+	return _metricAPIRequestTime
+}
+
+// GetLogCountMetric export log request count metric
+func GetLogCountMetric() xmetric.Counter {
+	return _metricLogCount
+}
+
+// GetDBRequestCountMetric export db request count metric
+func GetDBRequestCountMetric() xmetric.Counter {
+	return _metricDBRequestCount
+}
+
+// GetDBRequestTimeMetric export db request time metric
+func GetDBRequestTimeMetric() xmetric.Histogram {
+	return _metricDBRequestTime
+}
