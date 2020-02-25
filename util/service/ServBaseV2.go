@@ -79,7 +79,11 @@ type ServBaseV2 struct {
 	envGroup string
 
 	etcdClient etcd.KeysAPI
-	servId     int
+
+	// 跨机房服务注册
+	crossRegisterClients map[string]etcd.KeysAPI
+
+	servId int
 
 	dbRouter *dbrouter.Router
 
@@ -106,6 +110,7 @@ func (m *ServBaseV2) isStop() bool {
 func (m *ServBaseV2) Stop() {
 	m.setStatusToStop()
 	m.clearRegisterInfos()
+	m.clearCrossDCRegisterInfos()
 }
 
 func (m *ServBaseV2) setStatusToStop() {
@@ -185,13 +190,13 @@ func (m *ServBaseV2) RegisterMetrics(servs map[string]*ServInfo) error {
 func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) error {
 	fun := "ServBaseV2.RegisterService -->"
 
-	err := m.RegisterServiceV2(servs, BASE_LOC_REG_SERV)
+	err := m.RegisterServiceV2(servs, BASE_LOC_REG_SERV, false)
 	if err != nil {
 		slog.Errorf("%s reg v2 err:%s", fun, err)
 		return err
 	}
 
-	err = m.RegisterServiceV1(servs)
+	err = m.RegisterServiceV1(servs, false)
 	if err != nil {
 		slog.Errorf("%s reg v1 err:%s", fun, err)
 		return err
@@ -202,7 +207,7 @@ func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) error {
 	return nil
 }
 
-func (m *ServBaseV2) RegisterServiceV2(servs map[string]*ServInfo, dir string) error {
+func (m *ServBaseV2) RegisterServiceV2(servs map[string]*ServInfo, dir string, crossDC bool) error {
 	fun := "ServBaseV2.RegisterServiceV2 -->"
 
 	rd := &RegData{
@@ -218,11 +223,16 @@ func (m *ServBaseV2) RegisterServiceV2(servs map[string]*ServInfo, dir string) e
 
 	path := fmt.Sprintf("%s/%s/%s/%d/%s", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId, dir)
 
-	return m.doRegister(path, string(js), true)
+	// 非跨机房
+	if !crossDC {
+		return m.doRegister(path, string(js), true)
+	}
+	// 跨机房
+	return m.doCrossDCRegister(path, string(js), true)
 }
 
 // 为兼容老的client发现服务，保留的
-func (m *ServBaseV2) RegisterServiceV1(servs map[string]*ServInfo) error {
+func (m *ServBaseV2) RegisterServiceV1(servs map[string]*ServInfo, crossDC bool) error {
 	fun := "ServBaseV2.RegisterServiceV1 -->"
 
 	js, err := json.Marshal(servs)
@@ -234,7 +244,12 @@ func (m *ServBaseV2) RegisterServiceV1(servs map[string]*ServInfo) error {
 
 	path := fmt.Sprintf("%s/%s/%s/%d", m.confEtcd.useBaseloc, BASE_LOC_DIST, m.servLocation, m.servId)
 
-	return m.doRegister(path, string(js), true)
+	// 非跨机房
+	if !crossDC {
+		return m.doRegister(path, string(js), true)
+	}
+	// 跨机房
+	return m.doCrossDCRegister(path, string(js), true)
 }
 
 func (m *ServBaseV2) SetGroupAndDisable(group string, disable bool) error {
@@ -472,15 +487,16 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string) (*S
 	}
 
 	reg := &ServBaseV2{
-		confEtcd:     confEtcd,
-		dbLocation:   dbloc,
-		servLocation: servLocation,
-		sessKey:      skey,
-		etcdClient:   client,
-		servId:       sid,
-		locks:        make(map[string]*ssync.Mutex),
-		hearts:       make(map[string]*distLockHeart),
-		regInfos:     make(map[string]string),
+		confEtcd:             confEtcd,
+		dbLocation:           dbloc,
+		servLocation:         servLocation,
+		sessKey:              skey,
+		etcdClient:           client,
+		crossRegisterClients: make(map[string]etcd.KeysAPI, 2),
+		servId:               sid,
+		locks:                make(map[string]*ssync.Mutex),
+		hearts:               make(map[string]*distLockHeart),
+		regInfos:             make(map[string]string),
 
 		dbRouter: dr,
 
@@ -503,6 +519,12 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string) (*S
 	reg.IdGenerator.snow = sf
 	reg.IdGenerator.slow = make(map[string]*slowid.Slowid)
 	reg.IdGenerator.servId = sid
+
+	// init cross register clients
+	err = initCrossRegisterCenter(reg)
+	if err != nil {
+		return nil, err
+	}
 
 	return reg, nil
 

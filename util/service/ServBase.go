@@ -73,6 +73,7 @@ type ServBase interface {
 	// key is processor to ServInfo
 	RegisterService(servs map[string]*ServInfo) error
 	RegisterBackDoor(servs map[string]*ServInfo) error
+	RegisterCrossDCService(servs map[string]*ServInfo) error
 
 	Servname() string
 	Servid() int
