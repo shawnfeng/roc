@@ -121,7 +121,7 @@ func initCrossRegisterCenter(sb *ServBaseV2) error {
 	if err != nil {
 		return err
 	}
-	for _, addr := range baseConfig.Base.crossRegisterCenters {
+	for _, addr := range baseConfig.Base.CrossRegisterCenters {
 		baseCfg := etcd.Config{
 			Endpoints: []string{addr},
 			Transport: etcd.DefaultTransport,
