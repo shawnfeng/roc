@@ -147,7 +147,7 @@ func collectAPM(ctx context.Context, calleeService, calleeEndpoint string, servI
 
 	span := opentracing.SpanFromContext(ctx)
 	if span == nil {
-		slog.Warnf("%s span not found", fun)
+		slog.Infof("%s span not found", fun)
 		return
 	}
 
@@ -155,7 +155,7 @@ func collectAPM(ctx context.Context, calleeService, calleeEndpoint string, servI
 	if jspan, ok := span.(*jaeger.Span); ok {
 		callerEndpoint = jspan.OperationName()
 	} else {
-		slog.Warnf("%s unsupported span %v", fun, span)
+		slog.Infof("%s unsupported span %v", fun, span)
 		return
 	}
 
