@@ -247,9 +247,10 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 	}
 	m.sbase = sb
 
+	// 初始化日志
 	m.initLog(sb, args)
 
-	//服务进程打点
+	// 初始化服务进程打点
 	stat.Init(sb.servGroup, sb.servName, "")
 
 	defer slog.Sync()
@@ -358,6 +359,13 @@ func (m *Service) initProcessor(sb *ServBaseV2, procs map[string]Processor) erro
 	err = sb.RegisterService(infos)
 	if err != nil {
 		slog.Errorf("%s regist service err:%s", fun, err)
+		return err
+	}
+
+	// 注册跨机房服务
+	err = sb.RegisterCrossDCService(infos)
+	if err != nil {
+		slog.Errorf("%s register cross dc failed, err: %v", fun, err)
 		return err
 	}
 
