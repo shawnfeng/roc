@@ -355,7 +355,6 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 			} else {
 				if refresh {
 					// 在刷新ttl时候，不允许变更value
-					slog.Infof("%s refresh ttl idx:%d servs:%s", fun, i, js)
 					r, err = m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions{
 						PrevExist: etcd.PrevExist,
 						TTL:       time.Second * 60,
@@ -371,18 +370,16 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 
 			if err != nil {
 				iscreate = false
-				slog.Errorf("%s reg idx:%d err:%s", fun, i, err)
+				slog.Errorf("%s reg idx: %d,resp: %v,err: %v", fun, i, r, err)
 
 			} else {
 				iscreate = true
-				jr, _ := json.Marshal(r)
-				slog.Infof("%s reg idx:%d ok:%s", fun, i, jr)
 			}
 
 			time.Sleep(time.Second * 20)
 
 			if m.isStop() {
-				slog.Infof("%s service stop, register stop", fun)
+				slog.Infof("%s service stop, register [%s] stop", fun, path)
 				return
 			}
 		}

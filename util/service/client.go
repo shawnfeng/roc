@@ -147,7 +147,8 @@ func collectAPM(ctx context.Context, calleeService, calleeEndpoint string, servI
 
 	span := opentracing.SpanFromContext(ctx)
 	if span == nil {
-		slog.Infof("%s span not found", fun)
+		// too many logs
+		//slog.Infof("%s span not found", fun)
 		return
 	}
 

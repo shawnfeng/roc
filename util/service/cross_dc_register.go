@@ -2,7 +2,6 @@ package rocserv
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -53,7 +52,6 @@ func (m *ServBaseV2) doCrossDCRegister(path, js string, refresh bool) error {
 				} else {
 					if refresh {
 						// 在刷新ttl时候，不允许变更value
-						slog.Infof("%s refresh ttl idx:%d servs:%s", fun, j, js)
 						r, err = m.crossRegisterClients[addr].Set(context.Background(), path, "", &etcd.SetOptions{
 							PrevExist: etcd.PrevExist,
 							TTL:       time.Second * 60,
@@ -69,18 +67,16 @@ func (m *ServBaseV2) doCrossDCRegister(path, js string, refresh bool) error {
 
 				if err != nil {
 					iscreate = false
-					slog.Errorf("%s reg idx:%d err:%s", fun, j, err)
+					slog.Errorf("%s reg idx: %d, resp: %v, err: %v", fun, j, r, err)
 
 				} else {
 					iscreate = true
-					jr, _ := json.Marshal(r)
-					slog.Infof("%s reg idx:%d ok:%s", fun, j, jr)
 				}
 
 				time.Sleep(time.Second * 20)
 
 				if m.isStop() {
-					slog.Infof("%s service stop, register stop", fun)
+					slog.Infof("%s service stop, register [%s] stop", fun, path)
 					return
 				}
 			}
