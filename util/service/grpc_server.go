@@ -3,7 +3,7 @@ package rocserv
 import (
 	"context"
 
-	"github.com/shawnfeng/sutil/slog"
+	"github.com/shawnfeng/sutil/slog/slog"
 	"github.com/shawnfeng/sutil/stime"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 
@@ -76,7 +76,7 @@ func monitorServerInterceptor() grpc.UnaryServerInterceptor {
 		_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun).Inc()
 		st := stime.NewTimeStat()
 		resp, err = handler(ctx, req)
-		slog.Infof("%s req: %v ctx: %v cost: %d us", fun, req, ctx, st.Microsecond())
+		slog.Infof(ctx, "%s req: %v err: %v cost: %d us", fun, req, err, st.Microsecond())
 		_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun).Observe(float64(st.Millisecond()))
 		return resp, err
 	}
@@ -90,7 +90,7 @@ func monitorStreamServerInterceptor() grpc.StreamServerInterceptor {
 		_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun).Inc()
 		st := stime.NewTimeStat()
 		err := handler(srv, ss)
-		slog.Infof("%s req: %v ctx: %v cost: %d us", fun, srv, ss.Context(), st.Microsecond())
+		slog.Infof(ss.Context(), "%s req: %v err: %v cost: %d us", fun, srv, err, st.Microsecond())
 		_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun).Observe(float64(st.Millisecond()))
 		return err
 	}
