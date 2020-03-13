@@ -143,7 +143,7 @@ func (m *Concurrent) Post(s *ServInfo) error {
 }
 
 func NewAddr(cb ClientLookup) *Addr {
-	return &Addr{ cb: cb }
+	return &Addr{cb: cb}
 }
 
 type Addr struct {

@@ -135,12 +135,18 @@ func (m *ClientGrpc) RpcWithContext(ctx context.Context, hashKey string, fnrpc f
 		}
 	}(si, rc, fnrpc)
 
+	// 目前Adapter内通过Rpc函数调用RpcWithContext时层次会出错，直接调用RpcWithContext和RpcWithContextV2的层次是正确的，所以修正前者进行兼容
 	funcName := GetFunName(3)
+	if funcName == "rpc"{
+		funcName = GetFunName(4)
+	}
 
 	var err error
 	st := stime.NewTimeStat()
 	defer func() {
-		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
+		dur := st.Duration()
+		collector(m.clientLookup.ServKey(), m.processor, dur, 0, si.Servid, funcName, err)
+		collectAPM(ctx, m.clientLookup.ServKey(), funcName, si.Servid, dur, err)
 	}()
 	err = m.breaker.Do(0, si.Servid, funcName, call, GRPC, nil)
 	return err
@@ -169,7 +175,9 @@ func (m *ClientGrpc) RpcWithContextV2(ctx context.Context, hashKey string, fnrpc
 	var err error
 	st := stime.NewTimeStat()
 	defer func() {
-		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
+		dur := st.Duration()
+		collector(m.clientLookup.ServKey(), m.processor, dur, 0, si.Servid, funcName, err)
+		collectAPM(ctx, m.clientLookup.ServKey(), funcName, si.Servid, dur, err)
 	}()
 	err = m.breaker.Do(0, si.Servid, funcName, call, GRPC, nil)
 	return err

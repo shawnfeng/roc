@@ -141,6 +141,50 @@ func collector(servkey string, processor string, duration time.Duration, source 
 		labelStatus, statusVal).Inc()
 }
 
+func collectAPM(ctx context.Context, calleeService, calleeEndpoint string, servID int, duration time.Duration, requestErr error) {
+	fun := "collectAPM -->"
+	callerService := GetServName()
+
+	span := opentracing.SpanFromContext(ctx)
+	if span == nil {
+		slog.Infof("%s span not found", fun)
+		return
+	}
+
+	var callerEndpoint string
+	if jspan, ok := span.(*jaeger.Span); ok {
+		callerEndpoint = jspan.OperationName()
+	} else {
+		slog.Infof("%s unsupported span %v", fun, span)
+		return
+	}
+
+	callerServiceID := strconv.Itoa(servID)
+	_collectAPM(callerService, calleeService, callerEndpoint, calleeEndpoint, callerServiceID, duration, requestErr)
+}
+
+func _collectAPM(callerService, calleeService, callerEndpoint, calleeEndpoint, callerServiceID string, duration time.Duration, requestErr error) {
+	_metricAPMRequestDuration.With(
+		xprom.LabelCallerService, callerService,
+		xprom.LabelCalleeService, calleeService,
+		xprom.LabelCallerEndpoint, callerEndpoint,
+		xprom.LabelCalleeEndpoint, calleeEndpoint,
+		xprom.LabelCallerServiceID, callerServiceID).Observe(duration.Seconds())
+
+	var status = "1"
+	if requestErr != nil {
+		status = "0"
+	}
+
+	_metricAPMRequestTotal.With(
+		xprom.LabelCallerService, callerService,
+		xprom.LabelCalleeService, calleeService,
+		xprom.LabelCallerEndpoint, callerEndpoint,
+		xprom.LabelCalleeEndpoint, calleeEndpoint,
+		xprom.LabelCallerServiceID, callerServiceID,
+		xprom.LabelCallStatus, status).Inc()
+}
+
 type ClientThrift struct {
 	clientLookup ClientLookup
 	processor    string
@@ -258,12 +302,19 @@ func (m *ClientThrift) RpcWithContext(ctx context.Context, hashKey string, timeo
 		}
 	}(si, rc, timeout, fnrpc)
 
+	// 目前Adapter内通过Rpc函数调用RpcWithContext时层次会出错，直接调用RpcWithContext和RpcWithContextV2的层次是正确的，所以修正前者进行兼容
 	funcName := GetFunName(3)
+	if funcName == "rpc" {
+		funcName = GetFunName(4)
+	}
+
 	var err error
 	// record request duration
 	st := stime.NewTimeStat()
 	defer func() {
-		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
+		dur := st.Duration()
+		collector(m.clientLookup.ServKey(), m.processor, dur, 0, si.Servid, funcName, err)
+		collectAPM(ctx, m.clientLookup.ServKey(), funcName, si.Servid, dur, err)
 	}()
 	err = m.breaker.Do(0, si.Servid, funcName, call, THRIFT, nil)
 	return err
@@ -291,7 +342,9 @@ func (m *ClientThrift) RpcWithContextV2(ctx context.Context, hashKey string, tim
 	var err error
 	st := stime.NewTimeStat()
 	defer func() {
-		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
+		dur := st.Duration()
+		collector(m.clientLookup.ServKey(), m.processor, dur, 0, si.Servid, funcName, err)
+		collectAPM(ctx, m.clientLookup.ServKey(), funcName, si.Servid, dur, err)
 	}()
 	err = m.breaker.Do(0, si.Servid, funcName, call, THRIFT, nil)
 	return err
