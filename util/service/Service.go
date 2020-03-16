@@ -14,6 +14,8 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/shawnfeng/sutil/sconf/center"
+
 	stat "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/sys"
 
 	"git.apache.org/thrift.git/lib/go/thrift"
@@ -497,6 +499,11 @@ func GetServId() (servId int) {
 		servId = service.sbase.Servid()
 	}
 	return
+}
+
+// GetApolloCenter get serv conf center
+func GetApolloCenter() center.ConfigCenter {
+	return service.sbase.ApolloCenter()
 }
 
 func Test(etcds []string, baseLoc, servLoc string, initfn func(ServBase) error) error {

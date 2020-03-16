@@ -7,18 +7,30 @@ package rocserv
 import (
 	"context"
 	"fmt"
+	"runtime"
+	"strconv"
+	"strings"
+	"time"
+
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil"
+
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/opentracing/opentracing-go"
 	"github.com/shawnfeng/sutil/scontext"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/stime"
 	"github.com/uber/jaeger-client-go"
-	"runtime"
-	"strconv"
-	"strings"
-	"time"
 
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
+)
+
+const (
+	// Timeout timeout(ms)
+	Timeout = "timeoutMsec"
+	// Default ...
+	Default = "default"
+	// DefaultTimeout ...
+	DefaultTimeout = 3000 * time.Millisecond
 )
 
 type ClientLookup interface {
@@ -70,13 +82,14 @@ func (m *ClientWrapper) Do(hashKey string, timeout time.Duration, run func(addr 
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
+	funcName := GetFunName(3)
+	timeout = GetFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
 	call := func(addr string, timeout time.Duration) func() error {
 		return func() error {
 			return run(addr, timeout)
 		}
 	}(si.Addr, timeout)
 
-	funcName := GetFunName(3)
 	var err error
 	st := stime.NewTimeStat()
 	defer func() {
@@ -296,17 +309,18 @@ func (m *ClientThrift) RpcWithContext(ctx context.Context, hashKey string, timeo
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
-	call := func(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(interface{}) error) func() error {
-		return func() error {
-			return m.rpc(si, rc, timeout, fnrpc)
-		}
-	}(si, rc, timeout, fnrpc)
-
 	// 目前Adapter内通过Rpc函数调用RpcWithContext时层次会出错，直接调用RpcWithContext和RpcWithContextV2的层次是正确的，所以修正前者进行兼容
 	funcName := GetFunName(3)
 	if funcName == "rpc" {
 		funcName = GetFunName(4)
 	}
+	timeout = GetFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
+
+	call := func(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(interface{}) error) func() error {
+		return func() error {
+			return m.rpc(si, rc, timeout, fnrpc)
+		}
+	}(si, rc, timeout, fnrpc)
 
 	var err error
 	// record request duration
@@ -332,13 +346,14 @@ func (m *ClientThrift) RpcWithContextV2(ctx context.Context, hashKey string, tim
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
+	funcName := GetFunName(3)
+	timeout = GetFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
 	call := func(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(context.Context, interface{}) error) func() error {
 		return func() error {
 			return m.rpcWithContext(ctx, si, rc, timeout, fnrpc)
 		}
 	}(si, rc, timeout, fnrpc)
 
-	funcName := GetFunName(3)
 	var err error
 	st := stime.NewTimeStat()
 	defer func() {
@@ -415,4 +430,20 @@ func GetFunName(index int) string {
 		}
 	}
 	return funcName
+}
+
+// GetFuncTimeout get func timeout conf
+func GetFuncTimeout(servKey, funcName string, timeout time.Duration) time.Duration {
+	key := xutil.Concat(servKey, ".", funcName, ".", Timeout)
+	var t int
+	var exist bool
+	if t, exist = GetApolloCenter().GetIntWithNamespace(context.TODO(), RPCConfNamespace, key); !exist {
+		defaultKey := xutil.Concat(servKey, ".", Default, ".", Timeout)
+		t, _ = GetApolloCenter().GetIntWithNamespace(context.TODO(), RPCConfNamespace, defaultKey)
+	}
+	if t == 0 {
+		return timeout
+	}
+
+	return time.Duration(t) * time.Millisecond
 }

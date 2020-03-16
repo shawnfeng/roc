@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/shawnfeng/sutil/sconf/center"
 	// now use 73a8ef737e8ea002281a28b4cb92a1de121ad4c6
 	//"github.com/coreos/go-etcd/etcd"
 	etcd "github.com/coreos/etcd/client"
@@ -57,6 +59,9 @@ const (
 
 	//预演环境分组标识
 	ENV_GROUP_PRE = "pre"
+
+	// RPCConfNamespace RPC Apollo Conf Namespace
+	RPCConfNamespace = "rpc.client"
 )
 
 type configEtcd struct {
@@ -67,8 +72,8 @@ type configEtcd struct {
 type ServBaseV2 struct {
 	IdGenerator
 
-	confEtcd configEtcd
-
+	confEtcd     configEtcd
+	apolloCenter center.ConfigCenter
 	dbLocation   string
 	servLocation string
 	servGroup    string
@@ -409,6 +414,11 @@ func (m *ServBaseV2) Dbrouter() *dbrouter.Router {
 	return m.dbRouter
 }
 
+// ApolloCenter ...
+func (m *ServBaseV2) ApolloCenter() center.ConfigCenter {
+	return m.apolloCenter
+}
+
 func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 	fun := "ServBaseV2.ServConfig -->"
 	// 获取全局配置
@@ -486,6 +496,15 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string) (*S
 		}
 	}
 
+	apolloCenter, err := center.NewConfigCenter(center.ApolloConfigCenter)
+	if err != nil {
+		return nil, err
+	}
+	err = apolloCenter.Init(context.TODO(), servLocation, []string{RPCConfNamespace})
+	if err != nil {
+		return nil, err
+	}
+
 	reg := &ServBaseV2{
 		confEtcd:             confEtcd,
 		dbLocation:           dbloc,
@@ -498,9 +517,9 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string) (*S
 		hearts:               make(map[string]*distLockHeart),
 		regInfos:             make(map[string]string),
 
-		dbRouter: dr,
-
-		envGroup: envGroup,
+		dbRouter:     dr,
+		apolloCenter: apolloCenter,
+		envGroup:     envGroup,
 	}
 
 	svrInfo := strings.SplitN(servLocation, "/", 2)

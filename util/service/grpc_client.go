@@ -80,13 +80,13 @@ func (m *ClientGrpc) DirectRouteRpc(provider *Provider, fnrpc func(interface{}) 
 	}
 	m.router.Pre(si)
 	defer m.router.Post(si)
-
 	call := func(si *ServInfo, rc rpcClient, fnrpc func(interface{}) error) func() error {
 		return func() error {
 			return m.rpc(si, rc, fnrpc)
 		}
 	}(si, rc, fnrpc)
 	funcName := GetFunName(3)
+
 	var err error
 	st := stime.NewTimeStat()
 	defer func() {
@@ -137,7 +137,7 @@ func (m *ClientGrpc) RpcWithContext(ctx context.Context, hashKey string, fnrpc f
 
 	// 目前Adapter内通过Rpc函数调用RpcWithContext时层次会出错，直接调用RpcWithContext和RpcWithContextV2的层次是正确的，所以修正前者进行兼容
 	funcName := GetFunName(3)
-	if funcName == "rpc"{
+	if funcName == "rpc" {
 		funcName = GetFunName(4)
 	}
 
@@ -163,14 +163,15 @@ func (m *ClientGrpc) RpcWithContextV2(ctx context.Context, hashKey string, fnrpc
 
 	m.router.Pre(si)
 	defer m.router.Post(si)
-
+	funcName := GetFunName(3)
+	timeout := GetFuncTimeout(m.clientLookup.ServKey(), funcName, DefaultTimeout)
 	call := func(si *ServInfo, rc rpcClient, fnrpc func(context.Context, interface{}) error) func() error {
 		return func() error {
+			ctx, cancel := context.WithTimeout(ctx, timeout)
+			defer cancel()
 			return m.rpcWithContext(ctx, si, rc, fnrpc)
 		}
 	}(si, rc, fnrpc)
-
-	funcName := GetFunName(3)
 
 	var err error
 	st := stime.NewTimeStat()
