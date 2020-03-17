@@ -163,15 +163,13 @@ func (m *ClientGrpc) RpcWithContextV2(ctx context.Context, hashKey string, fnrpc
 
 	m.router.Pre(si)
 	defer m.router.Post(si)
-	funcName := GetFunName(3)
-	timeout := GetFuncTimeout(m.clientLookup.ServKey(), funcName, DefaultTimeout)
 	call := func(si *ServInfo, rc rpcClient, fnrpc func(context.Context, interface{}) error) func() error {
 		return func() error {
-			ctx, cancel := context.WithTimeout(ctx, timeout)
-			defer cancel()
 			return m.rpcWithContext(ctx, si, rc, fnrpc)
 		}
 	}(si, rc, fnrpc)
+
+	funcName := GetFunName(3)
 
 	var err error
 	st := stime.NewTimeStat()

@@ -83,7 +83,7 @@ func (m *ClientWrapper) Do(hashKey string, timeout time.Duration, run func(addr 
 	defer m.router.Post(si)
 
 	funcName := GetFunName(3)
-	timeout = GetFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
+	timeout = GetFuncTimeout(funcName, timeout)
 	call := func(addr string, timeout time.Duration) func() error {
 		return func() error {
 			return run(addr, timeout)
@@ -314,7 +314,7 @@ func (m *ClientThrift) RpcWithContext(ctx context.Context, hashKey string, timeo
 	if funcName == "rpc" {
 		funcName = GetFunName(4)
 	}
-	timeout = GetFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
+	timeout = GetFuncTimeout(funcName, timeout)
 
 	call := func(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(interface{}) error) func() error {
 		return func() error {
@@ -347,7 +347,7 @@ func (m *ClientThrift) RpcWithContextV2(ctx context.Context, hashKey string, tim
 	defer m.router.Post(si)
 
 	funcName := GetFunName(3)
-	timeout = GetFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
+	timeout = GetFuncTimeout(funcName, timeout)
 	call := func(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(context.Context, interface{}) error) func() error {
 		return func() error {
 			return m.rpcWithContext(ctx, si, rc, timeout, fnrpc)
@@ -433,16 +433,21 @@ func GetFunName(index int) string {
 }
 
 // GetFuncTimeout get func timeout conf
-func GetFuncTimeout(servKey, funcName string, timeout time.Duration) time.Duration {
+func GetFuncTimeout(funcName string, defaultTime time.Duration) time.Duration {
+	servKey := xutil.Concat(GetGroupAndService())
 	key := xutil.Concat(servKey, ".", funcName, ".", Timeout)
 	var t int
 	var exist bool
-	if t, exist = GetApolloCenter().GetIntWithNamespace(context.TODO(), RPCConfNamespace, key); !exist {
-		defaultKey := xutil.Concat(servKey, ".", Default, ".", Timeout)
-		t, _ = GetApolloCenter().GetIntWithNamespace(context.TODO(), RPCConfNamespace, defaultKey)
+	apolloCenter := GetApolloCenter()
+	if apolloCenter != nil {
+		if t, exist = GetApolloCenter().GetIntWithNamespace(context.TODO(), RPCConfNamespace, key); !exist {
+			defaultKey := xutil.Concat(servKey, ".", Default, ".", Timeout)
+			t, _ = GetApolloCenter().GetIntWithNamespace(context.TODO(), RPCConfNamespace, defaultKey)
+		}
 	}
+
 	if t == 0 {
-		return timeout
+		return defaultTime
 	}
 
 	return time.Duration(t) * time.Millisecond
