@@ -137,7 +137,7 @@ func (m *ClientGrpc) RpcWithContext(ctx context.Context, hashKey string, fnrpc f
 
 	// 目前Adapter内通过Rpc函数调用RpcWithContext时层次会出错，直接调用RpcWithContext和RpcWithContextV2的层次是正确的，所以修正前者进行兼容
 	funcName := GetFunName(3)
-	if funcName == "rpc" {
+	if funcName == "grpcInvoke" {
 		funcName = GetFunName(4)
 	}
 
@@ -169,7 +169,7 @@ func (m *ClientGrpc) RpcWithContextV2(ctx context.Context, hashKey string, fnrpc
 		}
 	}(si, rc, fnrpc)
 
-	funcName := GetFunName(3)
+	funcName := GetFunNameWithCtx(ctx, 3)
 
 	var err error
 	st := stime.NewTimeStat()

@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
+
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil"
 
 	"git.apache.org/thrift.git/lib/go/thrift"
@@ -83,7 +85,7 @@ func (m *ClientWrapper) Do(hashKey string, timeout time.Duration, run func(addr 
 	defer m.router.Post(si)
 
 	funcName := GetFunName(3)
-	timeout = GetFuncTimeout(funcName, timeout)
+	timeout = GetFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
 	call := func(addr string, timeout time.Duration) func() error {
 		return func() error {
 			return run(addr, timeout)
@@ -314,7 +316,7 @@ func (m *ClientThrift) RpcWithContext(ctx context.Context, hashKey string, timeo
 	if funcName == "rpc" {
 		funcName = GetFunName(4)
 	}
-	timeout = GetFuncTimeout(funcName, timeout)
+	timeout = GetFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
 
 	call := func(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(interface{}) error) func() error {
 		return func() error {
@@ -346,8 +348,8 @@ func (m *ClientThrift) RpcWithContextV2(ctx context.Context, hashKey string, tim
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
-	funcName := GetFunName(3)
-	timeout = GetFuncTimeout(funcName, timeout)
+	funcName := GetFunNameWithCtx(ctx, 3)
+	timeout = GetFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
 	call := func(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(context.Context, interface{}) error) func() error {
 		return func() error {
 			return m.rpcWithContext(ctx, si, rc, timeout, fnrpc)
@@ -418,6 +420,7 @@ func (m *ClientThrift) logTraffic(ctx context.Context, si *ServInfo) {
 	logTrafficByKV(ctx, kv)
 }
 
+// deprecated
 func GetFunName(index int) string {
 	funcName := ""
 	pc, _, _, ok := runtime.Caller(index)
@@ -432,9 +435,26 @@ func GetFunName(index int) string {
 	return funcName
 }
 
+// GetFunNameWithCtx get fun name from context, if not set then use runtime caller
+func GetFunNameWithCtx(ctx context.Context, index int) string {
+	var funcName string
+	if method, ok := xcontext.GetCallerMethod(ctx); ok {
+		return method
+	}
+	pc, _, _, ok := runtime.Caller(index)
+	if ok {
+		funcName = runtime.FuncForPC(pc).Name()
+		if index := strings.LastIndex(funcName, "."); index != -1 {
+			if len(funcName) > index+1 {
+				funcName = funcName[index+1:]
+			}
+		}
+	}
+	return funcName
+}
+
 // GetFuncTimeout get func timeout conf
-func GetFuncTimeout(funcName string, defaultTime time.Duration) time.Duration {
-	servKey := xutil.Concat(GetGroupAndService())
+func GetFuncTimeout(servKey, funcName string, defaultTime time.Duration) time.Duration {
 	key := xutil.Concat(servKey, ".", funcName, ".", Timeout)
 	var t int
 	var exist bool
@@ -445,7 +465,6 @@ func GetFuncTimeout(funcName string, defaultTime time.Duration) time.Duration {
 			t, _ = GetApolloCenter().GetIntWithNamespace(context.TODO(), RPCConfNamespace, defaultKey)
 		}
 	}
-
 	if t == 0 {
 		return defaultTime
 	}
