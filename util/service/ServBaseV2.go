@@ -7,11 +7,15 @@ package rocserv
 import (
 	"encoding/json"
 	"fmt"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/shawnfeng/sutil/sconf/center"
+
+	"github.com/shawnfeng/roc/util/conf"
+
 	// now use 73a8ef737e8ea002281a28b4cb92a1de121ad4c6
 	//"github.com/coreos/go-etcd/etcd"
 	etcd "github.com/coreos/etcd/client"
@@ -73,7 +77,7 @@ type ServBaseV2 struct {
 	IdGenerator
 
 	confEtcd     configEtcd
-	apolloCenter center.ConfigCenter
+	apolloCenter *conf.ApolloCenter
 	dbLocation   string
 	servLocation string
 	servGroup    string
@@ -415,7 +419,7 @@ func (m *ServBaseV2) Dbrouter() *dbrouter.Router {
 }
 
 // ApolloCenter ...
-func (m *ServBaseV2) ApolloCenter() center.ConfigCenter {
+func (m *ServBaseV2) ApolloCenter() *conf.ApolloCenter {
 	return m.apolloCenter
 }
 
@@ -496,10 +500,7 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string) (*S
 		}
 	}
 
-	apolloCenter, err := center.NewConfigCenter(center.ApolloConfigCenter)
-	if err != nil {
-		return nil, err
-	}
+	apolloCenter := conf.NewApolloCenter()
 	err = apolloCenter.Init(context.TODO(), servLocation, []string{RPCConfNamespace})
 	if err != nil {
 		return nil, err
@@ -555,6 +556,41 @@ func (m *ServBaseV2) isPreEnvGroup() bool {
 	}
 
 	return false
+}
+
+// WatchConfUpdate ...
+func (m *ServBaseV2) WatchConfUpdate(ctx context.Context) {
+	fun := "apollo center watch-->"
+	defer func() {
+		if err := recover(); err != nil {
+			buf := make([]byte, 4096)
+			buf = buf[:runtime.Stack(buf, false)]
+			slog.Errorf("%s recover err: %v, stack: %s", fun, err, string(buf))
+		}
+	}()
+	ceChan := m.apolloCenter.Watch(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Infof("%s context done err:%v", fun, ctx.Err())
+			return
+		case ce, ok := <-ceChan:
+			if !ok {
+				slog.Infof("%s change event channel closed", fun)
+				return
+			}
+			applyChangeEvent(ctx, ce)
+		}
+	}
+}
+
+func applyChangeEvent(ctx context.Context, ce *center.ChangeEvent) {
+	for _, change := range ce.Changes {
+		if change.ChangeType != center.MODIFY && change.ChangeType != center.DELETE {
+			continue
+		}
+		// TODO
+	}
 }
 
 // mutex

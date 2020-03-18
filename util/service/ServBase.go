@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shawnfeng/sutil/sconf/center"
+	"github.com/shawnfeng/roc/util/conf"
 
 	// now use 73a8ef737e8ea002281a28b4cb92a1de121ad4c6
 	//"github.com/coreos/go-etcd/etcd"
@@ -122,8 +122,8 @@ type ServBase interface {
 	// db router
 	Dbrouter() *dbrouter.Router
 
-	// apollo center
-	ApolloCenter() center.ConfigCenter
+	// conf center
+	ApolloCenter() *conf.ApolloCenter
 }
 
 //====================

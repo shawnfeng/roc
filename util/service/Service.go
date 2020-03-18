@@ -5,6 +5,7 @@
 package rocserv
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -14,7 +15,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/shawnfeng/sutil/sconf/center"
+	"github.com/shawnfeng/roc/util/conf"
 
 	stat "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/sys"
 
@@ -286,6 +287,8 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 	m.initMetric(sb)
 	m.awaitSignal(sb)
 
+	go sb.WatchConfUpdate(context.TODO())
+
 	return nil
 }
 
@@ -502,7 +505,7 @@ func GetServId() (servId int) {
 }
 
 // GetApolloCenter get serv conf center
-func GetApolloCenter() center.ConfigCenter {
+func GetApolloCenter() *conf.ApolloCenter {
 	return service.sbase.ApolloCenter()
 }
 

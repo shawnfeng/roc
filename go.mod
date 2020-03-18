@@ -15,6 +15,7 @@ require (
 	github.com/shawnfeng/dbrouter v1.0.3-0.20190227065045-efab6e6f8826
 	github.com/shawnfeng/hystrix-go v0.0.0-20190320120533-5e2bc39f173a
 	github.com/shawnfeng/sutil v1.3.34
+	github.com/stretchr/testify v1.4.0
 	github.com/uber/jaeger-client-go v2.20.1+incompatible
 	gitlab.pri.ibanyu.com/middleware/seaweed v1.0.32
 	// 这个库，老的依赖拷贝没有.git目录，不知道对应哪个版本，这个就用最新的吧
