@@ -31,8 +31,6 @@ const (
 	Timeout = "timeoutMsec"
 	// Default ...
 	Default = "default"
-	// DefaultTimeout ...
-	DefaultTimeout = 3000 * time.Millisecond
 )
 
 type ClientLookup interface {

@@ -8,83 +8,71 @@ import (
 	"testing"
 	"time"
 
-	"git.apache.org/thrift.git/lib/go/thrift"
-
-	"github.com/shawnfeng/sutil/slog"
-
-	"github.com/shawnfeng/roc/util/service/test/idl/gen-go/demo/rpc"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestClient(t *testing.T) {
-	etcds := []string{"http://127.0.0.1:20002"}
+//func TestClient(t *testing.T) {
+//	etcds := []string{"http://127.0.0.1:20002"}
+//
+//	cli, err := NewClientLookup(etcds, "roc", "base/account")
+//
+//	slog.Infof("Test client:%s err:%v", cli, err)
+//
+//	if err != nil {
+//		t.Errorf("create err:%s", err)
+//		return
+//	}
+//	time.Sleep(time.Second * 2)
+//
+//	//allserv := cli.GetAllServAddr()
+//	//slog.Infoln("ALL", allserv)
+//
+//	s := cli.GetServAddr("noexit", "key")
+//	if s != nil {
+//		t.Errorf("get err")
+//	}
+//
+//	var keys []string
+//	for i := 0; i < 100; i++ {
+//		keys = append(keys, fmt.Sprintf("%d", i))
+//	}
+//
+//	count := make(map[string]int)
+//
+//	for _, k := range keys {
+//		s = cli.GetServAddr("proc_thrift", k)
+//		if s == nil {
+//			t.Errorf("get err")
+//		}
+//		//slog.Infoln("get test_thrift", s)
+//		ss := s.String()
+//		if _, ok := count[ss]; !ok {
+//			count[ss] = 0
+//		}
+//		count[ss] += 1
+//	}
+//
+//	for k, v := range count {
+//		slog.Infoln("stat", k, v)
+//	}
+//
+//	s = cli.GetServAddrWithServid(3, "proc_thrift", "key")
+//	if s == nil {
+//		t.Errorf("get err")
+//	}
+//
+//	slog.Infoln("get test_thrift", s)
+//
+//}
 
-	cli, err := NewClientLookup(etcds, "roc", "niubi/fuck")
+func TestGetFuncTimeout(t *testing.T) {
+	ass := assert.New(t)
+	go Test([]string{"http://infra0.etcd.ibanyu.com:20002"}, "/roc", "base/servmonitor", func(xx ServBase) error {
+		return nil
+	})
 
-	slog.Infof("Test client:%s err:%v", cli, err)
+	time.Sleep(2 * time.Second)
 
-	if err != nil {
-		t.Errorf("create err:%s", err)
-		return
-	}
-	time.Sleep(time.Second * 2)
-
-	allserv := cli.GetAllServAddr()
-	slog.Infoln("ALL", allserv)
-
-	s := cli.GetServAddr("noexit", "key")
-	if s != nil {
-		t.Errorf("get err")
-	}
-
-	s = cli.GetServAddr("test_http", "key")
-	if s == nil {
-		t.Errorf("get err")
-	}
-
-	slog.Infoln("get test_http", s)
-
-	s = cli.GetServAddr("test_thrift", "key1")
-	if s == nil {
-		t.Errorf("get err")
-	}
-
-	slog.Infoln("get test_thrift", s)
-
-	cbfac := func(t thrift.TTransport, f thrift.TProtocolFactory) interface{} {
-		return rpc.NewRpcServiceClientFactory(t, f)
-	}
-
-	ct := NewClientThrift(cli, "test_thrift", cbfac, 5)
-
-	docall := func() {
-		si, c := ct.Get("key1")
-		slog.Infoln("thrift client get", si, c)
-
-		if c == nil {
-			t.Errorf("get client error")
-			return
-		}
-
-		paramMap := make(map[string]string)
-		paramMap["name"] = "hello"
-		paramMap["passwd"] = "world"
-
-		clicall := c.(*rpc.RpcServiceClient)
-		r1, e1 := clicall.FunCall(123456, "login", paramMap)
-		slog.Infoln("thrift client1 call", r1, e1)
-
-		if e1 != nil {
-			slog.Infoln("thrift client payback", r1)
-			// 只有调用成功才归还
-			ct.Payback(si, clicall)
-		}
-
-	}
-
-	for i := 0; i < 50; i++ {
-		go docall()
-	}
-
-	time.Sleep(time.Second * 30)
-
+	timeout := GetFuncTimeout("base/servmonitor", "ReportRun", 6000*time.Second)
+	ass.Equal(timeout, 6000*time.Second)
 }
