@@ -443,7 +443,7 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 }
 
 // etcd v2 接口
-func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string) (*ServBaseV2, error) {
+func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sidOffset int) (*ServBaseV2, error) {
 	fun := "NewServBaseV2 -->"
 
 	cfg := etcd.Config{
@@ -508,14 +508,14 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string) (*S
 		slog.Warnf("%s servLocation:%s do not match group/service format", fun, servLocation)
 	}
 
-	sf, err := initSnowflake(sid)
+	sf, err := initSnowflake(sid + sidOffset)
 	if err != nil {
 		return nil, err
 	}
 
 	reg.IdGenerator.snow = sf
 	reg.IdGenerator.slow = make(map[string]*slowid.Slowid)
-	reg.IdGenerator.servId = sid
+	reg.IdGenerator.workerID = sid + sidOffset
 
 	// init cross register clients
 	err = initCrossRegisterCenter(reg)

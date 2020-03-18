@@ -57,6 +57,7 @@ type cmdArgs struct {
 	servLoc       string
 	logDir        string
 	sessKey       string
+	sidOffset     int
 	group         string
 	disable       bool
 	model         int
@@ -64,12 +65,13 @@ type cmdArgs struct {
 
 func (m *Service) parseFlag() (*cmdArgs, error) {
 	var serv, logDir, skey, group string
-	var logMaxSize, logMaxBackups int
+	var logMaxSize, logMaxBackups, sidOffset int
 	flag.IntVar(&logMaxSize, "logmaxsize", 0, "logMaxSize is the maximum size in megabytes of the log file")
 	flag.IntVar(&logMaxBackups, "logmaxbackups", 0, "logmaxbackups is the maximum number of old log files to retain")
 	flag.StringVar(&serv, "serv", "", "servic name")
 	flag.StringVar(&logDir, "logdir", "", "serice log dir")
 	flag.StringVar(&skey, "skey", "", "service session key")
+	flag.IntVar(&sidOffset, "sidoffset", 0, "service id offset for different data center")
 	flag.StringVar(&group, "group", "", "service group")
 
 	flag.Parse()
@@ -88,6 +90,7 @@ func (m *Service) parseFlag() (*cmdArgs, error) {
 		servLoc:       serv,
 		logDir:        logDir,
 		sessKey:       skey,
+		sidOffset:     sidOffset,
 		group:         group,
 	}, nil
 
@@ -240,7 +243,7 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 	servLoc := args.servLoc
 	sessKey := args.sessKey
 
-	sb, err := NewServBaseV2(confEtcd, servLoc, sessKey, args.group)
+	sb, err := NewServBaseV2(confEtcd, servLoc, sessKey, args.group, args.sidOffset)
 	if err != nil {
 		slog.Panicf("%s init servbase loc:%s key:%s err:%s", fun, servLoc, sessKey, err)
 		return err
@@ -265,6 +268,7 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 		return err
 	}
 
+	// App层初始化
 	err = initfn(sb)
 	if err != nil {
 		slog.Panicf("%s callInitFunc err:%s", fun, err)
