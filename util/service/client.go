@@ -30,7 +30,7 @@ const (
 	// Timeout timeout(ms)
 	Timeout = "timeoutMsec"
 	// Default ...
-	Default = "default"
+	Default = "Default"
 )
 
 type ClientLookup interface {
