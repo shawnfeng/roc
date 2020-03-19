@@ -1,8 +1,16 @@
 package rocserv
 
 import (
+	"context"
+	"strconv"
+	"time"
+
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
+
+	"github.com/opentracing/opentracing-go"
+	"github.com/shawnfeng/sutil/slog"
+	"github.com/uber/jaeger-client-go"
 )
 
 const (
@@ -130,4 +138,79 @@ func GetDBRequestCountMetric() xmetric.Counter {
 // GetDBRequestTimeMetric export db request time metric
 func GetDBRequestTimeMetric() xmetric.Histogram {
 	return _metricDBRequestTime
+}
+
+func collector(servkey string, processor string, duration time.Duration, source int, servid int, funcName string, err interface{}) {
+	servBase := GetServBase()
+	instance := ""
+	if servBase != nil {
+		instance = servBase.Copyname()
+	}
+	servidVal := strconv.Itoa(servid)
+	sourceVal := strconv.Itoa(source)
+	// record request duration to prometheus
+	_metricRequestDuration.With(
+		xprom.LabelServiceName, servkey,
+		xprom.LabelServiceID, servidVal,
+		xprom.LabelInstance, instance,
+		xprom.LabelAPI, funcName,
+		xprom.LabelSource, sourceVal,
+		xprom.LabelType, processor).Observe(duration.Seconds())
+	statusVal := "1"
+	if err != nil {
+		statusVal = "0"
+	}
+	_metricRequestTotal.With(
+		xprom.LabelServiceName, servkey,
+		xprom.LabelServiceID, servidVal,
+		xprom.LabelInstance, instance,
+		xprom.LabelAPI, funcName,
+		xprom.LabelSource, sourceVal,
+		xprom.LabelType, processor,
+		labelStatus, statusVal).Inc()
+}
+
+func collectAPM(ctx context.Context, calleeService, calleeEndpoint string, servID int, duration time.Duration, requestErr error) {
+	fun := "collectAPM -->"
+	callerService := GetServName()
+
+	span := opentracing.SpanFromContext(ctx)
+	if span == nil {
+		// too many logs
+		//slog.Infof("%s span not found", fun)
+		return
+	}
+
+	var callerEndpoint string
+	if jspan, ok := span.(*jaeger.Span); ok {
+		callerEndpoint = jspan.OperationName()
+	} else {
+		slog.Infof("%s unsupported span %v", fun, span)
+		return
+	}
+
+	callerServiceID := strconv.Itoa(servID)
+	_collectAPM(callerService, calleeService, callerEndpoint, calleeEndpoint, callerServiceID, duration, requestErr)
+}
+
+func _collectAPM(callerService, calleeService, callerEndpoint, calleeEndpoint, callerServiceID string, duration time.Duration, requestErr error) {
+	_metricAPMRequestDuration.With(
+		xprom.LabelCallerService, callerService,
+		xprom.LabelCalleeService, calleeService,
+		xprom.LabelCallerEndpoint, callerEndpoint,
+		xprom.LabelCalleeEndpoint, calleeEndpoint,
+		xprom.LabelCallerServiceID, callerServiceID).Observe(duration.Seconds())
+
+	var status = "1"
+	if requestErr != nil {
+		status = "0"
+	}
+
+	_metricAPMRequestTotal.With(
+		xprom.LabelCallerService, callerService,
+		xprom.LabelCalleeService, calleeService,
+		xprom.LabelCallerEndpoint, callerEndpoint,
+		xprom.LabelCalleeEndpoint, calleeEndpoint,
+		xprom.LabelCallerServiceID, callerServiceID,
+		xprom.LabelCallStatus, status).Inc()
 }

@@ -6,9 +6,10 @@ package rocserv
 
 import (
 	"context"
+	"sync"
+
 	"github.com/shawnfeng/sutil/scontext"
 	"github.com/shawnfeng/sutil/slog"
-	"sync"
 )
 
 func NewRouter(routerType int, cb ClientLookup) Router {
