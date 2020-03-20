@@ -15,18 +15,12 @@ import (
 	"sync"
 	"time"
 
-	// now use 73a8ef737e8ea002281a28b4cb92a1de121ad4c6
-	//"github.com/coreos/go-etcd/etcd"
-
 	etcd "github.com/coreos/etcd/client"
-
 	"github.com/sdming/gosnow"
-
 	"github.com/shawnfeng/sutil"
 	"github.com/shawnfeng/sutil/dbrouter"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/slowid"
-
 	"golang.org/x/net/context"
 )
 

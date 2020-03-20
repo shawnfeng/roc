@@ -15,6 +15,7 @@ import (
 	"syscall"
 
 	stat "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/sys"
+	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
@@ -22,8 +23,6 @@ import (
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/slog/statlog"
 	"github.com/shawnfeng/sutil/trace"
-
-	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 )
 
 const (
@@ -499,6 +498,7 @@ func GetServId() (servId int) {
 	return
 }
 
+// Test 方便开发人员在本地启动服务、测试，实例信息不会注册到etcd
 func Test(etcds []string, baseLoc, servLoc string, initfn func(ServBase) error) error {
 	args := &cmdArgs{
 		logMaxSize:    0,

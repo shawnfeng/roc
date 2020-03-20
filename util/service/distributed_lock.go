@@ -9,10 +9,8 @@ import (
 	"time"
 
 	etcd "github.com/coreos/etcd/client"
-
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/ssync"
-
 	"golang.org/x/net/context"
 )
 

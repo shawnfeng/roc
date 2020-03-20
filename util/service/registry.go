@@ -16,10 +16,8 @@ import (
 
 	etcd "github.com/coreos/etcd/client"
 	"github.com/shawnfeng/consistent"
-
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/stime"
-
 	"golang.org/x/net/context"
 )
 
