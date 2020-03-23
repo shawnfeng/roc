@@ -5,29 +5,13 @@
 package rocserv
 
 import (
-	"crypto/md5"
-	"crypto/sha1"
+	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
-	"strconv"
 	"strings"
-	"sync"
-	"time"
-
-	// now use 73a8ef737e8ea002281a28b4cb92a1de121ad4c6
-	//"github.com/coreos/go-etcd/etcd"
 
 	etcd "github.com/coreos/etcd/client"
-
-	"github.com/sdming/gosnow"
-
-	"github.com/shawnfeng/sutil"
 	"github.com/shawnfeng/sutil/dbrouter"
-	"github.com/shawnfeng/sutil/slog"
-	"github.com/shawnfeng/sutil/slowid"
-
-	"golang.org/x/net/context"
 )
 
 type ServInfo struct {
@@ -66,6 +50,19 @@ type ManualData struct {
 func (m *ManualData) String() string {
 	s, _ := json.Marshal(m)
 	return string(s)
+}
+
+func getValue(client etcd.KeysAPI, path string) ([]byte, error) {
+	r, err := client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
+	if err != nil {
+		return nil, err
+	}
+
+	if r.Node == nil || r.Node.Dir {
+		return nil, fmt.Errorf("etcd node value err location:%s", path)
+	}
+
+	return []byte(r.Node.Value), nil
 }
 
 // ServBase Interface
@@ -119,196 +116,4 @@ type ServBase interface {
 
 	// db router
 	Dbrouter() *dbrouter.Router
-}
-
-//====================
-// id生成逻辑
-type IdGenerator struct {
-	servId int
-	mu     sync.Mutex
-	slow   map[string]*slowid.Slowid
-	snow   *gosnow.SnowFlake
-}
-
-func (m *IdGenerator) GenSlowId(tp string) (int64, error) {
-	gslow := func(tp string) (*slowid.Slowid, error) {
-		m.mu.Lock()
-		defer m.mu.Unlock()
-
-		s := m.slow[tp]
-		if s == nil {
-			sl, err := initSlowid(m.servId)
-			if err != nil {
-				return nil, err
-			}
-			m.slow[tp] = sl
-			s = sl
-		}
-		return s, nil
-	}
-
-	s, err := gslow(tp)
-	if err != nil {
-		return 0, err
-	}
-
-	return s.Next()
-}
-
-func (m *IdGenerator) GetSlowIdStamp(sid int64) int64 {
-	return slowid.Since + sid>>11
-}
-
-func (m *IdGenerator) GetSlowIdWithStamp(stamp int64) int64 {
-	return (stamp - slowid.Since) << 11
-}
-
-func (m *IdGenerator) GenSnowFlakeId() (int64, error) {
-	id, err := m.snow.Next()
-	return int64(id), err
-}
-
-func (m *IdGenerator) GetSnowFlakeIdStamp(sid int64) int64 {
-	return gosnow.Since + sid>>22
-}
-
-func (m *IdGenerator) GetSnowFlakeIdWithStamp(stamp int64) int64 {
-	return (stamp - gosnow.Since) << 22
-}
-
-func (m *IdGenerator) GenUuid() (string, error) {
-	return sutil.GetUUID()
-}
-
-func (m *IdGenerator) GenUuidSha1() (string, error) {
-	uuid, err := m.GenUuid()
-	if err != nil {
-		return "", err
-	}
-
-	h := sha1.Sum([]byte(uuid))
-	return fmt.Sprintf("%x", h), nil
-}
-
-func (m *IdGenerator) GenUuidMd5() (string, error) {
-	uuid, err := m.GenUuid()
-	if err != nil {
-		return "", err
-	}
-
-	h := md5.Sum([]byte(uuid))
-	return fmt.Sprintf("%x", h), nil
-}
-
-//====================================
-func getValue(client etcd.KeysAPI, path string) ([]byte, error) {
-	r, err := client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
-	if err != nil {
-		return nil, err
-	}
-
-	if r.Node == nil || r.Node.Dir {
-		return nil, fmt.Errorf("etcd node value err location:%s", path)
-	}
-
-	return []byte(r.Node.Value), nil
-
-}
-
-func genSid(client etcd.KeysAPI, path, skey string) (int, error) {
-	fun := "genSid -->"
-	r, err := client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
-	if err != nil {
-		return -1, err
-	}
-
-	js, _ := json.Marshal(r)
-
-	slog.Infof("%s", js)
-
-	if r.Node == nil || !r.Node.Dir {
-		return -1, fmt.Errorf("node error location:%s", path)
-	}
-
-	slog.Infof("%s serv:%s len:%d", fun, r.Node.Key, r.Node.Nodes.Len())
-
-	// 获取已有的servid，按从小到大排列
-	ids := make([]int, 0)
-	for _, n := range r.Node.Nodes {
-		sid := n.Key[len(r.Node.Key)+1:]
-		id, err := strconv.Atoi(sid)
-		if err != nil || id < 0 {
-			slog.Errorf("%s sid error key:%s", fun, n.Key)
-		} else {
-			ids = append(ids, id)
-			if n.Value == skey {
-				// 如果已经存在的sid使用的skey和设置一致，则使用之前的sid
-				return id, nil
-			}
-		}
-	}
-
-	sort.Ints(ids)
-	sid := 0
-	for _, id := range ids {
-		// 取不重复的最小的id
-		if sid == id {
-			sid++
-		} else {
-			break
-		}
-	}
-
-	nserv := fmt.Sprintf("%s/%d", r.Node.Key, sid)
-	r, err = client.Create(context.Background(), nserv, skey)
-	if err != nil {
-		return -1, err
-	}
-
-	jr, _ := json.Marshal(r)
-	slog.Infof("%s newserv:%s rep:%s", fun, nserv, jr)
-
-	return sid, nil
-
-}
-
-func retryGenSid(client etcd.KeysAPI, path, skey string, try int) (int, error) {
-	fun := "retryGenSid -->"
-	for i := 0; i < try; i++ {
-		// 重试3次
-		sid, err := genSid(client, path, skey)
-		if err != nil {
-			slog.Errorf("%s gensid try:%d path:%s err:%s", fun, i, path, err)
-		} else {
-			return sid, nil
-		}
-	}
-
-	return -1, fmt.Errorf("gensid error try:%d", try)
-}
-
-func initSnowflake(servid int) (*gosnow.SnowFlake, error) {
-	if servid < 0 {
-		return nil, fmt.Errorf("init snowflake use nagtive servid")
-	}
-	gosnow.Since = time.Date(2014, 11, 1, 0, 0, 0, 0, time.UTC).UnixNano() / 1000000
-	v, err := gosnow.NewSnowFlake(uint32(servid))
-	if err != nil {
-		return nil, err
-	}
-
-	return v, nil
-}
-
-func initSlowid(servid int) (*slowid.Slowid, error) {
-	if servid < 0 {
-		return nil, fmt.Errorf("init snowflake use nagtive servid")
-	}
-	slowid.Since = time.Date(2014, 11, 1, 0, 0, 0, 0, time.UTC).UnixNano() / 1000000
-	v, err := slowid.NewSlowid(servid)
-	if err != nil {
-		return nil, err
-	}
-
-	return v, nil
 }
