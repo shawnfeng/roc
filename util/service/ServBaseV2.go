@@ -7,14 +7,13 @@ package rocserv
 import (
 	"encoding/json"
 	"fmt"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/shawnfeng/sutil/sconf/center"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig/apollo"
 
-	"github.com/shawnfeng/roc/util/conf"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 
 	// now use 73a8ef737e8ea002281a28b4cb92a1de121ad4c6
 	//"github.com/coreos/go-etcd/etcd"
@@ -77,7 +76,7 @@ type ServBaseV2 struct {
 	IdGenerator
 
 	confEtcd     configEtcd
-	apolloCenter *conf.ApolloCenter
+	configCenter xconfig.ConfigCenter
 	dbLocation   string
 	servLocation string
 	servGroup    string
@@ -418,9 +417,9 @@ func (m *ServBaseV2) Dbrouter() *dbrouter.Router {
 	return m.dbRouter
 }
 
-// ApolloCenter ...
-func (m *ServBaseV2) ApolloCenter() *conf.ApolloCenter {
-	return m.apolloCenter
+// ConfigCenter ...
+func (m *ServBaseV2) ConfigCenter() xconfig.ConfigCenter {
+	return m.configCenter
 }
 
 func (m *ServBaseV2) ServConfig(cfg interface{}) error {
@@ -500,8 +499,7 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string) (*S
 		}
 	}
 
-	apolloCenter := conf.NewApolloCenter()
-	err = apolloCenter.Init(context.TODO(), servLocation, []string{RPCConfNamespace})
+	configCenter, err := xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, servLocation, []string{RPCConfNamespace})
 	if err != nil {
 		return nil, err
 	}
@@ -519,7 +517,7 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string) (*S
 		regInfos:             make(map[string]string),
 
 		dbRouter:     dr,
-		apolloCenter: apolloCenter,
+		configCenter: configCenter,
 		envGroup:     envGroup,
 	}
 
@@ -557,40 +555,3 @@ func (m *ServBaseV2) isPreEnvGroup() bool {
 
 	return false
 }
-
-// WatchConfUpdate ...
-func (m *ServBaseV2) WatchConfUpdate(ctx context.Context) {
-	fun := "apollo center watch-->"
-	defer func() {
-		if err := recover(); err != nil {
-			buf := make([]byte, 4096)
-			buf = buf[:runtime.Stack(buf, false)]
-			slog.Errorf("%s recover err: %v, stack: %s", fun, err, string(buf))
-		}
-	}()
-	ceChan := m.apolloCenter.Watch(ctx)
-	for {
-		select {
-		case <-ctx.Done():
-			slog.Infof("%s context done err:%v", fun, ctx.Err())
-			return
-		case ce, ok := <-ceChan:
-			if !ok {
-				slog.Infof("%s change event channel closed", fun)
-				return
-			}
-			applyChangeEvent(ctx, ce)
-		}
-	}
-}
-
-func applyChangeEvent(ctx context.Context, ce *center.ChangeEvent) {
-	for _, change := range ce.Changes {
-		if change.ChangeType != center.MODIFY && change.ChangeType != center.DELETE {
-			continue
-		}
-		// TODO
-	}
-}
-
-// mutex

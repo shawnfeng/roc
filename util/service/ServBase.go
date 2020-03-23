@@ -15,8 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shawnfeng/roc/util/conf"
-
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 	// now use 73a8ef737e8ea002281a28b4cb92a1de121ad4c6
 	//"github.com/coreos/go-etcd/etcd"
 
@@ -123,7 +122,7 @@ type ServBase interface {
 	Dbrouter() *dbrouter.Router
 
 	// conf center
-	ApolloCenter() *conf.ApolloCenter
+	ConfigCenter() xconfig.ConfigCenter
 }
 
 //====================

@@ -456,11 +456,11 @@ func GetFuncTimeout(servKey, funcName string, defaultTime time.Duration) time.Du
 	key := xutil.Concat(servKey, ".", funcName, ".", Timeout)
 	var t int
 	var exist bool
-	confCenter := GetApolloCenter()
-	if confCenter != nil && confCenter.GetCenter() != nil {
-		if t, exist = confCenter.GetCenter().GetIntWithNamespace(context.TODO(), RPCConfNamespace, key); !exist {
+	confCenter := GetConfigCenter()
+	if confCenter != nil {
+		if t, exist = confCenter.GetIntWithNamespace(context.TODO(), RPCConfNamespace, key); !exist {
 			defaultKey := xutil.Concat(servKey, ".", Default, ".", Timeout)
-			t, _ = confCenter.GetCenter().GetIntWithNamespace(context.TODO(), RPCConfNamespace, defaultKey)
+			t, _ = confCenter.GetIntWithNamespace(context.TODO(), RPCConfNamespace, defaultKey)
 		}
 	}
 	if t == 0 {

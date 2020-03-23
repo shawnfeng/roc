@@ -5,7 +5,6 @@
 package rocserv
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -15,7 +14,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/shawnfeng/roc/util/conf"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 
 	stat "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/sys"
 
@@ -287,8 +286,6 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 	m.initMetric(sb)
 	m.awaitSignal(sb)
 
-	go sb.WatchConfUpdate(context.TODO())
-
 	return nil
 }
 
@@ -504,9 +501,12 @@ func GetServId() (servId int) {
 	return
 }
 
-// GetApolloCenter get serv conf center
-func GetApolloCenter() *conf.ApolloCenter {
-	return service.sbase.ApolloCenter()
+// GetConfigCenter get serv conf center
+func GetConfigCenter() xconfig.ConfigCenter {
+	if service.sbase != nil {
+		return service.sbase.ConfigCenter()
+	}
+	return nil
 }
 
 func Test(etcds []string, baseLoc, servLoc string, initfn func(ServBase) error) error {
