@@ -23,8 +23,8 @@ func (m *rpcClient1) SetTimeout(timeout time.Duration) error {
 	return m.tsock.SetTimeout(timeout)
 }
 
-func (m *rpcClient1) Close() error {
-	return m.trans.Close()
+func (m *rpcClient1) Close() {
+	m.trans.Close()
 }
 
 func (m *rpcClient1) GetServiceClient() interface{} {
@@ -100,7 +100,8 @@ func (m *ClientThrift) route(ctx context.Context, key string) (*ServInfo, rpcCli
 		return nil, nil
 	}
 	addr := s.Addr
-	return s, m.pool.Get(addr)
+	conn,_:=m.pool.Get(addr)
+	return s, conn
 }
 
 // deprecated

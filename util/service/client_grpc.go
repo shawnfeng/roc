@@ -112,7 +112,8 @@ func (m *ClientGrpc) getClient(provider *Provider) (*ServInfo, rpcClient, error)
 	if serv == nil {
 		return nil, nil, errors.New(m.processor + " server provider is emtpy ")
 	}
-	return serv, m.pool.Get(serv.Addr), nil
+	conn, err := m.pool.Get(serv.Addr)
+	return serv, conn, err
 }
 
 // deprecated
@@ -137,7 +138,7 @@ func (m *ClientGrpc) RpcWithContext(ctx context.Context, hashKey string, fnrpc f
 
 	// 目前Adapter内通过Rpc函数调用RpcWithContext时层次会出错，直接调用RpcWithContext和RpcWithContextV2的层次是正确的，所以修正前者进行兼容
 	funcName := GetFunName(3)
-	if funcName == "rpc"{
+	if funcName == "rpc" {
 		funcName = GetFunName(4)
 	}
 
@@ -203,7 +204,8 @@ func (m *ClientGrpc) route(ctx context.Context, key string) (*ServInfo, rpcClien
 		return nil, nil
 	}
 	addr := s.Addr
-	return s, m.pool.Get(addr)
+	conn,_:=m.pool.Get(addr)
+	return s,conn
 }
 
 func (m *ClientGrpc) injectServInfo(ctx context.Context, si *ServInfo) context.Context {
@@ -249,14 +251,15 @@ func (m *grpcClient) SetTimeout(timeout time.Duration) error {
 	return fmt.Errorf("SetTimeout is not support ")
 }
 
-func (m *grpcClient) Close() error {
-	return m.conn.Close()
+func (m *grpcClient) Close() {
+	m.conn.Close()
 }
 
 func (m *grpcClient) GetServiceClient() interface{} {
 	return m.serviceClient
 }
 
+// factory function in client pool
 func (m *ClientGrpc) newClient(addr string) rpcClient {
 	fun := "ClientGrpc.newClient -->"
 

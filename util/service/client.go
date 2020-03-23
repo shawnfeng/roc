@@ -12,7 +12,7 @@ import (
 )
 
 type rpcClient interface {
-	Close() error
+	Close()
 	SetTimeout(timeout time.Duration) error
 	GetServiceClient() interface{}
 }

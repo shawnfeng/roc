@@ -1,84 +1,70 @@
 package rocserv
 
 import (
+	"context"
 	"sync"
+	"time"
 
 	"github.com/shawnfeng/sutil/slog"
 )
 
 const (
-	defaultPoolLen = 512
+	defaultCapacity = 512
 )
 
+// ClientPool every addr has a connection pool, each backend server has more than one addr, in client side, it's ClientPool
 type ClientPool struct {
-	poolClient sync.Map
-	poolLen    int
-	Factory    func(addr string) rpcClient
+	capacity    int
+	maxCapacity int
+	idleTimeout time.Duration
+	clientPool  sync.Map
+	rpcFactory  func(addr string) rpcClient
 }
 
 // NewClientPool constructor of pool, 如果连接数过低，修正为默认值
-func NewClientPool(poolLen int, factory func(addr string) rpcClient) *ClientPool {
-	if poolLen < defaultPoolLen {
-		poolLen = defaultPoolLen
-	}
-	return &ClientPool{poolLen: poolLen, Factory: factory}
+func NewClientPool(capacity int, rpcFactory func(addr string) rpcClient) *ClientPool {
+	return &ClientPool{capacity: capacity, rpcFactory: rpcFactory}
 }
 
 // Get get connection from pool, if reach max, create new connection and return
-func (m *ClientPool) Get(addr string) rpcClient {
+func (m *ClientPool) Get(addr string) (rpcClient, error) {
 	fun := "ClientPool.Get -->"
-
-	po := m.getPool(addr)
-	var c rpcClient
-	select {
-	case c = <-po:
-		slog.Tracef("%s get: %s len:%d", fun, addr, len(po))
-	default:
-		c = m.Factory(addr)
+	cp := m.getPool(addr)
+	ctx, cancel := context.WithTimeout(context.Background(), getConnTimeout)
+	defer cancel()
+	c, err := cp.Get(ctx)
+	if err != nil {
+		slog.Errorf("%s get conn from connection pool failed, addr: %s", fun, addr)
+		return nil, err
 	}
-	return c
-}
-
-func (m *ClientPool) getPool(addr string) chan rpcClient {
-	fun := "ClientPool.getPool -->"
-
-	var tmp chan rpcClient
-	value, ok := m.poolClient.Load(addr)
-	if ok == true {
-		tmp = value.(chan rpcClient)
-	} else {
-		slog.Infof("%s not found addr:%s", fun, addr)
-		tmp = make(chan rpcClient, m.poolLen)
-		m.poolClient.Store(addr, tmp)
-	}
-	return tmp
+	return c.(rpcClient), nil
 }
 
 // Put 连接池回收连接
 func (m *ClientPool) Put(addr string, client rpcClient, err error) {
 	fun := "ClientPool.Put -->"
-	// do nothing，应该不会发生
-	if client == nil {
-		slog.Errorf("%s put nil rpc client to pool: %s", fun, addr)
-		return
-	}
+	cp := m.getPool(addr)
 	// close client and don't put to pool
 	if err != nil {
 		slog.Warnf("%s put rpc client to pool: %s, with err: %v", fun, addr, err)
 		client.Close()
+		cp.Put(nil)
 		return
 	}
+	cp.Put(client)
+}
 
-	// po 链接池
-	po := m.getPool(addr)
-	select {
-	// 回收连接 client
-	case po <- client:
-		slog.Tracef("%s payback:%s len:%d", fun, addr, len(po))
-
-	//不能回收了，关闭链接(满了)
-	default:
-		slog.Warnf("%s full not payback: %s len: %d", fun, addr, len(po))
-		client.Close()
+func (m *ClientPool) getPool(addr string) *ConnectionPool {
+	fun := "ClientPool.getPool -->"
+	var cp *ConnectionPool
+	value, ok := m.clientPool.Load(addr)
+	if ok == true {
+		cp = value.(*ConnectionPool)
+	} else {
+		slog.Infof("%s not found connection pool of addr: %s, create it", fun, addr)
+		cp = NewConnectionPool(addr, m.capacity, m.maxCapacity, m.idleTimeout, m.rpcFactory)
+		cp.Open()
+		m.clientPool.Store(addr, cp)
 	}
+	return cp
 }
