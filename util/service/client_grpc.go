@@ -23,13 +23,15 @@ const (
 	HTTP
 )
 
+// ClientGrpc client of grpc in adapter
 type ClientGrpc struct {
 	clientLookup ClientLookup
 	processor    string
 	breaker      *Breaker
 	router       Router
+
 	pool         *ClientPool
-	fnFactory    func(client *grpc.ClientConn) interface{}
+	fnFactory    func(conn *grpc.ClientConn) interface{}
 }
 
 type Provider struct {
@@ -37,6 +39,7 @@ type Provider struct {
 	Port uint16
 }
 
+// NewClientGrpcWithRouterType create grpc client by routerType, fn: xxServiceClient of xx, such as NewChangeBoardServiceClient
 func NewClientGrpcWithRouterType(cb ClientLookup, processor string, poollen int, fn func(client *grpc.ClientConn) interface{}, routerType int) *ClientGrpc {
 	clientGrpc := &ClientGrpc{
 		clientLookup: cb,
@@ -45,7 +48,7 @@ func NewClientGrpcWithRouterType(cb ClientLookup, processor string, poollen int,
 		router:       NewRouter(routerType, cb),
 		fnFactory:    fn,
 	}
-	pool := NewClientPool(poollen, clientGrpc.newClient)
+	pool := NewClientPool(poollen, clientGrpc.newConn)
 	clientGrpc.pool = pool
 
 	return clientGrpc
@@ -81,7 +84,7 @@ func (m *ClientGrpc) DirectRouteRpc(provider *Provider, fnrpc func(interface{}) 
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
-	call := func(si *ServInfo, rc rpcClient, fnrpc func(interface{}) error) func() error {
+	call := func(si *ServInfo, rc rpcClientConn, fnrpc func(interface{}) error) func() error {
 		return func() error {
 			return m.rpc(si, rc, fnrpc)
 		}
@@ -96,7 +99,7 @@ func (m *ClientGrpc) DirectRouteRpc(provider *Provider, fnrpc func(interface{}) 
 	return err
 }
 
-func (m *ClientGrpc) getClient(provider *Provider) (*ServInfo, rpcClient, error) {
+func (m *ClientGrpc) getClient(provider *Provider) (*ServInfo, rpcClientConn, error) {
 	servInfos := m.clientLookup.GetAllServAddr(m.processor)
 	if len(servInfos) < 1 {
 		return nil, nil, errors.New(m.processor + " server provider is emtpy ")
@@ -130,7 +133,7 @@ func (m *ClientGrpc) RpcWithContext(ctx context.Context, hashKey string, fnrpc f
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
-	call := func(si *ServInfo, rc rpcClient, fnrpc func(interface{}) error) func() error {
+	call := func(si *ServInfo, rc rpcClientConn, fnrpc func(interface{}) error) func() error {
 		return func() error {
 			return m.rpc(si, rc, fnrpc)
 		}
@@ -165,7 +168,7 @@ func (m *ClientGrpc) RpcWithContextV2(ctx context.Context, hashKey string, fnrpc
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
-	call := func(si *ServInfo, rc rpcClient, fnrpc func(context.Context, interface{}) error) func() error {
+	call := func(si *ServInfo, rc rpcClientConn, fnrpc func(context.Context, interface{}) error) func() error {
 		return func() error {
 			return m.rpcWithContext(ctx, si, rc, fnrpc)
 		}
@@ -184,21 +187,21 @@ func (m *ClientGrpc) RpcWithContextV2(ctx context.Context, hashKey string, fnrpc
 	return err
 }
 
-func (m *ClientGrpc) rpc(si *ServInfo, rc rpcClient, fnrpc func(interface{}) error) error {
+func (m *ClientGrpc) rpc(si *ServInfo, rc rpcClientConn, fnrpc func(interface{}) error) error {
 	c := rc.GetServiceClient()
 	err := fnrpc(c)
 	m.pool.Put(si.Addr, rc, err)
 	return err
 }
 
-func (m *ClientGrpc) rpcWithContext(ctx context.Context, si *ServInfo, rc rpcClient, fnrpc func(context.Context, interface{}) error) error {
+func (m *ClientGrpc) rpcWithContext(ctx context.Context, si *ServInfo, rc rpcClientConn, fnrpc func(context.Context, interface{}) error) error {
 	c := rc.GetServiceClient()
 	err := fnrpc(ctx, c)
 	m.pool.Put(si.Addr, rc, err)
 	return err
 }
 
-func (m *ClientGrpc) route(ctx context.Context, key string) (*ServInfo, rpcClient) {
+func (m *ClientGrpc) route(ctx context.Context, key string) (*ServInfo, rpcClientConn) {
 	s := m.router.Route(ctx, m.processor, key)
 	if s == nil {
 		return nil, nil
@@ -242,26 +245,26 @@ func (m *ClientGrpc) logTraffic(ctx context.Context, si *ServInfo) {
 	logTrafficByKV(ctx, kv)
 }
 
-type grpcClient struct {
+type grpcClientConn struct {
 	serviceClient interface{}
 	conn          *grpc.ClientConn
 }
 
-func (m *grpcClient) SetTimeout(timeout time.Duration) error {
+func (m *grpcClientConn) SetTimeout(timeout time.Duration) error {
 	return fmt.Errorf("SetTimeout is not support ")
 }
 
-func (m *grpcClient) Close() {
+func (m *grpcClientConn) Close() {
 	m.conn.Close()
 }
 
-func (m *grpcClient) GetServiceClient() interface{} {
+func (m *grpcClientConn) GetServiceClient() interface{} {
 	return m.serviceClient
 }
 
-// factory function in client pool
-func (m *ClientGrpc) newClient(addr string) rpcClient {
-	fun := "ClientGrpc.newClient -->"
+// factory function in client connection pool
+func (m *ClientGrpc) newConn(addr string) rpcClientConn {
+	fun := "ClientGrpc.newConn-->"
 
 	// 可加入多种拦截器
 	tracer := opentracing.GlobalTracer()
@@ -278,7 +281,7 @@ func (m *ClientGrpc) newClient(addr string) rpcClient {
 		return nil
 	}
 	client := m.fnFactory(conn)
-	return &grpcClient{
+	return &grpcClientConn{
 		serviceClient: client,
 		conn:          conn,
 	}

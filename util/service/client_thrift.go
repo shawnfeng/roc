@@ -13,24 +13,7 @@ import (
 	"github.com/uber/jaeger-client-go"
 )
 
-type rpcClient1 struct {
-	tsock         *thrift.TSocket
-	trans         thrift.TTransport
-	serviceClient interface{}
-}
-
-func (m *rpcClient1) SetTimeout(timeout time.Duration) error {
-	return m.tsock.SetTimeout(timeout)
-}
-
-func (m *rpcClient1) Close() {
-	m.trans.Close()
-}
-
-func (m *rpcClient1) GetServiceClient() interface{} {
-	return m.serviceClient
-}
-
+// ClientThrift client of thrift in adapter
 type ClientThrift struct {
 	clientLookup ClientLookup
 	processor    string
@@ -52,8 +35,8 @@ func NewClientThriftByAddrRouter(cb ClientLookup, processor string, fn func(thri
 	return NewClientThriftWithRouterType(cb, processor, fn, poollen, 2)
 }
 
+// NewClientThriftWithRouterType create thrift client with router type, fn: xxServiceClientFactory, such as NewServmgrServiceClientFactory
 func NewClientThriftWithRouterType(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, poollen, routerType int) *ClientThrift {
-
 	ct := &ClientThrift{
 		clientLookup: cb,
 		processor:    processor,
@@ -61,46 +44,18 @@ func NewClientThriftWithRouterType(cb ClientLookup, processor string, fn func(th
 		breaker:      NewBreaker(cb),
 		router:       NewRouter(routerType, cb),
 	}
-	pool := NewClientPool(poollen, ct.newClient)
+	pool := NewClientPool(poollen, ct.newConn)
 	ct.pool = pool
 	return ct
 }
 
-func (m *ClientThrift) newClient(addr string) rpcClient {
-	fun := "ClientThrift.newClient -->"
-
-	transportFactory := thrift.NewTFramedTransportFactory(thrift.NewTTransportFactory())
-	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
-
-	transport, err := thrift.NewTSocket(addr)
-	if err != nil {
-		slog.Errorf("%s NetTSocket addr:%s serv:%s err:%s", fun, addr, m.clientLookup.ServKey(), err)
-		return nil
-	}
-	useTransport := transportFactory.GetTransport(transport)
-
-	if err := useTransport.Open(); err != nil {
-		slog.Errorf("%s Open addr:%s serv:%s err:%s", fun, addr, m.clientLookup.ServKey(), err)
-		return nil
-	}
-	// 必须要close么？
-	//useTransport.Close()
-
-	slog.Infof("%s new client addr:%s serv:%s", fun, addr, m.clientLookup.ServKey())
-	return &rpcClient1{
-		tsock:         transport,
-		trans:         useTransport,
-		serviceClient: m.fnFactory(useTransport, protocolFactory),
-	}
-}
-
-func (m *ClientThrift) route(ctx context.Context, key string) (*ServInfo, rpcClient) {
+func (m *ClientThrift) route(ctx context.Context, key string) (*ServInfo, rpcClientConn) {
 	s := m.router.Route(ctx, m.processor, key)
 	if s == nil {
 		return nil, nil
 	}
 	addr := s.Addr
-	conn,_:=m.pool.Get(addr)
+	conn, _ := m.pool.Get(addr)
 	return s, conn
 }
 
@@ -119,7 +74,7 @@ func (m *ClientThrift) RpcWithContext(ctx context.Context, hashKey string, timeo
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
-	call := func(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(interface{}) error) func() error {
+	call := func(si *ServInfo, rc rpcClientConn, timeout time.Duration, fnrpc func(interface{}) error) func() error {
 		return func() error {
 			return m.rpc(si, rc, timeout, fnrpc)
 		}
@@ -155,7 +110,7 @@ func (m *ClientThrift) RpcWithContextV2(ctx context.Context, hashKey string, tim
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
-	call := func(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(context.Context, interface{}) error) func() error {
+	call := func(si *ServInfo, rc rpcClientConn, timeout time.Duration, fnrpc func(context.Context, interface{}) error) func() error {
 		return func() error {
 			return m.rpcWithContext(ctx, si, rc, timeout, fnrpc)
 		}
@@ -173,7 +128,7 @@ func (m *ClientThrift) RpcWithContextV2(ctx context.Context, hashKey string, tim
 	return err
 }
 
-func (m *ClientThrift) rpc(si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(interface{}) error) error {
+func (m *ClientThrift) rpc(si *ServInfo, rc rpcClientConn, timeout time.Duration, fnrpc func(interface{}) error) error {
 	rc.SetTimeout(timeout)
 	c := rc.GetServiceClient()
 
@@ -182,7 +137,7 @@ func (m *ClientThrift) rpc(si *ServInfo, rc rpcClient, timeout time.Duration, fn
 	return err
 }
 
-func (m *ClientThrift) rpcWithContext(ctx context.Context, si *ServInfo, rc rpcClient, timeout time.Duration, fnrpc func(context.Context, interface{}) error) error {
+func (m *ClientThrift) rpcWithContext(ctx context.Context, si *ServInfo, rc rpcClientConn, timeout time.Duration, fnrpc func(context.Context, interface{}) error) error {
 	rc.SetTimeout(timeout)
 	c := rc.GetServiceClient()
 
@@ -224,4 +179,50 @@ func (m *ClientThrift) logTraffic(ctx context.Context, si *ServInfo) {
 	kv[TrafficLogKeyServerID] = si.Servid
 	kv[TrafficLogKeyServerName] = serviceFromServPath(m.clientLookup.ServPath())
 	logTrafficByKV(ctx, kv)
+}
+
+type thriftClientConn struct {
+	tsock         *thrift.TSocket
+	trans         thrift.TTransport
+	serviceClient interface{}
+}
+
+func (m *thriftClientConn) SetTimeout(timeout time.Duration) error {
+	return m.tsock.SetTimeout(timeout)
+}
+
+func (m *thriftClientConn) Close() {
+	m.trans.Close()
+}
+
+func (m *thriftClientConn) GetServiceClient() interface{} {
+	return m.serviceClient
+}
+
+func (m *ClientThrift) newConn(addr string) rpcClientConn {
+	fun := "ClientThrift.newConn -->"
+
+	transportFactory := thrift.NewTFramedTransportFactory(thrift.NewTTransportFactory())
+	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
+
+	transport, err := thrift.NewTSocket(addr)
+	if err != nil {
+		slog.Errorf("%s NetTSocket addr:%s serv:%s err:%s", fun, addr, m.clientLookup.ServKey(), err)
+		return nil
+	}
+	useTransport := transportFactory.GetTransport(transport)
+
+	if err := useTransport.Open(); err != nil {
+		slog.Errorf("%s Open addr:%s serv:%s err:%s", fun, addr, m.clientLookup.ServKey(), err)
+		return nil
+	}
+	// 必须要close么？
+	//useTransport.Close()
+
+	slog.Infof("%s new client addr:%s serv:%s", fun, addr, m.clientLookup.ServKey())
+	return &thriftClientConn{
+		tsock:         transport,
+		trans:         useTransport,
+		serviceClient: m.fnFactory(useTransport, protocolFactory),
+	}
 }

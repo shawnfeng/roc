@@ -12,6 +12,7 @@ import (
 	"github.com/shawnfeng/sutil/stime"
 )
 
+// ClientWrapper 目前网关通过common/go/pub在使用
 type ClientWrapper struct {
 	clientLookup ClientLookup
 	processor    string
@@ -85,5 +86,4 @@ func (m *ClientWrapper) Call(ctx context.Context, hashKey, funcName string, run 
 	err = m.breaker.Do(0, si.Servid, funcName, call, HTTP, nil)
 	return err
 }
-
 
