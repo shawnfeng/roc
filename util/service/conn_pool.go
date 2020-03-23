@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil"
+
+	"github.com/shawnfeng/sutil/slog"
 )
 
 const (
@@ -25,6 +27,8 @@ type rpcClientConn interface {
 
 // ConnectionPool connection pool corresponding to the addr
 type ConnectionPool struct {
+	calleeServiceKey string
+
 	rpcType     string
 	rpcFactory  func(addr string) (rpcClientConn, error)
 	addr        string
@@ -37,8 +41,8 @@ type ConnectionPool struct {
 }
 
 // NewConnectionPool constructor of ConnectionPool
-func NewConnectionPool(addr string, capacity, maxCapacity int, idleTimeout time.Duration, rpcFactory func(addr string) (rpcClientConn, error)) *ConnectionPool {
-	cp := &ConnectionPool{addr: addr, capacity: capacity, maxCapacity: maxCapacity, idleTimeout: idleTimeout, rpcFactory: rpcFactory}
+func NewConnectionPool(addr string, capacity, maxCapacity int, idleTimeout time.Duration, rpcFactory func(addr string) (rpcClientConn, error), calleeServiceKey string) *ConnectionPool {
+	cp := &ConnectionPool{addr: addr, capacity: capacity, maxCapacity: maxCapacity, idleTimeout: idleTimeout, rpcFactory: rpcFactory, calleeServiceKey: calleeServiceKey}
 	return cp
 }
 
@@ -55,6 +59,16 @@ func (cp *ConnectionPool) Open() {
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
 	cp.connections = xutil.NewResourcePool(cp.connect, cp.capacity, cp.maxCapacity, cp.idleTimeout)
+	tickC := time.Tick(time.Second * 2)
+	go func() {
+		for {
+			select {
+			case <-tickC:
+				slog.Infof("caller: %s, callee: %s, callee_addr: %s, stat: %s", GetServName(), cp.calleeServiceKey, cp.addr, cp.connections.StatsJSON())
+			}
+		}
+	}()
+	return
 }
 
 func (cp *ConnectionPool) pool() (p *xutil.ResourcePool) {

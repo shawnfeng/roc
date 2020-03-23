@@ -44,7 +44,7 @@ func NewClientThriftWithRouterType(cb ClientLookup, processor string, fn func(th
 		breaker:      NewBreaker(cb),
 		router:       NewRouter(routerType, cb),
 	}
-	pool := NewClientPool(maxCapacity/2, maxCapacity, ct.newConn)
+	pool := NewClientPool(maxCapacity/2, maxCapacity, ct.newConn, cb.ServKey())
 	ct.pool = pool
 	return ct
 }

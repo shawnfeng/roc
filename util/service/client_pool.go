@@ -14,6 +14,8 @@ const (
 
 // ClientPool every addr has a connection pool, each backend server has more than one addr, in client side, it's ClientPool
 type ClientPool struct {
+	calleeServiceKey string
+
 	capacity    int
 	maxCapacity int
 	idleTimeout time.Duration
@@ -22,8 +24,8 @@ type ClientPool struct {
 }
 
 // NewClientPool constructor of pool, 如果连接数过低，修正为默认值
-func NewClientPool(capacity, maxCapacity int, rpcFactory func(addr string) (rpcClientConn, error)) *ClientPool {
-	return &ClientPool{capacity: capacity, maxCapacity: maxCapacity, rpcFactory: rpcFactory}
+func NewClientPool(capacity, maxCapacity int, rpcFactory func(addr string) (rpcClientConn, error), calleeServiceKey string) *ClientPool {
+	return &ClientPool{capacity: capacity, maxCapacity: maxCapacity, rpcFactory: rpcFactory, calleeServiceKey: calleeServiceKey}
 }
 
 // Get get connection from pool, if reach max, create new connection and return
@@ -73,7 +75,7 @@ func (m *ClientPool) getPool(addr string) *ConnectionPool {
 		cp = value.(*ConnectionPool)
 	} else {
 		slog.Infof("%s not found connection pool of addr: %s, create it", fun, addr)
-		cp = NewConnectionPool(addr, m.capacity, m.maxCapacity, m.idleTimeout, m.rpcFactory)
+		cp = NewConnectionPool(addr, m.capacity, m.maxCapacity, m.idleTimeout, m.rpcFactory, m.calleeServiceKey)
 		cp.Open()
 		m.clientPool.Store(addr, cp)
 	}
