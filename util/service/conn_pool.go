@@ -26,7 +26,7 @@ type rpcClientConn interface {
 // ConnectionPool connection pool corresponding to the addr
 type ConnectionPool struct {
 	rpcType     string
-	rpcFactory  func(addr string) rpcClientConn
+	rpcFactory  func(addr string) (rpcClientConn, error)
 	addr        string
 	capacity    int // capacity of pool
 	maxCapacity int // max capacity of pool
@@ -37,7 +37,7 @@ type ConnectionPool struct {
 }
 
 // NewConnectionPool constructor of ConnectionPool
-func NewConnectionPool(addr string, capacity, maxCapacity int, idleTimeout time.Duration, rpcFactory func(addr string) rpcClientConn) *ConnectionPool {
+func NewConnectionPool(addr string, capacity, maxCapacity int, idleTimeout time.Duration, rpcFactory func(addr string) (rpcClientConn, error)) *ConnectionPool {
 	cp := &ConnectionPool{addr: addr, capacity: capacity, maxCapacity: maxCapacity, idleTimeout: idleTimeout, rpcFactory: rpcFactory}
 	return cp
 }
@@ -65,8 +65,8 @@ func (cp *ConnectionPool) pool() (p *xutil.ResourcePool) {
 }
 
 func (cp *ConnectionPool) connect() (xutil.Resource, error) {
-	conn := cp.rpcFactory(cp.addr)
-	return conn, nil
+	conn, err := cp.rpcFactory(cp.addr)
+	return conn, err
 }
 
 // Close close connection pool

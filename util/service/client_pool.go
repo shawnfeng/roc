@@ -18,11 +18,11 @@ type ClientPool struct {
 	maxCapacity int
 	idleTimeout time.Duration
 	clientPool  sync.Map
-	rpcFactory  func(addr string) rpcClientConn
+	rpcFactory  func(addr string) (rpcClientConn, error)
 }
 
 // NewClientPool constructor of pool, 如果连接数过低，修正为默认值
-func NewClientPool(capacity, maxCapacity int, rpcFactory func(addr string) rpcClientConn) *ClientPool {
+func NewClientPool(capacity, maxCapacity int, rpcFactory func(addr string) (rpcClientConn, error)) *ClientPool {
 	return &ClientPool{capacity: capacity, maxCapacity: maxCapacity, rpcFactory: rpcFactory}
 }
 

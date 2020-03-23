@@ -263,7 +263,7 @@ func (m *grpcClientConn) GetServiceClient() interface{} {
 }
 
 // factory function in client connection pool
-func (m *ClientGrpc) newConn(addr string) rpcClientConn {
+func (m *ClientGrpc) newConn(addr string) (rpcClientConn, error) {
 	fun := "ClientGrpc.newConn-->"
 
 	// 可加入多种拦截器
@@ -278,11 +278,11 @@ func (m *ClientGrpc) newConn(addr string) rpcClientConn {
 	conn, err := grpc.Dial(addr, opts...)
 	if err != nil {
 		slog.Errorf("%s NetTSocket addr:%s err:%s", fun, addr, err)
-		return nil
+		return nil, err
 	}
 	client := m.fnFactory(conn)
 	return &grpcClientConn{
 		serviceClient: client,
 		conn:          conn,
-	}
+	}, nil
 }

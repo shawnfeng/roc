@@ -199,7 +199,7 @@ func (m *thriftClientConn) GetServiceClient() interface{} {
 	return m.serviceClient
 }
 
-func (m *ClientThrift) newConn(addr string) rpcClientConn {
+func (m *ClientThrift) newConn(addr string) (rpcClientConn, error) {
 	fun := "ClientThrift.newConn -->"
 
 	transportFactory := thrift.NewTFramedTransportFactory(thrift.NewTTransportFactory())
@@ -208,13 +208,13 @@ func (m *ClientThrift) newConn(addr string) rpcClientConn {
 	transport, err := thrift.NewTSocket(addr)
 	if err != nil {
 		slog.Errorf("%s NetTSocket addr:%s serv:%s err:%s", fun, addr, m.clientLookup.ServKey(), err)
-		return nil
+		return nil, err
 	}
 	useTransport := transportFactory.GetTransport(transport)
 
 	if err := useTransport.Open(); err != nil {
 		slog.Errorf("%s Open addr:%s serv:%s err:%s", fun, addr, m.clientLookup.ServKey(), err)
-		return nil
+		return nil, err
 	}
 	// 必须要close么？
 	//useTransport.Close()
@@ -224,5 +224,5 @@ func (m *ClientThrift) newConn(addr string) rpcClientConn {
 		tsock:         transport,
 		trans:         useTransport,
 		serviceClient: m.fnFactory(useTransport, protocolFactory),
-	}
+	}, nil
 }
