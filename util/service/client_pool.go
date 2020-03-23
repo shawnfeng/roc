@@ -22,8 +22,8 @@ type ClientPool struct {
 }
 
 // NewClientPool constructor of pool, 如果连接数过低，修正为默认值
-func NewClientPool(capacity int, rpcFactory func(addr string) rpcClientConn) *ClientPool {
-	return &ClientPool{capacity: capacity, maxCapacity: capacity, rpcFactory: rpcFactory}
+func NewClientPool(capacity, maxCapacity int, rpcFactory func(addr string) rpcClientConn) *ClientPool {
+	return &ClientPool{capacity: capacity, maxCapacity: maxCapacity, rpcFactory: rpcFactory}
 }
 
 // Get get connection from pool, if reach max, create new connection and return

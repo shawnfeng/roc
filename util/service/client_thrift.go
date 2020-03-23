@@ -23,20 +23,20 @@ type ClientThrift struct {
 	router       Router
 }
 
-func NewClientThrift(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, poollen int) *ClientThrift {
-	return NewClientThriftWithRouterType(cb, processor, fn, poollen, 0)
+func NewClientThrift(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, maxCapacity int) *ClientThrift {
+	return NewClientThriftWithRouterType(cb, processor, fn, maxCapacity, 0)
 }
 
-func NewClientThriftByConcurrentRouter(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, poollen int) *ClientThrift {
-	return NewClientThriftWithRouterType(cb, processor, fn, poollen, 1)
+func NewClientThriftByConcurrentRouter(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, maxCapacity int) *ClientThrift {
+	return NewClientThriftWithRouterType(cb, processor, fn, maxCapacity, 1)
 }
 
-func NewClientThriftByAddrRouter(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, poollen int) *ClientThrift {
-	return NewClientThriftWithRouterType(cb, processor, fn, poollen, 2)
+func NewClientThriftByAddrRouter(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, maxCapacity int) *ClientThrift {
+	return NewClientThriftWithRouterType(cb, processor, fn, maxCapacity, 2)
 }
 
 // NewClientThriftWithRouterType create thrift client with router type, fn: xxServiceClientFactory, such as NewServmgrServiceClientFactory
-func NewClientThriftWithRouterType(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, poollen, routerType int) *ClientThrift {
+func NewClientThriftWithRouterType(cb ClientLookup, processor string, fn func(thrift.TTransport, thrift.TProtocolFactory) interface{}, maxCapacity, routerType int) *ClientThrift {
 	ct := &ClientThrift{
 		clientLookup: cb,
 		processor:    processor,
@@ -44,7 +44,7 @@ func NewClientThriftWithRouterType(cb ClientLookup, processor string, fn func(th
 		breaker:      NewBreaker(cb),
 		router:       NewRouter(routerType, cb),
 	}
-	pool := NewClientPool(poollen, ct.newConn)
+	pool := NewClientPool(maxCapacity/2, maxCapacity, ct.newConn)
 	ct.pool = pool
 	return ct
 }

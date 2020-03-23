@@ -49,6 +49,9 @@ func (cp *ConnectionPool) Open() {
 	if cp.maxCapacity == 0 {
 		cp.maxCapacity = defaultCapacity
 	}
+	if cp.capacity > cp.maxCapacity {
+		cp.maxCapacity = cp.capacity
+	}
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
 	cp.connections = xutil.NewResourcePool(cp.connect, cp.capacity, cp.maxCapacity, cp.idleTimeout)

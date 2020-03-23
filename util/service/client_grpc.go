@@ -30,8 +30,8 @@ type ClientGrpc struct {
 	breaker      *Breaker
 	router       Router
 
-	pool         *ClientPool
-	fnFactory    func(conn *grpc.ClientConn) interface{}
+	pool      *ClientPool
+	fnFactory func(conn *grpc.ClientConn) interface{}
 }
 
 type Provider struct {
@@ -40,7 +40,7 @@ type Provider struct {
 }
 
 // NewClientGrpcWithRouterType create grpc client by routerType, fn: xxServiceClient of xx, such as NewChangeBoardServiceClient
-func NewClientGrpcWithRouterType(cb ClientLookup, processor string, poollen int, fn func(client *grpc.ClientConn) interface{}, routerType int) *ClientGrpc {
+func NewClientGrpcWithRouterType(cb ClientLookup, processor string, maxCapacity int, fn func(client *grpc.ClientConn) interface{}, routerType int) *ClientGrpc {
 	clientGrpc := &ClientGrpc{
 		clientLookup: cb,
 		processor:    processor,
@@ -48,18 +48,18 @@ func NewClientGrpcWithRouterType(cb ClientLookup, processor string, poollen int,
 		router:       NewRouter(routerType, cb),
 		fnFactory:    fn,
 	}
-	pool := NewClientPool(poollen, clientGrpc.newConn)
+	pool := NewClientPool(maxCapacity/2, maxCapacity, clientGrpc.newConn)
 	clientGrpc.pool = pool
 
 	return clientGrpc
 }
 
-func NewClientGrpcByConcurrentRouter(cb ClientLookup, processor string, poollen int, fn func(client *grpc.ClientConn) interface{}) *ClientGrpc {
-	return NewClientGrpcWithRouterType(cb, processor, poollen, fn, 1)
+func NewClientGrpcByConcurrentRouter(cb ClientLookup, processor string, maxCapacity int, fn func(client *grpc.ClientConn) interface{}) *ClientGrpc {
+	return NewClientGrpcWithRouterType(cb, processor, maxCapacity, fn, 1)
 }
 
-func NewClientGrpc(cb ClientLookup, processor string, poollen int, fn func(client *grpc.ClientConn) interface{}) *ClientGrpc {
-	return NewClientGrpcWithRouterType(cb, processor, poollen, fn, 0)
+func NewClientGrpc(cb ClientLookup, processor string, maxCapacity int, fn func(client *grpc.ClientConn) interface{}) *ClientGrpc {
+	return NewClientGrpcWithRouterType(cb, processor, maxCapacity, fn, 0)
 }
 
 func (m *ClientGrpc) CustomizedRouteRpc(getProvider func() *Provider, fnrpc func(interface{}) error) error {
@@ -207,8 +207,8 @@ func (m *ClientGrpc) route(ctx context.Context, key string) (*ServInfo, rpcClien
 		return nil, nil
 	}
 	addr := s.Addr
-	conn,_:=m.pool.Get(addr)
-	return s,conn
+	conn, _ := m.pool.Get(addr)
+	return s, conn
 }
 
 func (m *ClientGrpc) injectServInfo(ctx context.Context, si *ServInfo) context.Context {
