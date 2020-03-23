@@ -52,7 +52,7 @@ func (m *ClientWrapper) Do(hashKey string, timeout time.Duration, run func(addr 
 		}
 	}(si.Addr, timeout)
 
-	funcName := GetFunName(3)
+	funcName := GetFuncName(3)
 	var err error
 	st := stime.NewTimeStat()
 	defer func() {

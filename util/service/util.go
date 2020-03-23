@@ -5,8 +5,8 @@ import (
 	"strings"
 )
 
-// GetFunName get func name form runtime info
-func GetFunName(index int) string {
+// GetFuncName get func name form runtime info
+func GetFuncName(index int) string {
 	funcName := ""
 	pc, _, _, ok := runtime.Caller(index)
 	if ok {
