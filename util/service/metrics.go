@@ -29,6 +29,14 @@ const (
 	apiType = "api"
 	logType = "log"
 	dbType  = "db"
+	rpcType = "rpc"
+
+	calleeAddr             = "callee_addr"
+	connectionPoolStatType = "stat_type"
+	active                 = "1" // 已建连接
+	inUse                  = "2" // 当前在使用连接
+	capacity               = "3" // 当前容量
+	maxCapacity            = "4" // 最大容量
 )
 
 var (
@@ -105,6 +113,14 @@ var (
 		Buckets:    []float64{5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000},
 		Help:       "db request time",
 		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelSource},
+	})
+
+	_metricRPCConnectionPool = xprom.NewGauge(&xprom.GaugeVecOpts{
+		Namespace:  namespacePalfish,
+		Subsystem:  rpcType,
+		Name:       "connection_pool",
+		Help:       "rpc connection pool status",
+		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelCalleeService, calleeAddr, connectionPoolStatType},
 	})
 )
 

@@ -3,16 +3,19 @@ package rocserv
 import (
 	"context"
 	"errors"
+	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"sync"
 	"time"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil/sync2"
 
 	"github.com/shawnfeng/sutil/slog"
 )
 
 const (
-	getConnTimeout = 2 * time.Second
+	getConnTimeout = time.Second * 1
+	statTick       = time.Second * 10
 )
 
 var (
@@ -37,12 +40,13 @@ type ConnectionPool struct {
 	idleTimeout time.Duration
 
 	mu          sync.Mutex
+	closed      sync2.AtomicBool
 	connections *xutil.ResourcePool // 对应地址的连接池
 }
 
 // NewConnectionPool constructor of ConnectionPool
 func NewConnectionPool(addr string, capacity, maxCapacity int, idleTimeout time.Duration, rpcFactory func(addr string) (rpcClientConn, error), calleeServiceKey string) *ConnectionPool {
-	cp := &ConnectionPool{addr: addr, capacity: capacity, maxCapacity: maxCapacity, idleTimeout: idleTimeout, rpcFactory: rpcFactory, calleeServiceKey: calleeServiceKey}
+	cp := &ConnectionPool{addr: addr, capacity: capacity, maxCapacity: maxCapacity, idleTimeout: idleTimeout, rpcFactory: rpcFactory, calleeServiceKey: calleeServiceKey, closed: sync2.NewAtomicBool(false)}
 	return cp
 }
 
@@ -59,16 +63,42 @@ func (cp *ConnectionPool) Open() {
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
 	cp.connections = xutil.NewResourcePool(cp.connect, cp.capacity, cp.maxCapacity, cp.idleTimeout)
-	tickC := time.Tick(time.Second * 2)
+	cp.stat()
+	return
+}
+
+func (cp *ConnectionPool) stat() {
+	tickC := time.Tick(statTick)
 	go func() {
-		for {
+		for !cp.closed.Get() {
 			select {
 			case <-tickC:
 				slog.Infof("caller: %s, callee: %s, callee_addr: %s, stat: %s", GetServName(), cp.calleeServiceKey, cp.addr, cp.connections.StatsJSON())
+				group, service := GetGroupAndService()
+				_metricRPCConnectionPool.With(xprom.LabelGroupName, group,
+					xprom.LabelServiceName, service,
+					xprom.LabelCalleeService, cp.calleeServiceKey,
+					calleeAddr, cp.addr,
+					connectionPoolStatType, active).Set(float64(cp.connections.Active()))
+				_metricRPCConnectionPool.With(xprom.LabelGroupName, group,
+					xprom.LabelServiceName, service,
+					xprom.LabelCalleeService, cp.calleeServiceKey,
+					calleeAddr, cp.addr,
+					connectionPoolStatType, inUse).Set(float64(cp.connections.InUse()))
+				_metricRPCConnectionPool.With(xprom.LabelGroupName, group,
+					xprom.LabelServiceName, service,
+					xprom.LabelCalleeService, cp.calleeServiceKey,
+					calleeAddr, cp.addr,
+					connectionPoolStatType, capacity).Set(float64(cp.connections.Capacity()))
+				_metricRPCConnectionPool.With(xprom.LabelGroupName, group,
+					xprom.LabelServiceName, service,
+					xprom.LabelCalleeService, cp.calleeServiceKey,
+					calleeAddr, cp.addr,
+					connectionPoolStatType, maxCapacity).Set(float64(cp.connections.MaxCap()))
 			}
 		}
+		slog.Infof("caller: %s, callee: %s, callee_addr: %s exit stat", GetServName(), cp.calleeServiceKey, cp.addr)
 	}()
-	return
 }
 
 func (cp *ConnectionPool) pool() (p *xutil.ResourcePool) {
@@ -85,6 +115,7 @@ func (cp *ConnectionPool) connect() (xutil.Resource, error) {
 
 // Close close connection pool
 func (cp *ConnectionPool) Close() {
+	cp.closed.Set(true)
 	p := cp.pool()
 	if p == nil {
 		return
