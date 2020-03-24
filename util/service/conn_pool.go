@@ -52,13 +52,16 @@ func NewConnectionPool(addr string, capacity, maxCapacity int, idleTimeout time.
 
 func (cp *ConnectionPool) Open() {
 	if cp.capacity == 0 {
-		cp.capacity = defaultCapacity
+		cp.capacity = defaultMaxCapacity / 2
 	}
 	if cp.maxCapacity == 0 {
-		cp.maxCapacity = defaultCapacity
+		cp.maxCapacity = defaultMaxCapacity
 	}
 	if cp.capacity > cp.maxCapacity {
 		cp.maxCapacity = cp.capacity
+	}
+	if cp.maxCapacity < defaultMaxCapacity {
+		cp.maxCapacity = defaultMaxCapacity
 	}
 	cp.mu.Lock()
 	defer cp.mu.Unlock()

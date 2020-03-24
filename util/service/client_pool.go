@@ -9,7 +9,8 @@ import (
 )
 
 const (
-	defaultCapacity = 512
+	defaultMaxCapacity = 512
+	defaultIdleTimeout = time.Second * 120
 )
 
 // ClientPool every addr has a connection pool, each backend server has more than one addr, in client side, it's ClientPool
@@ -25,7 +26,7 @@ type ClientPool struct {
 
 // NewClientPool constructor of pool, 如果连接数过低，修正为默认值
 func NewClientPool(capacity, maxCapacity int, rpcFactory func(addr string) (rpcClientConn, error), calleeServiceKey string) *ClientPool {
-	return &ClientPool{capacity: capacity, maxCapacity: maxCapacity, rpcFactory: rpcFactory, calleeServiceKey: calleeServiceKey}
+	return &ClientPool{capacity: capacity, maxCapacity: maxCapacity, rpcFactory: rpcFactory, calleeServiceKey: calleeServiceKey, idleTimeout: defaultIdleTimeout}
 }
 
 // Get get connection from pool, if reach max, create new connection and return
