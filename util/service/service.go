@@ -146,7 +146,6 @@ func (m *ServBaseV2) clearRegisterInfos() {
 }
 
 func (m *ServBaseV2) RegisterBackDoor(servs map[string]*ServInfo) error {
-	fun := "ServBaseV2.RegisterBackDoor -->"
 	rd := &RegData{
 		Servs: servs,
 	}
@@ -155,17 +154,12 @@ func (m *ServBaseV2) RegisterBackDoor(servs map[string]*ServInfo) error {
 	if err != nil {
 		return err
 	}
-
-	slog.Infof("%s servs:%s", fun, js)
-
 	path := fmt.Sprintf("%s/%s/%s/%d/%s", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId, BASE_LOC_REG_BACKDOOR)
 
 	return m.doRegister(path, string(js), true)
-
 }
 
 func (m *ServBaseV2) RegisterMetrics(servs map[string]*ServInfo) error {
-	fun := "ServBaseV2.RegisterMetrics -->"
 	rd := &RegData{
 		Servs: servs,
 	}
@@ -174,13 +168,9 @@ func (m *ServBaseV2) RegisterMetrics(servs map[string]*ServInfo) error {
 	if err != nil {
 		return err
 	}
-
-	slog.Infof("%s servs:%s", fun, js)
-
 	path := fmt.Sprintf("%s/%s/%s/%d/%s", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId, BASE_LOC_REG_METRICS)
 
 	return m.doRegister(path, string(js), true)
-
 }
 
 // {type:http/thrift, addr:10.3.3.3:23233, processor:fuck}
@@ -189,24 +179,22 @@ func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) error {
 
 	err := m.RegisterServiceV2(servs, BASE_LOC_REG_SERV, false)
 	if err != nil {
-		slog.Errorf("%s reg v2 err:%s", fun, err)
+		slog.Errorf("%s register server v2 failed, err: %v", fun, err)
 		return err
 	}
 
 	err = m.RegisterServiceV1(servs, false)
 	if err != nil {
-		slog.Errorf("%s reg v1 err:%s", fun, err)
+		slog.Errorf("%s register server v1 failed, err: %v", fun, err)
 		return err
 	}
 
-	slog.Infof("%s regist ok", fun)
+	slog.Infof("%s register server ok", fun)
 
 	return nil
 }
 
 func (m *ServBaseV2) RegisterServiceV2(servs map[string]*ServInfo, dir string, crossDC bool) error {
-	fun := "ServBaseV2.RegisterServiceV2 -->"
-
 	rd := &RegData{
 		Servs: servs,
 	}
@@ -215,9 +203,6 @@ func (m *ServBaseV2) RegisterServiceV2(servs map[string]*ServInfo, dir string, c
 	if err != nil {
 		return err
 	}
-
-	slog.Infof("%s servs:%s", fun, js)
-
 	path := fmt.Sprintf("%s/%s/%s/%d/%s", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId, dir)
 
 	// 非跨机房
@@ -331,21 +316,17 @@ func (m *ServBaseV2) setValueToEtcd(path, value string, opts *etcd.SetOptions) e
 
 func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 	fun := "ServBaseV2.doRegister -->"
-
 	m.addRegisterInfo(path, js)
 
 	// 创建完成标志
-	var iscreate bool
-
-	slog.Infof("%s path:%s data:%s refresh:%t", fun, path, js, refresh)
+	var isCreated bool
 
 	go func() {
-
 		for i := 0; ; i++ {
 			var err error
 			var r *etcd.Response
-			if !iscreate {
-				slog.Warnf("%s create idx:%d servs:%s", fun, i, js)
+			if !isCreated {
+				slog.Warnf("%s create idx: %d server_info: %s", fun, i, js)
 				r, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
 					TTL: time.Second * 60,
 				})
@@ -366,17 +347,17 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 			}
 
 			if err != nil {
-				iscreate = false
+				isCreated = false
 				slog.Errorf("%s reg idx: %d,resp: %v,err: %v", fun, i, r, err)
 
 			} else {
-				iscreate = true
+				isCreated = true
 			}
 
 			time.Sleep(time.Second * 20)
 
 			if m.isStop() {
-				slog.Infof("%s service stop, register [%s] stop", fun, path)
+				slog.Infof("%s server stop, register path [%s] clear", fun, path)
 				return
 			}
 		}
@@ -419,7 +400,6 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 		slog.Warnf("%s serv config value path:%s err:%s", fun, path, err)
 	}
 
-	slog.Infof("%s cfg:%s path:%s", fun, scfg, path)
 	tf := sconf.NewTierConf()
 	err = tf.Load(scfg_global)
 	if err != nil {

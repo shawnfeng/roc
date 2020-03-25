@@ -288,6 +288,9 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 
 	sb.SetGroupAndDisable(args.group, args.disable)
 	m.initMetric(sb)
+
+	slog.Infoln("server start success...")
+
 	m.awaitSignal(sb)
 
 	return nil

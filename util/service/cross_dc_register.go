@@ -15,17 +15,17 @@ func (m *ServBaseV2) RegisterCrossDCService(servs map[string]*ServInfo) error {
 
 	err := m.RegisterServiceV2(servs, BASE_LOC_REG_SERV, true)
 	if err != nil {
-		slog.Errorf("%s reg v2 err:%s", fun, err)
+		slog.Errorf("%s register server v2 failed, err: %v", fun, err)
 		return err
 	}
 
 	err = m.RegisterServiceV1(servs, true)
 	if err != nil {
-		slog.Errorf("%s reg v1 err:%s", fun, err)
+		slog.Errorf("%s register server v1 failed, err: %v", fun, err)
 		return err
 	}
 
-	slog.Infof("%s regist ok", fun)
+	slog.Infof("%s register cross dc server ok", fun)
 
 	return nil
 }
@@ -35,17 +35,15 @@ func (m *ServBaseV2) doCrossDCRegister(path, js string, refresh bool) error {
 
 	for addr, _ := range m.crossRegisterClients {
 		// 创建完成标志
-		var iscreate bool
-
-		slog.Infof("%s path:%s data:%s refresh:%t", fun, path, js, refresh)
+		var isCreated bool
 
 		go func() {
 
 			for j := 0; ; j++ {
 				var err error
 				var r *etcd.Response
-				if !iscreate {
-					slog.Warnf("%s create idx:%d servs:%s", fun, j, js)
+				if !isCreated {
+					slog.Warnf("%s create idx:%d server_info: %s", fun, j, js)
 					r, err = m.crossRegisterClients[addr].Set(context.Background(), path, js, &etcd.SetOptions{
 						TTL: time.Second * 60,
 					})
@@ -66,17 +64,17 @@ func (m *ServBaseV2) doCrossDCRegister(path, js string, refresh bool) error {
 				}
 
 				if err != nil {
-					iscreate = false
+					isCreated = false
 					slog.Errorf("%s reg idx: %d, resp: %v, err: %v", fun, j, r, err)
 
 				} else {
-					iscreate = true
+					isCreated = true
 				}
 
 				time.Sleep(time.Second * 20)
 
 				if m.isStop() {
-					slog.Infof("%s service stop, register [%s] stop", fun, path)
+					slog.Infof("%s server stop, register info [%s] clear", fun, path)
 					return
 				}
 			}

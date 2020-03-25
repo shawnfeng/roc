@@ -75,7 +75,7 @@ func (m *ClientPool) getPool(addr string) *ConnectionPool {
 	if ok == true {
 		cp = value.(*ConnectionPool)
 	} else {
-		slog.Infof("%s not found connection pool of addr: %s, create it", fun, addr)
+		slog.Infof("%s not found connection pool of callee_service: %s, addr: %s, create it", fun, m.calleeServiceKey, addr)
 		cp = NewConnectionPool(addr, m.capacity, m.maxCapacity, m.idleTimeout, m.rpcFactory, m.calleeServiceKey)
 		cp.Open()
 		m.clientPool.Store(addr, cp)
