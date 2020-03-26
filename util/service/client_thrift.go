@@ -66,6 +66,23 @@ func (m *ClientThrift) Rpc(hashKey string, timeout time.Duration, fnrpc func(int
 
 // deprecated
 func (m *ClientThrift) RpcWithContext(ctx context.Context, hashKey string, timeout time.Duration, fnrpc func(interface{}) error) error {
+	var err error
+	funcName := GetFuncName(3)
+	if funcName == "rpc" {
+		funcName = GetFuncName(4)
+	}
+	retry := GetFuncRetry(m.clientLookup.ServKey(), funcName)
+	timeout = GetFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
+	for ; retry >= 0; retry-- {
+		err = m.do(ctx, hashKey, funcName, timeout, fnrpc)
+		if err == nil {
+			return nil
+		}
+	}
+	return err
+}
+
+func (m *ClientThrift) do(ctx context.Context, hashKey, funcName string, timeout time.Duration, fnrpc func(interface{}) error) error {
 	si, rc := m.route(ctx, hashKey)
 	if rc == nil {
 		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
@@ -75,11 +92,6 @@ func (m *ClientThrift) RpcWithContext(ctx context.Context, hashKey string, timeo
 	defer m.router.Post(si)
 
 	// 目前Adapter内通过Rpc函数调用RpcWithContext时层次会出错，直接调用RpcWithContext和RpcWithContextV2的层次是正确的，所以修正前者进行兼容
-	funcName := GetFuncName(3)
-	if funcName == "rpc" {
-		funcName = GetFuncName(4)
-	}
-	timeout = GetFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
 	call := func(si *ServInfo, rc rpcClientConn, timeout time.Duration, fnrpc func(interface{}) error) func() error {
 		return func() error {
 			return m.rpc(si, rc, timeout, fnrpc)
@@ -99,6 +111,20 @@ func (m *ClientThrift) RpcWithContext(ctx context.Context, hashKey string, timeo
 }
 
 func (m *ClientThrift) RpcWithContextV2(ctx context.Context, hashKey string, timeout time.Duration, fnrpc func(context.Context, interface{}) error) error {
+	var err error
+	funcName := GetFuncNameWithCtx(ctx, 3)
+	retry := GetFuncRetry(m.clientLookup.ServKey(), funcName)
+	timeout = GetFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
+	for ; retry >= 0; retry-- {
+		err = m.doWithContext(ctx, hashKey, funcName, timeout, fnrpc)
+		if err == nil {
+			return nil
+		}
+	}
+	return err
+}
+
+func (m *ClientThrift) doWithContext(ctx context.Context, hashKey, funcName string, timeout time.Duration, fnrpc func(context.Context, interface{}) error) error {
 	si, rc := m.route(ctx, hashKey)
 	if rc == nil {
 		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
@@ -110,8 +136,6 @@ func (m *ClientThrift) RpcWithContextV2(ctx context.Context, hashKey string, tim
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
-	funcName := GetFuncNameWithCtx(ctx, 3)
-	timeout = GetFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
 	call := func(si *ServInfo, rc rpcClientConn, timeout time.Duration, fnrpc func(context.Context, interface{}) error) func() error {
 		return func() error {
 			return m.rpcWithContext(ctx, si, rc, timeout, fnrpc)
@@ -128,7 +152,6 @@ func (m *ClientThrift) RpcWithContextV2(ctx context.Context, hashKey string, tim
 	err = m.breaker.Do(0, si.Servid, funcName, call, THRIFT, nil)
 	return err
 }
-
 func (m *ClientThrift) rpc(si *ServInfo, rc rpcClientConn, timeout time.Duration, fnrpc func(interface{}) error) error {
 	rc.SetTimeout(timeout)
 	c := rc.GetServiceClient()

@@ -38,6 +38,20 @@ func NewClientWrapperWithRouterType(cb ClientLookup, processor string, routerTyp
 }
 
 func (m *ClientWrapper) Do(hashKey string, timeout time.Duration, run func(addr string, timeout time.Duration) error) error {
+	var err error
+	funcName := GetFuncName(3)
+	retry := GetFuncRetry(m.clientLookup.ServKey(), funcName)
+	timeout = GetFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
+	for ; retry >= 0; retry-- {
+		err = m.do(hashKey, funcName, timeout, run)
+		if err == nil {
+			return nil
+		}
+	}
+	return err
+}
+
+func (m *ClientWrapper) do(hashKey, funcName string, timeout time.Duration, run func(addr string, timeout time.Duration) error) error {
 	fun := "ClientWrapper.Do -->"
 	si := m.router.Route(context.TODO(), m.processor, hashKey)
 	if si == nil {
@@ -46,8 +60,6 @@ func (m *ClientWrapper) Do(hashKey string, timeout time.Duration, run func(addr 
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
-	funcName := GetFuncName(3)
-	timeout = GetFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
 	call := func(addr string, timeout time.Duration) func() error {
 		return func() error {
 			return run(addr, timeout)

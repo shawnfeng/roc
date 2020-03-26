@@ -125,6 +125,22 @@ func (m *ClientGrpc) Rpc(hashKey string, fnrpc func(interface{}) error) error {
 }
 
 func (m *ClientGrpc) RpcWithContext(ctx context.Context, hashKey string, fnrpc func(interface{}) error) error {
+	var err error
+	funcName := GetFuncName(3)
+	if funcName == "grpcInvoke" {
+		funcName = GetFuncName(4)
+	}
+	retry := GetFuncRetry(m.clientLookup.ServKey(), funcName)
+	for ; retry >= 0; retry-- {
+		err = m.do(ctx, hashKey, funcName, fnrpc)
+		if err == nil {
+			return nil
+		}
+	}
+	return err
+}
+
+func (m *ClientGrpc) do(ctx context.Context, hashKey, funcName string, fnrpc func(interface{}) error) error {
 	si, rc := m.route(ctx, hashKey)
 	if rc == nil {
 		return fmt.Errorf("not find grpc service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
@@ -140,11 +156,6 @@ func (m *ClientGrpc) RpcWithContext(ctx context.Context, hashKey string, fnrpc f
 	}(si, rc, fnrpc)
 
 	// 目前Adapter内通过Rpc函数调用RpcWithContext时层次会出错，直接调用RpcWithContext和RpcWithContextV2的层次是正确的，所以修正前者进行兼容
-	funcName := GetFuncName(3)
-	if funcName == "grpcInvoke" {
-		funcName = GetFuncName(4)
-	}
-
 	var err error
 	st := stime.NewTimeStat()
 	defer func() {
@@ -157,6 +168,19 @@ func (m *ClientGrpc) RpcWithContext(ctx context.Context, hashKey string, fnrpc f
 }
 
 func (m *ClientGrpc) RpcWithContextV2(ctx context.Context, hashKey string, fnrpc func(context.Context, interface{}) error) error {
+	var err error
+	funcName := GetFuncNameWithCtx(ctx, 3)
+	retry := GetFuncRetry(m.clientLookup.ServKey(), funcName)
+	for ; retry >= 0; retry-- {
+		err = m.doWithContext(ctx, hashKey, funcName, fnrpc)
+		if err == nil {
+			return nil
+		}
+	}
+	return err
+}
+
+func (m *ClientGrpc) doWithContext(ctx context.Context, hashKey, funcName string, fnrpc func(context.Context, interface{}) error) error {
 	si, rc := m.route(ctx, hashKey)
 	if rc == nil {
 		return fmt.Errorf("not find grpc service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
@@ -173,8 +197,6 @@ func (m *ClientGrpc) RpcWithContextV2(ctx context.Context, hashKey string, fnrpc
 			return m.rpcWithContext(ctx, si, rc, fnrpc)
 		}
 	}(si, rc, fnrpc)
-
-	funcName := GetFuncNameWithCtx(ctx, 3)
 
 	var err error
 	st := stime.NewTimeStat()

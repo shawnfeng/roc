@@ -14,6 +14,8 @@ import (
 const (
 	// Timeout timeout(ms)
 	Timeout = "timeoutMsec"
+	// Retry ...
+	Retry = "retry"
 	// Default ...
 	Default = "Default"
 )
@@ -69,4 +71,19 @@ func GetFuncTimeout(servKey, funcName string, defaultTime time.Duration) time.Du
 	}
 
 	return time.Duration(t) * time.Millisecond
+}
+
+// GetFuncRetry get func retry conf
+func GetFuncRetry(servKey, funcName string) int {
+	key := xutil.Concat(servKey, ".", funcName, ".", Retry)
+	var t int
+	var exist bool
+	confCenter := GetConfigCenter()
+	if confCenter != nil {
+		if t, exist = confCenter.GetIntWithNamespace(context.TODO(), RPCConfNamespace, key); !exist {
+			defaultKey := xutil.Concat(servKey, ".", Default, ".", Retry)
+			t, _ = confCenter.GetIntWithNamespace(context.TODO(), RPCConfNamespace, defaultKey)
+		}
+	}
+	return t
 }
