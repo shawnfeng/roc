@@ -174,7 +174,7 @@ func (m *ClientGrpc) RpcWithContextV2(ctx context.Context, hashKey string, fnrpc
 		}
 	}(si, rc, fnrpc)
 
-	funcName := GetFuncName(3)
+	funcName := GetFuncNameWithCtx(ctx, 3)
 
 	var err error
 	st := stime.NewTimeStat()

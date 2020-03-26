@@ -46,13 +46,14 @@ func (m *ClientWrapper) Do(hashKey string, timeout time.Duration, run func(addr 
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
+	funcName := GetFuncName(3)
+	timeout = GetFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
 	call := func(addr string, timeout time.Duration) func() error {
 		return func() error {
 			return run(addr, timeout)
 		}
 	}(si.Addr, timeout)
 
-	funcName := GetFuncName(3)
 	var err error
 	st := stime.NewTimeStat()
 	defer func() {
@@ -86,4 +87,3 @@ func (m *ClientWrapper) Call(ctx context.Context, hashKey, funcName string, run 
 	err = m.breaker.Do(0, si.Servid, funcName, call, HTTP, nil)
 	return err
 }
-

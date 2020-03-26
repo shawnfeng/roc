@@ -11,6 +11,10 @@ import (
 	"sync"
 	"time"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig/apollo"
+
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
+
 	etcd "github.com/coreos/etcd/client"
 	"github.com/shawnfeng/sutil/dbrouter"
 	"github.com/shawnfeng/sutil/sconf"
@@ -54,6 +58,9 @@ const (
 
 	//预演环境分组标识
 	ENV_GROUP_PRE = "pre"
+
+	// RPCConfNamespace RPC Apollo Conf Namespace
+	RPCConfNamespace = "rpc.client"
 )
 
 type configEtcd struct {
@@ -64,7 +71,8 @@ type configEtcd struct {
 type ServBaseV2 struct {
 	IdGenerator
 
-	confEtcd configEtcd
+	confEtcd     configEtcd
+	configCenter xconfig.ConfigCenter
 
 	dbLocation   string
 	servLocation string
@@ -384,6 +392,11 @@ func (m *ServBaseV2) Dbrouter() *dbrouter.Router {
 	return m.dbRouter
 }
 
+// ConfigCenter ...
+func (m *ServBaseV2) ConfigCenter() xconfig.ConfigCenter {
+	return m.configCenter
+}
+
 func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 	fun := "ServBaseV2.ServConfig -->"
 	// 获取全局配置
@@ -460,6 +473,11 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 		}
 	}
 
+	configCenter, err := xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, servLocation, []string{RPCConfNamespace})
+	if err != nil {
+		return nil, err
+	}
+
 	reg := &ServBaseV2{
 		confEtcd:             confEtcd,
 		dbLocation:           dbloc,
@@ -472,7 +490,8 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 		hearts:               make(map[string]*distLockHeart),
 		regInfos:             make(map[string]string),
 
-		dbRouter: dr,
+		dbRouter:     dr,
+		configCenter: configCenter,
 
 		envGroup: envGroup,
 	}

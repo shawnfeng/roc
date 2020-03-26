@@ -14,6 +14,8 @@ import (
 	"sync"
 	"syscall"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
+
 	stat "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/sys"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 
@@ -35,7 +37,7 @@ const (
 	MODEL_MASTERSLAVE = 1
 )
 
-var server= NewServer()
+var server = NewServer()
 
 // Server ...
 type Server struct {
@@ -46,7 +48,7 @@ type Server struct {
 }
 
 // NewServer create new server
-func NewServer() *Server{
+func NewServer() *Server {
 	return &Server{
 		servers: make(map[string]interface{}),
 	}
@@ -353,7 +355,7 @@ func (m *Server) initProcessor(sb *ServBaseV2, procs map[string]Processor) error
 		} else {
 			err := p.Init()
 			if err != nil {
-				slog.Errorf("%s processor:%s init err:%s", fun, err)
+				slog.Errorf("%s processor:%s init err:%s", fun, n, err)
 				return fmt.Errorf("processor:%s init err:%s", n, err)
 			}
 		}
@@ -509,6 +511,14 @@ func GetServId() (servId int) {
 		servId = server.sbase.Servid()
 	}
 	return
+}
+
+// GetConfigCenter get serv conf center
+func GetConfigCenter() xconfig.ConfigCenter {
+	if server.sbase != nil {
+		return server.sbase.ConfigCenter()
+	}
+	return nil
 }
 
 // Test 方便开发人员在本地启动服务、测试，实例信息不会注册到etcd

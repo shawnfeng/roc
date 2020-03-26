@@ -74,17 +74,17 @@ func (m *ClientThrift) RpcWithContext(ctx context.Context, hashKey string, timeo
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
-	call := func(si *ServInfo, rc rpcClientConn, timeout time.Duration, fnrpc func(interface{}) error) func() error {
-		return func() error {
-			return m.rpc(si, rc, timeout, fnrpc)
-		}
-	}(si, rc, timeout, fnrpc)
-
 	// 目前Adapter内通过Rpc函数调用RpcWithContext时层次会出错，直接调用RpcWithContext和RpcWithContextV2的层次是正确的，所以修正前者进行兼容
 	funcName := GetFuncName(3)
 	if funcName == "rpc" {
 		funcName = GetFuncName(4)
 	}
+	timeout = GetFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
+	call := func(si *ServInfo, rc rpcClientConn, timeout time.Duration, fnrpc func(interface{}) error) func() error {
+		return func() error {
+			return m.rpc(si, rc, timeout, fnrpc)
+		}
+	}(si, rc, timeout, fnrpc)
 
 	var err error
 	// record request duration
@@ -110,13 +110,14 @@ func (m *ClientThrift) RpcWithContextV2(ctx context.Context, hashKey string, tim
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
+	funcName := GetFuncNameWithCtx(ctx, 3)
+	timeout = GetFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
 	call := func(si *ServInfo, rc rpcClientConn, timeout time.Duration, fnrpc func(context.Context, interface{}) error) func() error {
 		return func() error {
 			return m.rpcWithContext(ctx, si, rc, timeout, fnrpc)
 		}
 	}(si, rc, timeout, fnrpc)
 
-	funcName := GetFuncName(3)
 	var err error
 	st := stime.NewTimeStat()
 	defer func() {
