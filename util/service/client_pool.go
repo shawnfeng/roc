@@ -9,6 +9,7 @@ import (
 )
 
 const (
+	defaultCapacity    = 32 // 初始连接wrapper数，可以比较小
 	defaultMaxCapacity = 512
 	defaultIdleTimeout = time.Second * 120
 )

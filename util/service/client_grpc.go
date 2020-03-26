@@ -48,7 +48,7 @@ func NewClientGrpcWithRouterType(cb ClientLookup, processor string, maxCapacity 
 		router:       NewRouter(routerType, cb),
 		fnFactory:    fn,
 	}
-	pool := NewClientPool(maxCapacity/2, maxCapacity, clientGrpc.newConn, cb.ServKey())
+	pool := NewClientPool(defaultCapacity, maxCapacity, clientGrpc.newConn, cb.ServKey())
 	clientGrpc.pool = pool
 
 	return clientGrpc
