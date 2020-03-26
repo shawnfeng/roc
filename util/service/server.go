@@ -15,6 +15,7 @@ import (
 	"syscall"
 
 	stat "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/sys"
+	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
@@ -22,8 +23,6 @@ import (
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/slog/statlog"
 	"github.com/shawnfeng/sutil/trace"
-
-	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 )
 
 const (
@@ -36,17 +35,19 @@ const (
 	MODEL_MASTERSLAVE = 1
 )
 
-var service = NewService()
+var server= NewServer()
 
-type Service struct {
+// Server ...
+type Server struct {
 	sbase ServBase
 
 	mutex   sync.Mutex
 	servers map[string]interface{}
 }
 
-func NewService() *Service {
-	return &Service{
+// NewServer create new server
+func NewServer() *Server{
+	return &Server{
 		servers: make(map[string]interface{}),
 	}
 }
@@ -63,7 +64,7 @@ type cmdArgs struct {
 	model         int
 }
 
-func (m *Service) parseFlag() (*cmdArgs, error) {
+func (m *Server) parseFlag() (*cmdArgs, error) {
 	var serv, logDir, skey, group string
 	var logMaxSize, logMaxBackups, sidOffset int
 	flag.IntVar(&logMaxSize, "logmaxsize", 0, "logMaxSize is the maximum size in megabytes of the log file")
@@ -96,8 +97,8 @@ func (m *Service) parseFlag() (*cmdArgs, error) {
 
 }
 
-func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) (map[string]*ServInfo, error) {
-	fun := "Service.loadDriver -->"
+func (m *Server) loadDriver(sb ServBase, procs map[string]Processor) (map[string]*ServInfo, error) {
+	fun := "Server.loadDriver -->"
 
 	infos := make(map[string]*ServInfo)
 
@@ -167,15 +168,15 @@ func (m *Service) loadDriver(sb ServBase, procs map[string]Processor) (map[strin
 	return infos, nil
 }
 
-func (m *Service) addServer(processor string, server interface{}) {
+func (m *Server) addServer(processor string, server interface{}) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
 	m.servers[processor] = server
 }
 
-func (m *Service) reloadRouter(processor string, driver interface{}) error {
-	//fun := "Service.reloadRouter -->"
+func (m *Server) reloadRouter(processor string, driver interface{}) error {
+	//fun := "Server.reloadRouter -->"
 
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
@@ -187,8 +188,9 @@ func (m *Service) reloadRouter(processor string, driver interface{}) error {
 	return reloadRouter(processor, server, driver)
 }
 
-func (m *Service) Serve(confEtcd configEtcd, initfn func(ServBase) error, procs map[string]Processor) error {
-	fun := "Service.Serve -->"
+// Serve handle request and return response
+func (m *Server) Serve(confEtcd configEtcd, initfn func(ServBase) error, procs map[string]Processor) error {
+	fun := "Server.Serve -->"
 
 	args, err := m.parseFlag()
 	if err != nil {
@@ -199,8 +201,8 @@ func (m *Service) Serve(confEtcd configEtcd, initfn func(ServBase) error, procs 
 	return m.Init(confEtcd, args, initfn, procs)
 }
 
-func (m *Service) initLog(sb *ServBaseV2, args *cmdArgs) error {
-	fun := "Service.initLog -->"
+func (m *Server) initLog(sb *ServBaseV2, args *cmdArgs) error {
+	fun := "Server.initLog -->"
 
 	logDir := args.logDir
 	var logConfig struct {
@@ -237,8 +239,8 @@ func (m *Service) initLog(sb *ServBaseV2, args *cmdArgs) error {
 	return nil
 }
 
-func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) error, procs map[string]Processor) error {
-	fun := "Service.Init -->"
+func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) error, procs map[string]Processor) error {
+	fun := "Server.Init -->"
 
 	servLoc := args.servLoc
 	sessKey := args.sessKey
@@ -259,8 +261,8 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 	defer slog.Sync()
 	defer statlog.Sync()
 
-	// NOTE: initBackdoork会启动http服务，但由于health check的http请求不需要追踪，且它是判断服务启动与否的关键，所以initTracer可以放在它之后进行
-	m.initBackdoork(sb)
+	// NOTE: initBackdoor会启动http服务，但由于health check的http请求不需要追踪，且它是判断服务启动与否的关键，所以initTracer可以放在它之后进行
+	m.initBackdoor(sb)
 
 	err = m.handleModel(sb, servLoc, args.model)
 	if err != nil {
@@ -286,12 +288,15 @@ func (m *Service) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase)
 
 	sb.SetGroupAndDisable(args.group, args.disable)
 	m.initMetric(sb)
+
+	slog.Infoln("server start success...")
+
 	m.awaitSignal(sb)
 
 	return nil
 }
 
-func (m *Service) awaitSignal(sb *ServBaseV2) {
+func (m *Server) awaitSignal(sb *ServBaseV2) {
 	c := make(chan os.Signal, 1)
 	signals := []os.Signal{syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGPIPE}
 	signal.Reset(signals...)
@@ -303,7 +308,7 @@ func (m *Service) awaitSignal(sb *ServBaseV2) {
 			slog.Infof("receive a signal:%s", s.String())
 
 			if s.String() == syscall.SIGTERM.String() {
-				slog.Infof("receive a signal:%s, stop service", s.String())
+				slog.Infof("receive a signal:%s, stop server", s.String())
 				sb.Stop()
 				<-(chan int)(nil)
 			}
@@ -312,8 +317,8 @@ func (m *Service) awaitSignal(sb *ServBaseV2) {
 
 }
 
-func (m *Service) handleModel(sb *ServBaseV2, servLoc string, model int) error {
-	fun := "Service.handleModel -->"
+func (m *Server) handleModel(sb *ServBaseV2, servLoc string, model int) error {
+	fun := "Server.handleModel -->"
 
 	if model == MODEL_MASTERSLAVE {
 		lockKey := fmt.Sprintf("%s-master-slave", servLoc)
@@ -328,8 +333,8 @@ func (m *Service) handleModel(sb *ServBaseV2, servLoc string, model int) error {
 	return nil
 }
 
-func (m *Service) initProcessor(sb *ServBaseV2, procs map[string]Processor) error {
-	fun := "Service.initProcessor -->"
+func (m *Server) initProcessor(sb *ServBaseV2, procs map[string]Processor) error {
+	fun := "Server.initProcessor -->"
 
 	for n, p := range procs {
 		if len(n) == 0 {
@@ -362,7 +367,7 @@ func (m *Service) initProcessor(sb *ServBaseV2, procs map[string]Processor) erro
 
 	err = sb.RegisterService(infos)
 	if err != nil {
-		slog.Errorf("%s regist service err:%s", fun, err)
+		slog.Errorf("%s register service err:%s", fun, err)
 		return err
 	}
 
@@ -376,8 +381,8 @@ func (m *Service) initProcessor(sb *ServBaseV2, procs map[string]Processor) erro
 	return nil
 }
 
-func (m *Service) initTracer(servLoc string) error {
-	fun := "Service.initTracer -->"
+func (m *Server) initTracer(servLoc string) error {
+	fun := "Server.initTracer -->"
 
 	err := trace.InitDefaultTracer(servLoc)
 	if err != nil {
@@ -392,8 +397,8 @@ func (m *Service) initTracer(servLoc string) error {
 	return err
 }
 
-func (m *Service) initBackdoork(sb *ServBaseV2) error {
-	fun := "Service.initBackdoork -->"
+func (m *Server) initBackdoor(sb *ServBaseV2) error {
+	fun := "Server.initBackdoor -->"
 
 	backdoor := &backDoorHttp{}
 	err := backdoor.Init()
@@ -416,8 +421,8 @@ func (m *Service) initBackdoork(sb *ServBaseV2) error {
 	return err
 }
 
-func (m *Service) initMetric(sb *ServBaseV2) error {
-	fun := "Service.initMetric -->"
+func (m *Server) initMetric(sb *ServBaseV2) error {
+	fun := "Server.initMetric -->"
 
 	metrics := xprom.NewMetricProcessor()
 	err := metrics.Init()
@@ -425,9 +430,9 @@ func (m *Service) initMetric(sb *ServBaseV2) error {
 		slog.Warnf("%s init metrics err:%s", fun, err)
 	}
 
-	minfos, err := m.loadDriver(sb, map[string]Processor{"_PROC_METRICS": metrics})
+	metricInfo, err := m.loadDriver(sb, map[string]Processor{"_PROC_METRICS": metrics})
 	if err == nil {
-		err = sb.RegisterMetrics(minfos)
+		err = sb.RegisterMetrics(metricInfo)
 		if err != nil {
 			slog.Warnf("%s register backdoor err:%s", fun, err)
 		}
@@ -439,19 +444,21 @@ func (m *Service) initMetric(sb *ServBaseV2) error {
 }
 
 func ReloadRouter(processor string, driver interface{}) error {
-	return service.reloadRouter(processor, driver)
+	return server.reloadRouter(processor, driver)
 }
 
-func Serve(etcds []string, baseLoc string, initfn func(ServBase) error, procs map[string]Processor) error {
-	return service.Serve(configEtcd{etcds, baseLoc}, initfn, procs)
+// Serve app call Serve to start server, initLogic is the init func in app, logic.InitLogic,
+func Serve(etcdAddrs []string, baseLoc string, initLogic func(ServBase) error, processors map[string]Processor) error {
+	return server.Serve(configEtcd{etcdAddrs, baseLoc}, initLogic, processors)
 }
 
-func MasterSlave(etcds []string, baseLoc string, initfn func(ServBase) error, procs map[string]Processor) error {
-	return service.MasterSlave(configEtcd{etcds, baseLoc}, initfn, procs)
+// MasterSlave Leader-Follower模式，通过etcd distribute lock进行选举
+func MasterSlave(etcdAddrs []string, baseLoc string, initLogic func(ServBase) error, processors map[string]Processor) error {
+	return server.MasterSlave(configEtcd{etcdAddrs, baseLoc}, initLogic, processors)
 }
 
-func (m *Service) MasterSlave(confEtcd configEtcd, initfn func(ServBase) error, procs map[string]Processor) error {
-	fun := "Service.MasterSlave -->"
+func (m *Server) MasterSlave(confEtcd configEtcd, initLogic func(ServBase) error, processors map[string]Processor) error {
+	fun := "Server.MasterSlave -->"
 
 	args, err := m.parseFlag()
 	if err != nil {
@@ -460,10 +467,11 @@ func (m *Service) MasterSlave(confEtcd configEtcd, initfn func(ServBase) error, 
 	}
 	args.model = MODEL_MASTERSLAVE
 
-	return m.Init(confEtcd, args, initfn, procs)
+	return m.Init(confEtcd, args, initLogic, processors)
 }
 
-func Init(etcds []string, baseLoc string, servLoc, servKey, logDir string, initfn func(ServBase) error, procs map[string]Processor) error {
+// Init use in test of application
+func Init(etcdAddrs []string, baseLoc string, servLoc, servKey, logDir string, initLogic func(ServBase) error, processors map[string]Processor) error {
 	args := &cmdArgs{
 		logMaxSize:    0,
 		logMaxBackups: 0,
@@ -471,16 +479,16 @@ func Init(etcds []string, baseLoc string, servLoc, servKey, logDir string, initf
 		logDir:        logDir,
 		sessKey:       servKey,
 	}
-	return service.Init(configEtcd{etcds, baseLoc}, args, initfn, procs)
+	return server.Init(configEtcd{etcdAddrs, baseLoc}, args, initLogic, processors)
 }
 
 func GetServBase() ServBase {
-	return service.sbase
+	return server.sbase
 }
 
 func GetServName() (servName string) {
-	if service.sbase != nil {
-		servName = service.sbase.Servname()
+	if server.sbase != nil {
+		servName = server.sbase.Servname()
 	}
 	return
 }
@@ -497,13 +505,14 @@ func GetGroupAndService() (group, service string) {
 }
 
 func GetServId() (servId int) {
-	if service.sbase != nil {
-		servId = service.sbase.Servid()
+	if server.sbase != nil {
+		servId = server.sbase.Servid()
 	}
 	return
 }
 
-func Test(etcds []string, baseLoc, servLoc string, initfn func(ServBase) error) error {
+// Test 方便开发人员在本地启动服务、测试，实例信息不会注册到etcd
+func Test(etcdAddrs []string, baseLoc, servLoc string, initLogic func(ServBase) error) error {
 	args := &cmdArgs{
 		logMaxSize:    0,
 		logMaxBackups: 0,
@@ -512,5 +521,5 @@ func Test(etcds []string, baseLoc, servLoc string, initfn func(ServBase) error) 
 		logDir:        "console",
 		disable:       true,
 	}
-	return service.Init(configEtcd{etcds, baseLoc}, args, initfn, nil)
+	return server.Init(configEtcd{etcdAddrs, baseLoc}, args, initLogic, nil)
 }

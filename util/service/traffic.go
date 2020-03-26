@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"strings"
+
 	"github.com/opentracing/opentracing-go"
 	"github.com/shawnfeng/sutil/scontext"
 	"github.com/shawnfeng/sutil/slog/slog"
 	"github.com/uber/jaeger-client-go"
-	"net/http"
-	"strings"
 )
 
 const (

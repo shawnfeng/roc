@@ -6,10 +6,18 @@ package rocserv
 
 import (
 	"context"
+	"sync"
+
 	"github.com/shawnfeng/sutil/scontext"
 	"github.com/shawnfeng/sutil/slog"
-	"sync"
 )
+
+// Router router include consistent hash、load of concurrent、concrete addr
+type Router interface {
+	Route(ctx context.Context, processor, key string) *ServInfo
+	Pre(s *ServInfo) error
+	Post(s *ServInfo) error
+}
 
 func NewRouter(routerType int, cb ClientLookup) Router {
 	fun := "NewRouter -->"
@@ -27,10 +35,8 @@ func NewRouter(routerType int, cb ClientLookup) Router {
 	}
 }
 
-type Router interface {
-	Route(ctx context.Context, processor, key string) *ServInfo
-	Pre(s *ServInfo) error
-	Post(s *ServInfo) error
+type Hash struct {
+	cb ClientLookup
 }
 
 func NewHash(cb ClientLookup) *Hash {
@@ -39,8 +45,12 @@ func NewHash(cb ClientLookup) *Hash {
 	}
 }
 
-type Hash struct {
-	cb ClientLookup
+func (m *Hash) Pre(s *ServInfo) error {
+	return nil
+}
+
+func (m *Hash) Post(s *ServInfo) error {
+	return nil
 }
 
 func (m *Hash) Route(ctx context.Context, processor, key string) *ServInfo {
@@ -53,12 +63,10 @@ func (m *Hash) Route(ctx context.Context, processor, key string) *ServInfo {
 	return s
 }
 
-func (m *Hash) Pre(s *ServInfo) error {
-	return nil
-}
-
-func (m *Hash) Post(s *ServInfo) error {
-	return nil
+type Concurrent struct {
+	cb      ClientLookup
+	mutex   sync.Mutex
+	counter map[string]int64
 }
 
 func NewConcurrent(cb ClientLookup) *Concurrent {
@@ -68,10 +76,20 @@ func NewConcurrent(cb ClientLookup) *Concurrent {
 	}
 }
 
-type Concurrent struct {
-	cb      ClientLookup
-	mutex   sync.Mutex
-	counter map[string]int64
+func (m *Concurrent) Pre(s *ServInfo) error {
+	m.mutex.Lock()
+	m.counter[s.Addr] += 1
+	m.mutex.Unlock()
+
+	return nil
+}
+
+func (m *Concurrent) Post(s *ServInfo) error {
+	m.mutex.Lock()
+	m.counter[s.Addr] -= 1
+	m.mutex.Unlock()
+
+	return nil
 }
 
 func (m *Concurrent) Route(ctx context.Context, processor, key string) *ServInfo {
@@ -126,28 +144,20 @@ func (m *Concurrent) route(group, processor, key string) *ServInfo {
 	return s
 }
 
-func (m *Concurrent) Pre(s *ServInfo) error {
-	m.mutex.Lock()
-	m.counter[s.Addr] += 1
-	m.mutex.Unlock()
-
-	return nil
-}
-
-func (m *Concurrent) Post(s *ServInfo) error {
-	m.mutex.Lock()
-	m.counter[s.Addr] -= 1
-	m.mutex.Unlock()
-
-	return nil
+type Addr struct {
+	cb ClientLookup
 }
 
 func NewAddr(cb ClientLookup) *Addr {
 	return &Addr{cb: cb}
 }
 
-type Addr struct {
-	cb ClientLookup
+func (m *Addr) Pre(s *ServInfo) error {
+	return nil
+}
+
+func (m *Addr) Post(s *ServInfo) error {
+	return nil
 }
 
 // NOTE: 这里复用 key，作为 addr，用途同样是从一堆服务实例中找到目标实例
@@ -175,12 +185,4 @@ func (m *Addr) Route(ctx context.Context, processor, addr string) (si *ServInfo)
 	}
 
 	return
-}
-
-func (m *Addr) Pre(s *ServInfo) error {
-	return nil
-}
-
-func (m *Addr) Post(s *ServInfo) error {
-	return nil
 }

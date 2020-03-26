@@ -6,6 +6,9 @@ package rocserv
 
 import (
 	"fmt"
+	"net"
+	"net/http"
+
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
 	"github.com/julienschmidt/httprouter"
@@ -14,8 +17,6 @@ import (
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/snetutil"
 	"github.com/shawnfeng/sutil/trace"
-	"net"
-	"net/http"
 )
 
 func powerHttp(addr string, router *httprouter.Router) (string, error) {
