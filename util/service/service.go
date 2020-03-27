@@ -7,6 +7,10 @@ package rocserv
 import (
 	"encoding/json"
 	"fmt"
+
+	xmgo "gitlab.pri.ibanyu.com/middleware/seaweed/xmgo/manager"
+	xsql "gitlab.pri.ibanyu.com/middleware/seaweed/xsql/manager"
+
 	"strings"
 	"sync"
 	"time"
@@ -473,7 +477,7 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 		}
 	}
 
-	configCenter, err := xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, servLocation, []string{RPCConfNamespace})
+	configCenter, err := xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, servLocation, []string{RPCConfNamespace, xsql.MysqlConfNamespace, xmgo.MongoConfNamespace})
 	if err != nil {
 		return nil, err
 	}
