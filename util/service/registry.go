@@ -671,3 +671,7 @@ func (m *ClientEtcdV2) ServKey() string {
 func (m *ClientEtcdV2) ServPath() string {
 	return m.servPath
 }
+
+func (m *ClientEtcdV2) String() string {
+	return fmt.Sprintf("service_key: %s, service_path: %s", m.servKey, m.servPath)
+}
