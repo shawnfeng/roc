@@ -175,8 +175,6 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
 		index := uint64(0)
 		if r != nil {
 			index = r.Index
-			sresp, _ := json.Marshal(r)
-			slog.Infof("%s init get action:%s nodes:%d index:%d servPath:%s resp:%s", fun, r.Action, len(r.Node.Nodes), r.Index, path, sresp)
 		}
 
 		// 每次循环都设置下，测试发现放外边不好使
@@ -534,15 +532,13 @@ func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 			shash[group] = hash
 		}
 	}
-	slog.Infof("%s path:%s serv:%d", fun, m.servPath, len(slist))
 
 	m.muServlist.Lock()
 	defer m.muServlist.Unlock()
 
 	m.servHash = shash
 	m.servCopy = scopy
-
-	slog.Infof("%s serv:%s servcopy:%s", fun, m.servPath, m.servCopy)
+	return
 }
 
 func (m *ClientEtcdV2) GetServAddr(processor, key string) *ServInfo {
