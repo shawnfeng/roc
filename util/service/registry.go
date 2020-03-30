@@ -344,8 +344,6 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 
 		var reg, manual string
 		for _, nc := range n.Nodes {
-			slog.Infof("%s dist key:%s value:%s", fun, nc.Key, nc.Value)
-
 			if nc.Key == n.Key+"/"+BASE_LOC_REG_SERV {
 				reg = nc.Value
 			} else if nc.Key == n.Key+"/"+BASE_LOC_REG_MANUAL {
