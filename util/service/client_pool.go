@@ -38,7 +38,7 @@ func (m *ClientPool) Get(addr string) (rpcClientConn, error) {
 	defer cancel()
 	c, err := cp.Get(ctx)
 	if err != nil {
-		slog.Errorf("%s get conn from connection pool failed, addr: %s", fun, addr)
+		slog.Errorf("%s get conn from connection pool failed, callee_service: %s, addr: %s, err: %v", fun, m.calleeServiceKey, addr, err)
 		return nil, err
 	}
 	return c.(rpcClientConn), nil
