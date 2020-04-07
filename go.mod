@@ -17,7 +17,7 @@ require (
 	github.com/shawnfeng/sutil v1.3.36
 	github.com/stretchr/testify v1.4.0
 	github.com/uber/jaeger-client-go v2.20.1+incompatible
-	gitlab.pri.ibanyu.com/middleware/seaweed v1.1.1-0.20200326102838-edbcc613766c
+	gitlab.pri.ibanyu.com/middleware/seaweed v1.1.3
 	// 这个库，老的依赖拷贝没有.git目录，不知道对应哪个版本，这个就用最新的吧
 	// 官方的库应该问题不大
 
