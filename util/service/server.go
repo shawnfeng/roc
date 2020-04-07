@@ -355,7 +355,7 @@ func (m *Server) initProcessor(sb *ServBaseV2, procs map[string]Processor) error
 		} else {
 			err := p.Init()
 			if err != nil {
-				slog.Errorf("%s processor:%s init err:%s", fun, n, err)
+				slog.Errorf("%s processor:%s init err:%v", fun, n, err)
 				return fmt.Errorf("processor:%s init err:%s", n, err)
 			}
 		}
