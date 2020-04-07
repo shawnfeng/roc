@@ -12,7 +12,6 @@ require (
 	github.com/prometheus/client_golang v1.2.1
 	github.com/sdming/gosnow v0.0.0-20130403030620-3a05c415e886
 	github.com/shawnfeng/consistent v1.0.3
-	github.com/shawnfeng/dbrouter v1.0.3-0.20190227065045-efab6e6f8826
 	github.com/shawnfeng/hystrix-go v0.0.0-20190320120533-5e2bc39f173a
 	github.com/shawnfeng/sutil v1.3.36
 	github.com/stretchr/testify v1.4.0
