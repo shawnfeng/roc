@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"strings"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
+
 	etcd "github.com/coreos/etcd/client"
 	"github.com/shawnfeng/sutil/dbrouter"
 )
@@ -116,4 +118,7 @@ type ServBase interface {
 
 	// db router
 	Dbrouter() *dbrouter.Router
+
+	// conf center
+	ConfigCenter() xconfig.ConfigCenter
 }
