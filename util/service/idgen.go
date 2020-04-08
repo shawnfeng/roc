@@ -22,9 +22,9 @@ import (
 // id生成逻辑
 type IdGenerator struct {
 	workerID int
-	mu     sync.Mutex
-	slow   map[string]*slowid.Slowid
-	snow   *gosnow.SnowFlake
+	mu       sync.Mutex
+	slow     map[string]*slowid.Slowid
+	snow     *gosnow.SnowFlake
 }
 
 func (m *IdGenerator) GenSlowId(tp string) (int64, error) {
@@ -170,7 +170,7 @@ func retryGenSid(client etcd.KeysAPI, path, skey string, try int) (int, error) {
 }
 
 func initSnowflake(sid int) (*gosnow.SnowFlake, error) {
-	if sid< 0 {
+	if sid < 0 {
 		return nil, fmt.Errorf("init snowflake use nagtive servid")
 	}
 	gosnow.Since = time.Date(2014, 11, 1, 0, 0, 0, 0, time.UTC).UnixNano() / 1000000

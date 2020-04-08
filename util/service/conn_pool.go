@@ -3,10 +3,10 @@ package rocserv
 import (
 	"context"
 	"errors"
-	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"sync"
 	"time"
 
+	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil/sync2"
 

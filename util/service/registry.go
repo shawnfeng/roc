@@ -6,6 +6,7 @@
 package rocserv
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -14,11 +15,11 @@ import (
 	"sync"
 	"time"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
+
 	etcd "github.com/coreos/etcd/client"
 	"github.com/shawnfeng/consistent"
 	"github.com/shawnfeng/sutil/slog"
-	"github.com/shawnfeng/sutil/stime"
-	"golang.org/x/net/context"
 )
 
 type servCopyStr struct {
@@ -207,7 +208,7 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
 func (m *ClientEtcdV2) watch(path string, handler func(*etcd.Response), d time.Duration) {
 	fun := "ClientEtcdV2.watch -->"
 
-	backoff := stime.NewBackOffCtrl(time.Millisecond*100, d)
+	backoff := xtime.NewBackOffCtrl(time.Millisecond*100, d)
 
 	firstSync := make(chan bool)
 	var firstOnce sync.Once

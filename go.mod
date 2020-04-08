@@ -8,7 +8,6 @@ require (
 	github.com/julienschmidt/httprouter v1.2.0
 	github.com/opentracing-contrib/go-grpc v0.0.0-20180928155321-4b5a12d3ff02
 	github.com/opentracing-contrib/go-stdlib v0.0.0-20190519235532-cf7a6c988dc9
-	github.com/opentracing/opentracing-go v1.1.0
 	github.com/prometheus/client_golang v1.2.1
 	github.com/sdming/gosnow v0.0.0-20130403030620-3a05c415e886
 	github.com/shawnfeng/consistent v1.0.3
@@ -16,10 +15,7 @@ require (
 	github.com/shawnfeng/sutil v1.3.36
 	github.com/stretchr/testify v1.4.0
 	github.com/uber/jaeger-client-go v2.20.1+incompatible
-	gitlab.pri.ibanyu.com/middleware/seaweed v1.1.3
-	// 这个库，老的依赖拷贝没有.git目录，不知道对应哪个版本，这个就用最新的吧
-	// 官方的库应该问题不大
-
+	gitlab.pri.ibanyu.com/middleware/seaweed v1.1.4
 	golang.org/x/net v0.0.0-20191002035440-2ec189313ef0
 	google.golang.org/grpc v1.20.0
 

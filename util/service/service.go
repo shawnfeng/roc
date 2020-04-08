@@ -5,27 +5,23 @@
 package rocserv
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-
-	xmgo "gitlab.pri.ibanyu.com/middleware/seaweed/xmgo/manager"
-	xsql "gitlab.pri.ibanyu.com/middleware/seaweed/xsql/manager"
-
 	"strings"
 	"sync"
 	"time"
 
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig/apollo"
-
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig/apollo"
+	xmgo "gitlab.pri.ibanyu.com/middleware/seaweed/xmgo/manager"
+	xsql "gitlab.pri.ibanyu.com/middleware/seaweed/xsql/manager"
 
 	etcd "github.com/coreos/etcd/client"
 	"github.com/shawnfeng/sutil/dbrouter"
-	"github.com/shawnfeng/sutil/sconf"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/slowid"
 	"github.com/shawnfeng/sutil/ssync"
-	"golang.org/x/net/context"
 )
 
 const (
@@ -417,7 +413,7 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 		slog.Warnf("%s serv config value path:%s err:%s", fun, path, err)
 	}
 
-	tf := sconf.NewTierConf()
+	tf := xconfig.NewTierConf()
 	err = tf.Load(scfg_global)
 	if err != nil {
 		return err
