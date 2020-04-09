@@ -142,16 +142,15 @@ func (m *ServBaseV2) clearRegisterInfos() {
 	defer m.muReg.Unlock()
 
 	for path, _ := range m.regInfos {
-		_, err := m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions{
-			PrevExist: etcd.PrevExist,
-			TTL:       0,
-			Refresh:   true,
+		_, err := m.etcdClient.Delete(context.Background(), path, &etcd.DeleteOptions{
+			Recursive: true,
 		})
 		if err != nil {
-			slog.Warnf("%s path:%s err:%v", fun, path, err)
+			slog.Warnf("%s path: %s, err: %v", fun, path, err)
 		}
 	}
 }
+
 
 func (m *ServBaseV2) RegisterBackDoor(servs map[string]*ServInfo) error {
 	rd := &RegData{
