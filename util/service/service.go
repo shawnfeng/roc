@@ -151,7 +151,6 @@ func (m *ServBaseV2) clearRegisterInfos() {
 	}
 }
 
-
 func (m *ServBaseV2) RegisterBackDoor(servs map[string]*ServInfo) error {
 	rd := &RegData{
 		Servs: servs,
@@ -333,7 +332,7 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 			var err error
 			var r *etcd.Response
 			if !isCreated {
-				slog.Warnf("%s create idx: %d server_info: %s", fun, i, js)
+				slog.Warnf("%s create node, round: %d server_info: %s", fun, i, js)
 				r, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
 					TTL: time.Second * 60,
 				})
@@ -355,7 +354,7 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 
 			if err != nil {
 				isCreated = false
-				slog.Errorf("%s reg idx: %d,resp: %v,err: %v", fun, i, r, err)
+				slog.Warnf("%s register need create node, round: %d, err: %v", fun, i, err)
 
 			} else {
 				isCreated = true
