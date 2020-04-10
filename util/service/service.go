@@ -330,22 +330,21 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 	go func() {
 		for i := 0; ; i++ {
 			var err error
-			var r *etcd.Response
 			if !isCreated {
 				slog.Warnf("%s create node, round: %d server_info: %s", fun, i, js)
-				r, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
+				_, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
 					TTL: time.Second * 60,
 				})
 			} else {
 				if refresh {
 					// 在刷新ttl时候，不允许变更value
-					r, err = m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions{
+					_, err = m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions{
 						PrevExist: etcd.PrevExist,
 						TTL:       time.Second * 60,
 						Refresh:   true,
 					})
 				} else {
-					r, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
+					_, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
 						TTL: time.Second * 60,
 					})
 				}
