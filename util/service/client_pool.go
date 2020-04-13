@@ -17,12 +17,12 @@ const (
 // ClientPool every addr has a connection pool, each backend server has more than one addr, in client side, it's ClientPool
 type ClientPool struct {
 	calleeServiceKey string
-
-	capacity    int
-	maxCapacity int
-	idleTimeout time.Duration
-	clientPool  sync.Map
-	rpcFactory  func(addr string) (rpcClientConn, error)
+	mu               sync.Mutex
+	capacity         int
+	maxCapacity      int
+	idleTimeout      time.Duration
+	clientPool       sync.Map
+	rpcFactory       func(addr string) (rpcClientConn, error)
 }
 
 // NewClientPool constructor of pool, 如果连接数过低，修正为默认值
@@ -76,10 +76,17 @@ func (m *ClientPool) getPool(addr string) *ConnectionPool {
 	if ok == true {
 		cp = value.(*ConnectionPool)
 	} else {
-		slog.Infof("%s not found connection pool of callee_service: %s, addr: %s, create it", fun, m.calleeServiceKey, addr)
-		cp = NewConnectionPool(addr, m.capacity, m.maxCapacity, m.idleTimeout, m.rpcFactory, m.calleeServiceKey)
-		cp.Open()
-		m.clientPool.Store(addr, cp)
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		value, ok := m.clientPool.Load(addr)
+		if ok == true {
+			cp = value.(*ConnectionPool)
+		} else {
+			slog.Infof("%s not found connection pool of callee_service: %s, addr: %s, create it", fun, m.calleeServiceKey, addr)
+			cp = NewConnectionPool(addr, m.capacity, m.maxCapacity, m.idleTimeout, m.rpcFactory, m.calleeServiceKey)
+			cp.Open()
+			m.clientPool.Store(addr, cp)
+		}
 	}
 	return cp
 }
