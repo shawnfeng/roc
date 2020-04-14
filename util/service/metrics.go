@@ -7,8 +7,8 @@ import (
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 
-	"github.com/opentracing/opentracing-go"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/uber/jaeger-client-go"
 )
@@ -190,7 +190,7 @@ func collectAPM(ctx context.Context, calleeService, calleeEndpoint string, servI
 	fun := "collectAPM -->"
 	callerService := GetServName()
 
-	span := opentracing.SpanFromContext(ctx)
+	span := xtrace.SpanFromContext(ctx)
 	if span == nil {
 		// too many logs
 		//slog.Infof("%s span not found", fun)

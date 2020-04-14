@@ -5,27 +5,23 @@
 package rocserv
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-
-	xmgo "gitlab.pri.ibanyu.com/middleware/seaweed/xmgo/manager"
-	xsql "gitlab.pri.ibanyu.com/middleware/seaweed/xsql/manager"
-
 	"strings"
 	"sync"
 	"time"
 
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig/apollo"
-
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig/apollo"
+	xmgo "gitlab.pri.ibanyu.com/middleware/seaweed/xmgo/manager"
+	xsql "gitlab.pri.ibanyu.com/middleware/seaweed/xsql/manager"
 
 	etcd "github.com/coreos/etcd/client"
 	"github.com/shawnfeng/sutil/dbrouter"
-	"github.com/shawnfeng/sutil/sconf"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/slowid"
 	"github.com/shawnfeng/sutil/ssync"
-	"golang.org/x/net/context"
 )
 
 const (
@@ -146,13 +142,11 @@ func (m *ServBaseV2) clearRegisterInfos() {
 	defer m.muReg.Unlock()
 
 	for path, _ := range m.regInfos {
-		_, err := m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions{
-			PrevExist: etcd.PrevExist,
-			TTL:       0,
-			Refresh:   true,
+		_, err := m.etcdClient.Delete(context.Background(), path, &etcd.DeleteOptions{
+			Recursive: true,
 		})
 		if err != nil {
-			slog.Warnf("%s path:%s err:%v", fun, path, err)
+			slog.Warnf("%s path: %s, err: %v", fun, path, err)
 		}
 	}
 }
@@ -336,22 +330,21 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 	go func() {
 		for i := 0; ; i++ {
 			var err error
-			var r *etcd.Response
 			if !isCreated {
-				slog.Warnf("%s create idx: %d server_info: %s", fun, i, js)
-				r, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
+				slog.Warnf("%s create node, round: %d server_info: %s", fun, i, js)
+				_, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
 					TTL: time.Second * 60,
 				})
 			} else {
 				if refresh {
 					// 在刷新ttl时候，不允许变更value
-					r, err = m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions{
+					_, err = m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions{
 						PrevExist: etcd.PrevExist,
 						TTL:       time.Second * 60,
 						Refresh:   true,
 					})
 				} else {
-					r, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
+					_, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
 						TTL: time.Second * 60,
 					})
 				}
@@ -360,7 +353,7 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 
 			if err != nil {
 				isCreated = false
-				slog.Errorf("%s reg idx: %d,resp: %v,err: %v", fun, i, r, err)
+				slog.Warnf("%s register need create node, round: %d, err: %v", fun, i, err)
 
 			} else {
 				isCreated = true
@@ -417,7 +410,7 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 		slog.Warnf("%s serv config value path:%s err:%s", fun, path, err)
 	}
 
-	tf := sconf.NewTierConf()
+	tf := xconfig.NewTierConf()
 	err = tf.Load(scfg_global)
 	if err != nil {
 		return err

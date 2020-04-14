@@ -8,7 +8,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/shawnfeng/sutil/scontext"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
+
 	"github.com/shawnfeng/sutil/slog"
 )
 
@@ -56,7 +57,7 @@ func (m *Hash) Post(s *ServInfo) error {
 func (m *Hash) Route(ctx context.Context, processor, key string) *ServInfo {
 	//fun := "Hash.Route -->"
 
-	group := scontext.GetControlRouteGroupWithDefault(ctx, scontext.DefaultGroup)
+	group := xcontext.GetControlRouteGroupWithDefault(ctx, xcontext.DefaultGroup)
 	s := m.cb.GetServAddrWithGroup(group, processor, key)
 
 	//slog.Infof("%s group:%s, processor:%s, key:%s, s:%v", fun, group, processor, key, s)
@@ -95,7 +96,7 @@ func (m *Concurrent) Post(s *ServInfo) error {
 func (m *Concurrent) Route(ctx context.Context, processor, key string) *ServInfo {
 	fun := "Concurrent.Route -->"
 
-	group := scontext.GetControlRouteGroupWithDefault(ctx, scontext.DefaultGroup)
+	group := xcontext.GetControlRouteGroupWithDefault(ctx, xcontext.DefaultGroup)
 	s := m.route(group, processor, key)
 	if s != nil {
 		slog.Infof("%s group:%s, processor:%s, key:%s, s:%v", fun, group, processor, key, s)
@@ -164,7 +165,7 @@ func (m *Addr) Post(s *ServInfo) error {
 func (m *Addr) Route(ctx context.Context, processor, addr string) (si *ServInfo) {
 	fun := "Addr.Route -->"
 
-	group := scontext.GetControlRouteGroupWithDefault(ctx, scontext.DefaultGroup)
+	group := xcontext.GetControlRouteGroupWithDefault(ctx, xcontext.DefaultGroup)
 	servList := m.cb.GetAllServAddrWithGroup(group, processor)
 
 	if servList == nil {

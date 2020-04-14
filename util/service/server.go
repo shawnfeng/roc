@@ -15,7 +15,6 @@ import (
 	"syscall"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
-
 	stat "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/sys"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 
@@ -279,7 +278,7 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 		return err
 	}
 
-	// NOTE: processor 在初始化 trace middleware 前需要保证 opentracing.GlobalTracer() 初始化完毕
+	// NOTE: processor 在初始化 trace middleware 前需要保证 xtrace.GlobalTracer() 初始化完毕
 	m.initTracer(servLoc)
 
 	err = m.initProcessor(sb, procs)

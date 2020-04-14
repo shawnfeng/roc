@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"time"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
+
 	otgrpc "github.com/opentracing-contrib/go-grpc"
-	"github.com/opentracing/opentracing-go"
-	"github.com/shawnfeng/sutil/scontext"
 	"github.com/shawnfeng/sutil/slog"
-	"github.com/shawnfeng/sutil/stime"
 	"github.com/uber/jaeger-client-go"
 	"google.golang.org/grpc"
 )
@@ -91,7 +92,7 @@ func (m *ClientGrpc) DirectRouteRpc(provider *Provider, fnrpc func(interface{}) 
 	}(si, rc, fnrpc)
 	funcName := GetFuncName(3)
 	var err error
-	st := stime.NewTimeStat()
+	st := xtime.NewTimeStat()
 	defer func() {
 		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
 	}()
@@ -157,7 +158,7 @@ func (m *ClientGrpc) do(ctx context.Context, hashKey, funcName string, fnrpc fun
 
 	// 目前Adapter内通过Rpc函数调用RpcWithContext时层次会出错，直接调用RpcWithContext和RpcWithContextV2的层次是正确的，所以修正前者进行兼容
 	var err error
-	st := stime.NewTimeStat()
+	st := xtime.NewTimeStat()
 	defer func() {
 		dur := st.Duration()
 		collector(m.clientLookup.ServKey(), m.processor, dur, 0, si.Servid, funcName, err)
@@ -199,7 +200,7 @@ func (m *ClientGrpc) doWithContext(ctx context.Context, hashKey, funcName string
 	}(si, rc, fnrpc)
 
 	var err error
-	st := stime.NewTimeStat()
+	st := xtime.NewTimeStat()
 	defer func() {
 		dur := st.Duration()
 		collector(m.clientLookup.ServKey(), m.processor, dur, 0, si.Servid, funcName, err)
@@ -234,23 +235,23 @@ func (m *ClientGrpc) route(ctx context.Context, key string) (*ServInfo, rpcClien
 }
 
 func (m *ClientGrpc) injectServInfo(ctx context.Context, si *ServInfo) context.Context {
-	ctx, err := scontext.SetControlCallerServerName(ctx, serviceFromServPath(m.clientLookup.ServPath()))
+	ctx, err := xcontext.SetControlCallerServerName(ctx, serviceFromServPath(m.clientLookup.ServPath()))
 	if err != nil {
 		return ctx
 	}
 
-	ctx, err = scontext.SetControlCallerServerId(ctx, fmt.Sprint(si.Servid))
+	ctx, err = xcontext.SetControlCallerServerID(ctx, fmt.Sprint(si.Servid))
 	if err != nil {
 		return ctx
 	}
 
-	span := opentracing.SpanFromContext(ctx)
+	span := xtrace.SpanFromContext(ctx)
 	if span == nil {
 		return ctx
 	}
 
 	if jaegerSpan, ok := span.(*jaeger.Span); ok {
-		ctx, err = scontext.SetControlCallerMethod(ctx, jaegerSpan.OperationName())
+		ctx, err = xcontext.SetControlCallerMethod(ctx, jaegerSpan.OperationName())
 	}
 	return ctx
 }
@@ -289,7 +290,7 @@ func (m *ClientGrpc) newConn(addr string) (rpcClientConn, error) {
 	fun := "ClientGrpc.newConn-->"
 
 	// 可加入多种拦截器
-	tracer := opentracing.GlobalTracer()
+	tracer := xtrace.GlobalTracer()
 	opts := []grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithUnaryInterceptor(

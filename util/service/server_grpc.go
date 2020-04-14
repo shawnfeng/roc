@@ -4,12 +4,12 @@ import (
 	"context"
 
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/opentracing-contrib/go-grpc"
-	"github.com/opentracing/opentracing-go"
 	"github.com/shawnfeng/sutil/slog/slog"
-	"github.com/shawnfeng/sutil/stime"
 	"google.golang.org/grpc"
 )
 
@@ -26,7 +26,7 @@ func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
 	var streamInterceptors []grpc.StreamServerInterceptor
 
 	// add tracer、monitor interceptor
-	tracer := opentracing.GlobalTracer()
+	tracer := xtrace.GlobalTracer()
 	unaryInterceptors = append(unaryInterceptors, otgrpc.OpenTracingServerInterceptor(tracer), monitorServerInterceptor())
 	streamInterceptors = append(streamInterceptors, otgrpc.OpenTracingStreamServerInterceptor(tracer), monitorStreamServerInterceptor())
 
@@ -72,7 +72,7 @@ func monitorServerInterceptor() grpc.UnaryServerInterceptor {
 		group, service := GetGroupAndService()
 		fun := info.FullMethod
 		_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun).Inc()
-		st := stime.NewTimeStat()
+		st := xtime.NewTimeStat()
 		resp, err = handler(ctx, req)
 		slog.Infof(ctx, "%s req: %v err: %v cost: %d us", fun, req, err, st.Microsecond())
 		_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun).Observe(float64(st.Millisecond()))
@@ -86,7 +86,7 @@ func monitorStreamServerInterceptor() grpc.StreamServerInterceptor {
 		fun := info.FullMethod
 		group, service := GetGroupAndService()
 		_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun).Inc()
-		st := stime.NewTimeStat()
+		st := xtime.NewTimeStat()
 		err := handler(srv, ss)
 		slog.Infof(ss.Context(), "%s req: %v err: %v cost: %d us", fun, srv, err, st.Microsecond())
 		_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun).Observe(float64(st.Millisecond()))

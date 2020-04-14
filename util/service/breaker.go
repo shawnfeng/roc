@@ -7,10 +7,11 @@ package rocserv
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/shawnfeng/hystrix-go/hystrix"
-	"github.com/shawnfeng/sutil/slog"
 	"sync"
 	"time"
+
+	"github.com/shawnfeng/hystrix-go/hystrix"
+	"github.com/shawnfeng/sutil/slog"
 )
 
 type ItemConf struct {

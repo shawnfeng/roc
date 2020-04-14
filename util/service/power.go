@@ -9,11 +9,12 @@ import (
 	"net"
 	"net/http"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
+
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
 	"github.com/julienschmidt/httprouter"
 	"github.com/opentracing-contrib/go-stdlib/nethttp"
-	"github.com/opentracing/opentracing-go"
 	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/snetutil"
 	"github.com/shawnfeng/sutil/trace"
@@ -49,7 +50,7 @@ func powerHttp(addr string, router *httprouter.Router) (string, error) {
 
 	// tracing
 	mw := nethttp.Middleware(
-		opentracing.GlobalTracer(),
+		xtrace.GlobalTracer(),
 		// add logging middleware
 		httpTrafficLogMiddleware(router),
 		nethttp.OperationNameFunc(func(r *http.Request) string {
@@ -168,7 +169,7 @@ func powerGin(addr string, router *gin.Engine) (string, *http.Server, error) {
 
 	// tracing
 	mw := nethttp.Middleware(
-		opentracing.GlobalTracer(),
+		xtrace.GlobalTracer(),
 		httpTrafficLogMiddleware(router),
 		nethttp.OperationNameFunc(func(r *http.Request) string {
 			return "HTTP " + r.Method + ": " + r.URL.Path
@@ -197,7 +198,7 @@ func reloadRouter(processor string, server interface{}, driver interface{}) erro
 	switch router := driver.(type) {
 	case *gin.Engine:
 		mw := nethttp.Middleware(
-			opentracing.GlobalTracer(),
+			xtrace.GlobalTracer(),
 			router,
 			nethttp.OperationNameFunc(func(r *http.Request) string {
 				return "HTTP " + r.Method + ": " + r.URL.Path

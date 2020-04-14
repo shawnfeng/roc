@@ -2,10 +2,9 @@ package rocserv
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
-
-	"time"
 )
 
 func TestGetFuncTimeout(t *testing.T) {

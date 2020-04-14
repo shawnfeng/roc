@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/shawnfeng/sutil/stime"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
 )
 
 // ClientWrapper 目前网关通过common/go/pub在使用
@@ -67,7 +67,7 @@ func (m *ClientWrapper) do(hashKey, funcName string, timeout time.Duration, run 
 	}(si.Addr, timeout)
 
 	var err error
-	st := stime.NewTimeStat()
+	st := xtime.NewTimeStat()
 	defer func() {
 		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
 	}()
@@ -92,7 +92,7 @@ func (m *ClientWrapper) Call(ctx context.Context, hashKey, funcName string, run 
 	}(si.Addr)
 
 	var err error
-	st := stime.NewTimeStat()
+	st := xtime.NewTimeStat()
 	defer func() {
 		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
 	}()

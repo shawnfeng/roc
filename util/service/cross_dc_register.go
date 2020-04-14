@@ -87,7 +87,6 @@ func (m *ServBaseV2) doCrossDCRegister(path, js string, refresh bool) error {
 
 func (m *ServBaseV2) clearCrossDCRegisterInfos() {
 	fun := "ServBaseV2.clearCrossDCRegisterInfos -->"
-
 	//延迟清理注册信息,防止新实例还没有完成注册
 	time.Sleep(time.Second * 2)
 
@@ -96,13 +95,11 @@ func (m *ServBaseV2) clearCrossDCRegisterInfos() {
 
 	for addr, _ := range m.crossRegisterClients {
 		for path, _ := range m.regInfos {
-			_, err := m.crossRegisterClients[addr].Set(context.Background(), path, "", &etcd.SetOptions{
-				PrevExist: etcd.PrevExist,
-				TTL:       0,
-				Refresh:   true,
+			_, err := m.crossRegisterClients[addr].Delete(context.Background(), path, &etcd.DeleteOptions{
+				Recursive: true,
 			})
 			if err != nil {
-				slog.Warnf("%s path:%s err:%v", fun, path, err)
+				slog.Warnf("%s path: %s, err: %v", fun, path, err)
 			}
 		}
 	}
