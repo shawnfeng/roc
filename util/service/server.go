@@ -63,10 +63,11 @@ type cmdArgs struct {
 	group         string
 	disable       bool
 	model         int
+	startType     string
 }
 
 func (m *Server) parseFlag() (*cmdArgs, error) {
-	var serv, logDir, skey, group string
+	var serv, logDir, skey, group, startType string
 	var logMaxSize, logMaxBackups, sidOffset int
 	flag.IntVar(&logMaxSize, "logmaxsize", 0, "logMaxSize is the maximum size in megabytes of the log file")
 	flag.IntVar(&logMaxBackups, "logmaxbackups", 0, "logmaxbackups is the maximum number of old log files to retain")
@@ -75,6 +76,7 @@ func (m *Server) parseFlag() (*cmdArgs, error) {
 	flag.StringVar(&skey, "skey", "", "service session key")
 	flag.IntVar(&sidOffset, "sidoffset", 0, "service id offset for different data center")
 	flag.StringVar(&group, "group", "", "service group")
+	flag.StringVar(&startType, "stype", "", "start up type")
 
 	flag.Parse()
 
@@ -94,6 +96,7 @@ func (m *Server) parseFlag() (*cmdArgs, error) {
 		sessKey:       skey,
 		sidOffset:     sidOffset,
 		group:         group,
+		startType:     startType,
 	}, nil
 
 }
@@ -281,7 +284,7 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 	// NOTE: processor 在初始化 trace middleware 前需要保证 xtrace.GlobalTracer() 初始化完毕
 	m.initTracer(servLoc)
 
-	err = m.initProcessor(sb, procs)
+	err = m.initProcessor(sb, procs, args.startType)
 	if err != nil {
 		slog.Panicf("%s initProcessor err:%s", fun, err)
 		return err
@@ -334,7 +337,7 @@ func (m *Server) handleModel(sb *ServBaseV2, servLoc string, model int) error {
 	return nil
 }
 
-func (m *Server) initProcessor(sb *ServBaseV2, procs map[string]Processor) error {
+func (m *Server) initProcessor(sb *ServBaseV2, procs map[string]Processor, startType string) error {
 	fun := "Server.initProcessor -->"
 
 	for n, p := range procs {
@@ -364,6 +367,11 @@ func (m *Server) initProcessor(sb *ServBaseV2, procs map[string]Processor) error
 	if err != nil {
 		slog.Errorf("%s load driver err:%s", fun, err)
 		return err
+	}
+
+	// 本地启动不注册至etcd
+	if startType == "local" {
+		return nil
 	}
 
 	err = sb.RegisterService(infos)
