@@ -300,7 +300,7 @@ func (m *ClientGrpc) newConn(addr string) (rpcClientConn, error) {
 	}
 	conn, err := grpc.Dial(addr, opts...)
 	if err != nil {
-		slog.Errorf("%s NetTSocket addr:%s err:%s", fun, addr, err)
+		slog.Errorf("%s dial addr: %s failed, err: %v", fun, addr, err)
 		return nil, err
 	}
 	client := m.fnFactory(conn)
