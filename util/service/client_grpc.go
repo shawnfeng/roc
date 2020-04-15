@@ -41,7 +41,7 @@ type Provider struct {
 }
 
 // NewClientGrpcWithRouterType create grpc client by routerType, fn: xxServiceClient of xx, such as NewChangeBoardServiceClient
-func NewClientGrpcWithRouterType(cb ClientLookup, processor string, maxCapacity int, fn func(client *grpc.ClientConn) interface{}, routerType int) *ClientGrpc {
+func NewClientGrpcWithRouterType(cb ClientLookup, processor string, capacity int, fn func(client *grpc.ClientConn) interface{}, routerType int) *ClientGrpc {
 	clientGrpc := &ClientGrpc{
 		clientLookup: cb,
 		processor:    processor,
@@ -49,18 +49,19 @@ func NewClientGrpcWithRouterType(cb ClientLookup, processor string, maxCapacity 
 		router:       NewRouter(routerType, cb),
 		fnFactory:    fn,
 	}
-	pool := NewClientPool(defaultCapacity, maxCapacity, clientGrpc.newConn, cb.ServKey())
+	// 目前capacity==maxCapacity，等后续在web平台增加动态调整功能之后，才进行差异化配置
+	pool := NewClientPool(capacity, capacity, clientGrpc.newConn, cb.ServKey())
 	clientGrpc.pool = pool
 
 	return clientGrpc
 }
 
-func NewClientGrpcByConcurrentRouter(cb ClientLookup, processor string, maxCapacity int, fn func(client *grpc.ClientConn) interface{}) *ClientGrpc {
-	return NewClientGrpcWithRouterType(cb, processor, maxCapacity, fn, 1)
+func NewClientGrpcByConcurrentRouter(cb ClientLookup, processor string, capacity int, fn func(client *grpc.ClientConn) interface{}) *ClientGrpc {
+	return NewClientGrpcWithRouterType(cb, processor, capacity, fn, 1)
 }
 
-func NewClientGrpc(cb ClientLookup, processor string, maxCapacity int, fn func(client *grpc.ClientConn) interface{}) *ClientGrpc {
-	return NewClientGrpcWithRouterType(cb, processor, maxCapacity, fn, 0)
+func NewClientGrpc(cb ClientLookup, processor string, capacity int, fn func(client *grpc.ClientConn) interface{}) *ClientGrpc {
+	return NewClientGrpcWithRouterType(cb, processor, capacity, fn, 0)
 }
 
 func (m *ClientGrpc) CustomizedRouteRpc(getProvider func() *Provider, fnrpc func(interface{}) error) error {
