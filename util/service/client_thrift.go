@@ -218,7 +218,12 @@ func (m *thriftClientConn) SetTimeout(timeout time.Duration) error {
 }
 
 func (m *thriftClientConn) Close() {
-	m.trans.Close()
+	if m.trans != nil {
+		m.trans.Close()
+	}
+	if m.tsock != nil {
+		m.tsock.Close()
+	}
 }
 
 func (m *thriftClientConn) GetServiceClient() interface{} {

@@ -279,7 +279,9 @@ func (m *grpcClientConn) SetTimeout(timeout time.Duration) error {
 }
 
 func (m *grpcClientConn) Close() {
-	m.conn.Close()
+	if m.conn != nil {
+		m.conn.Close()
+	}
 }
 
 func (m *grpcClientConn) GetServiceClient() interface{} {
