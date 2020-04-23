@@ -49,8 +49,8 @@ func NewClientGrpcWithRouterType(cb ClientLookup, processor string, capacity int
 		router:       NewRouter(routerType, cb),
 		fnFactory:    fn,
 	}
-	// 目前capacity==maxCapacity，等后续在web平台增加动态调整功能之后，才进行差异化配置
-	pool := NewClientPool(capacity, capacity, clientGrpc.newConn, cb.ServKey())
+	// 目前为写死值，后期改为动态配置获取的方式
+	pool := NewClientPool(defaultCapacity, defaultMaxCapacity, clientGrpc.newConn, cb.ServKey())
 	clientGrpc.pool = pool
 
 	return clientGrpc

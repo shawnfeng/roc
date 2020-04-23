@@ -45,8 +45,8 @@ func NewClientThriftWithRouterType(cb ClientLookup, processor string, fn func(th
 		breaker:      NewBreaker(cb),
 		router:       NewRouter(routerType, cb),
 	}
-	// 目前capacity==maxCapacity，等后续在web平台增加动态调整功能之后，才进行差异化配置
-	pool := NewClientPool(capacity, capacity, ct.newConn, cb.ServKey())
+	// 目前写死值，后期改为动态获取的方式
+	pool := NewClientPool(defaultCapacity, defaultMaxCapacity, ct.newConn, cb.ServKey())
 	ct.pool = pool
 	return ct
 }
