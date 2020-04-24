@@ -278,10 +278,11 @@ func (m *grpcClientConn) SetTimeout(timeout time.Duration) error {
 	return fmt.Errorf("SetTimeout is not support ")
 }
 
-func (m *grpcClientConn) Close() {
+func (m *grpcClientConn) Close() error{
 	if m.conn != nil {
 		m.conn.Close()
 	}
+	return nil
 }
 
 func (m *grpcClientConn) GetServiceClient() interface{} {

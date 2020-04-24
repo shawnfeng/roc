@@ -217,13 +217,14 @@ func (m *thriftClientConn) SetTimeout(timeout time.Duration) error {
 	return m.tsock.SetTimeout(timeout)
 }
 
-func (m *thriftClientConn) Close() {
+func (m *thriftClientConn) Close() error{
 	if m.trans != nil {
 		m.trans.Close()
 	}
 	if m.tsock != nil {
 		m.tsock.Close()
 	}
+	return nil
 }
 
 func (m *thriftClientConn) GetServiceClient() interface{} {

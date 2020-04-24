@@ -51,11 +51,10 @@ func (m *ClientPool) Put(addr string, client rpcClientConn, err error) {
 	// close client and don't put to pool
 	if err != nil {
 		slog.Warnf("%s put rpc client to pool with err: %v, callee_service: %s, addr: %s", fun, err, m.calleeServiceKey, addr)
-		client.Close()
-		cp.Put(nil)
+		cp.Put(client, true)
 		return
 	}
-	cp.Put(client)
+	cp.Put(client, false)
 }
 
 // Close close connection pool in client pool
