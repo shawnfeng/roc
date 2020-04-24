@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	defaultCapacity    = 256 // 初始连接wrapper数，可以比较小
-	defaultMaxCapacity = 1024
+	defaultMaxIdle     = 256 // 连接池里的最大连接数,超过的连接会被关闭
+	defaultMaxActive   = 512 // 最大可建立连接数
 	defaultIdleTimeout = time.Second * 120
 )
 
@@ -18,16 +18,16 @@ const (
 type ClientPool struct {
 	calleeServiceKey string
 	mu               sync.Mutex
-	capacity         int
-	maxCapacity      int
+	idle int
+	active int
 	idleTimeout      time.Duration
 	clientPool       sync.Map
 	rpcFactory       func(addr string) (rpcClientConn, error)
 }
 
 // NewClientPool constructor of pool, 如果连接数过低，修正为默认值
-func NewClientPool(capacity, maxCapacity int, rpcFactory func(addr string) (rpcClientConn, error), calleeServiceKey string) *ClientPool {
-	return &ClientPool{capacity: capacity, maxCapacity: maxCapacity, rpcFactory: rpcFactory, calleeServiceKey: calleeServiceKey, idleTimeout: defaultIdleTimeout}
+func NewClientPool(idle, active int, rpcFactory func(addr string) (rpcClientConn, error), calleeServiceKey string) *ClientPool {
+	return &ClientPool{idle: idle, active: active, rpcFactory: rpcFactory, calleeServiceKey: calleeServiceKey, idleTimeout: defaultIdleTimeout}
 }
 
 // Get get connection from pool, if reach max, create new connection and return
@@ -82,7 +82,7 @@ func (m *ClientPool) getPool(addr string) *ConnectionPool {
 			cp = value.(*ConnectionPool)
 		} else {
 			slog.Infof("%s not found connection pool of callee_service: %s, addr: %s, create it", fun, m.calleeServiceKey, addr)
-			cp = NewConnectionPool(addr, m.capacity, m.maxCapacity, m.idleTimeout, m.rpcFactory, m.calleeServiceKey)
+			cp = NewConnectionPool(addr, m.idle, m.active, m.idleTimeout, m.rpcFactory, m.calleeServiceKey)
 			cp.Open()
 			m.clientPool.Store(addr, cp)
 		}

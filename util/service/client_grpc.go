@@ -50,7 +50,7 @@ func NewClientGrpcWithRouterType(cb ClientLookup, processor string, capacity int
 		fnFactory:    fn,
 	}
 	// 目前为写死值，后期改为动态配置获取的方式
-	pool := NewClientPool(defaultCapacity, defaultMaxCapacity, clientGrpc.newConn, cb.ServKey())
+	pool := NewClientPool(defaultMaxIdle, defaultMaxActive, clientGrpc.newConn, cb.ServKey())
 	clientGrpc.pool = pool
 
 	return clientGrpc

@@ -46,7 +46,7 @@ func NewClientThriftWithRouterType(cb ClientLookup, processor string, fn func(th
 		router:       NewRouter(routerType, cb),
 	}
 	// 目前写死值，后期改为动态获取的方式
-	pool := NewClientPool(defaultCapacity, defaultMaxCapacity, ct.newConn, cb.ServKey())
+	pool := NewClientPool(defaultMaxIdle, defaultMaxActive, ct.newConn, cb.ServKey())
 	ct.pool = pool
 	return ct
 }
