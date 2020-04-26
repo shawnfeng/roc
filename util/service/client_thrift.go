@@ -217,7 +217,7 @@ func (m *thriftClientConn) SetTimeout(timeout time.Duration) error {
 	return m.tsock.SetTimeout(timeout)
 }
 
-func (m *thriftClientConn) Close() error{
+func (m *thriftClientConn) Close() error {
 	if m.trans != nil {
 		m.trans.Close()
 	}

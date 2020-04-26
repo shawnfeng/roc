@@ -8,8 +8,8 @@ import (
 	"time"
 
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil/pool"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil/pool"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil/sync2"
 
 	"github.com/shawnfeng/sutil/slog"
@@ -37,8 +37,8 @@ type ConnectionPool struct {
 	rpcType     string
 	rpcFactory  func(addr string) (rpcClientConn, error)
 	addr        string
-	idle int // count of idle connection
-	active int // count of established connection, sometime active will bigger than idle, then the conn will be closed
+	idle        int // count of idle connection
+	active      int // count of established connection, sometime active will bigger than idle, then the conn will be closed
 	idleTimeout time.Duration
 
 	mu          sync.Mutex
@@ -48,26 +48,26 @@ type ConnectionPool struct {
 
 // NewConnectionPool constructor of ConnectionPool
 func NewConnectionPool(addr string, idle, active int, idleTimeout time.Duration, rpcFactory func(addr string) (rpcClientConn, error), calleeServiceKey string) *ConnectionPool {
-	cp := &ConnectionPool{addr: addr, idle : idle, active: active, idleTimeout: idleTimeout, rpcFactory: rpcFactory, calleeServiceKey: calleeServiceKey, closed: sync2.NewAtomicBool(false)}
+	cp := &ConnectionPool{addr: addr, idle: idle, active: active, idleTimeout: idleTimeout, rpcFactory: rpcFactory, calleeServiceKey: calleeServiceKey, closed: sync2.NewAtomicBool(false)}
 	return cp
 }
 
 func (cp *ConnectionPool) Open() {
-	if cp.idle== 0 {
-		cp.idle= defaultMaxIdle
+	if cp.idle == 0 {
+		cp.idle = defaultMaxIdle
 	}
-	if cp.active== 0 {
-		cp.active= defaultMaxActive
+	if cp.active == 0 {
+		cp.active = defaultMaxActive
 	}
-	if cp.idle> cp.active{
-		cp.active= cp.active
+	if cp.idle > cp.active {
+		cp.idle = cp.active
 	}
-	if cp.active< defaultMaxActive{
-		cp.active= defaultMaxActive
+	if cp.active < defaultMaxActive {
+		cp.active = defaultMaxActive
 	}
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
-	cp.connections = pool.NewList(&pool.Config{Active:cp.active, Idle:cp.idle, IdleTimeout: xtime.Duration(cp.idleTimeout), WaitTimeout:xtime.Duration(time.Second), Wait:true})
+	cp.connections = pool.NewList(&pool.Config{Active: cp.active, Idle: cp.idle, IdleTimeout: xtime.Duration(cp.idleTimeout), WaitTimeout: xtime.Duration(time.Second), Wait: true})
 	cp.connections.New = func(ctx context.Context) (io.Closer, error) {
 		return cp.rpcFactory(cp.addr)
 	}
@@ -81,8 +81,8 @@ func (cp *ConnectionPool) stat() {
 		for !cp.closed.Get() {
 			select {
 			case <-tickC:
-				confActive,confIdle, active,idle := cp.connections.Stat()
-				slog.Infof("caller: %s, callee: %s, callee_addr: %s, conf_active: %d, conf_idle: %d, active: %d, idle: %d", GetServName(), cp.calleeServiceKey, cp.addr, confActive,confIdle, active,idle)
+				confActive, confIdle, active, idle := cp.connections.Stat()
+				slog.Infof("caller: %s, callee: %s, callee_addr: %s, conf_active: %d, conf_idle: %d, active: %d, idle: %d", GetServName(), cp.calleeServiceKey, cp.addr, confActive, confIdle, active, idle)
 				group, service := GetGroupAndService()
 				_metricRPCConnectionPool.With(xprom.LabelGroupName, group,
 					xprom.LabelServiceName, service,
@@ -161,4 +161,3 @@ func (cp *ConnectionPool) Put(conn rpcClientConn, forceClose bool) {
 	}
 	p.Put(context.TODO(), conn, forceClose)
 }
-

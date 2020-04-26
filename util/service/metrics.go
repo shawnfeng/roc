@@ -33,9 +33,9 @@ const (
 
 	calleeAddr             = "callee_addr"
 	connectionPoolStatType = "stat_type"
-	confActiveType         = "1" // 可建立连接数
+	confActiveType         = "1" // 配置的可建立连接数
 	activeType             = "2" // 已建连接
-	confIdleType               = "3" // 配置的空闲连接数
+	confIdleType           = "3" // 配置的空闲连接数
 	idleType               = "4" // 当前空闲连接数
 )
 

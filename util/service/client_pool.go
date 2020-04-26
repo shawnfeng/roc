@@ -18,8 +18,8 @@ const (
 type ClientPool struct {
 	calleeServiceKey string
 	mu               sync.Mutex
-	idle int
-	active int
+	idle             int
+	active           int
 	idleTimeout      time.Duration
 	clientPool       sync.Map
 	rpcFactory       func(addr string) (rpcClientConn, error)

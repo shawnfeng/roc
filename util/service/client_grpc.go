@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 
 	otgrpc "github.com/opentracing-contrib/go-grpc"
 	"github.com/shawnfeng/sutil/slog"
@@ -278,7 +278,7 @@ func (m *grpcClientConn) SetTimeout(timeout time.Duration) error {
 	return fmt.Errorf("SetTimeout is not support ")
 }
 
-func (m *grpcClientConn) Close() error{
+func (m *grpcClientConn) Close() error {
 	if m.conn != nil {
 		m.conn.Close()
 	}
