@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 
 	otgrpc "github.com/opentracing-contrib/go-grpc"
 	"github.com/shawnfeng/sutil/slog"
@@ -50,7 +50,7 @@ func NewClientGrpcWithRouterType(cb ClientLookup, processor string, capacity int
 		fnFactory:    fn,
 	}
 	// 目前为写死值，后期改为动态配置获取的方式
-	pool := NewClientPool(defaultCapacity, defaultMaxCapacity, clientGrpc.newConn, cb.ServKey())
+	pool := NewClientPool(defaultMaxIdle, defaultMaxActive, clientGrpc.newConn, cb.ServKey())
 	clientGrpc.pool = pool
 
 	return clientGrpc
@@ -278,10 +278,11 @@ func (m *grpcClientConn) SetTimeout(timeout time.Duration) error {
 	return fmt.Errorf("SetTimeout is not support ")
 }
 
-func (m *grpcClientConn) Close() {
+func (m *grpcClientConn) Close() error {
 	if m.conn != nil {
 		m.conn.Close()
 	}
+	return nil
 }
 
 func (m *grpcClientConn) GetServiceClient() interface{} {

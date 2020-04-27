@@ -46,7 +46,7 @@ func NewClientThriftWithRouterType(cb ClientLookup, processor string, fn func(th
 		router:       NewRouter(routerType, cb),
 	}
 	// 目前写死值，后期改为动态获取的方式
-	pool := NewClientPool(defaultCapacity, defaultMaxCapacity, ct.newConn, cb.ServKey())
+	pool := NewClientPool(defaultMaxIdle, defaultMaxActive, ct.newConn, cb.ServKey())
 	ct.pool = pool
 	return ct
 }
@@ -217,13 +217,14 @@ func (m *thriftClientConn) SetTimeout(timeout time.Duration) error {
 	return m.tsock.SetTimeout(timeout)
 }
 
-func (m *thriftClientConn) Close() {
+func (m *thriftClientConn) Close() error {
 	if m.trans != nil {
 		m.trans.Close()
 	}
 	if m.tsock != nil {
 		m.tsock.Close()
 	}
+	return nil
 }
 
 func (m *thriftClientConn) GetServiceClient() interface{} {

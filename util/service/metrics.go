@@ -33,10 +33,10 @@ const (
 
 	calleeAddr             = "callee_addr"
 	connectionPoolStatType = "stat_type"
-	active                 = "1" // 已建连接
-	inUse                  = "2" // 当前在使用连接
-	capacity               = "3" // 当前容量
-	maxCapacity            = "4" // 最大容量
+	confActiveType         = "1" // 配置的可建立连接数
+	activeType             = "2" // 已建连接
+	confIdleType           = "3" // 配置的空闲连接数
+	idleType               = "4" // 当前空闲连接数
 )
 
 var (
