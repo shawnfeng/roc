@@ -2,6 +2,7 @@ package rocserv
 
 import (
 	"fmt"
+	"github.com/julienschmidt/httprouter"
 	"net/http/httputil"
 	"runtime"
 	"strings"
@@ -56,10 +57,20 @@ func (s *HttpServer) GET(relativePath string, handlers ...HandlerFunc) {
 	s.Engine.GET(relativePath, ws...)
 }
 
+// WGET is wrap httprouter handle to GET
+func (s *HttpServer) WGET(relativePath string, handlers ...httprouter.Handle){
+	s.GET(relativePath, MutilWrapHttpRouter(handlers...)...)
+}
+
 // POST is a shortcut for router.Handle("POST", path, handle).
 func (s *HttpServer) POST(relativePath string, handlers ...HandlerFunc) {
 	ws := append([]gin.HandlerFunc{pathHook(relativePath)}, mutilWrap(handlers...)...)
 	s.Engine.POST(relativePath, ws...)
+}
+
+// WPOST is wrap httprouter handle to POST
+func (s *HttpServer) WPOST(relativePath string, handlers ...httprouter.Handle){
+	s.POST(relativePath, MutilWrapHttpRouter(handlers...)...)
 }
 
 // PUT is a shortcut for router.Handle("PUT", path, handle).
@@ -68,10 +79,20 @@ func (s *HttpServer) PUT(relativePath string, handlers ...HandlerFunc) {
 	s.Engine.PUT(relativePath, ws...)
 }
 
+// WPUT is wrap httprouter handle to PUT
+func (s *HttpServer) WPUT(relativePath string, handlers ...httprouter.Handle){
+	s.PUT(relativePath, MutilWrapHttpRouter(handlers...)...)
+}
+
 // Any registers a route that matches all the HTTP methods.
 func (s *HttpServer) Any(relativePath string, handlers ...HandlerFunc) {
 	ws := append([]gin.HandlerFunc{pathHook(relativePath)}, mutilWrap(handlers...)...)
 	s.Engine.Any(relativePath, ws...)
+}
+
+// WAny is wrap httprouter handle to ANY
+func (s *HttpServer) WAny(relativePath string, handlers ...httprouter.Handle){
+	s.Any(relativePath, MutilWrapHttpRouter(handlers...)...)
 }
 
 // DELETE is a shortcut for router.Handle("DELETE", path, handle).
@@ -80,10 +101,20 @@ func (s *HttpServer) DELETE(relativePath string, handlers ...HandlerFunc) {
 	s.Engine.DELETE(relativePath, ws...)
 }
 
+// WDELETE is wrap httprouter handle to DELETE
+func (s *HttpServer) WDELETE(relativePath string, handlers ...httprouter.Handle){
+	s.DELETE(relativePath, MutilWrapHttpRouter(handlers...)...)
+}
+
 // PATCH is a shortcut for router.Handle("PATCH", path, handle).
 func (s *HttpServer) PATCH(relativePath string, handlers ...HandlerFunc) {
 	ws := append([]gin.HandlerFunc{pathHook(relativePath)}, mutilWrap(handlers...)...)
 	s.Engine.PATCH(relativePath, ws...)
+}
+
+// WPATCH is wrap httprouter handle to PATCH
+func (s *HttpServer) WPATCH(relativePath string, handlers ...httprouter.Handle){
+	s.PATCH(relativePath, MutilWrapHttpRouter(handlers...)...)
 }
 
 // OPTIONS is a shortcut for router.Handle("OPTIONS", path, handle).
@@ -92,10 +123,20 @@ func (s *HttpServer) OPTIONS(relativePath string, handlers ...HandlerFunc) {
 	s.Engine.OPTIONS(relativePath, ws...)
 }
 
+// WOPTIONS is wrap httprouter handle to OPTIONS
+func (s *HttpServer) WOPTIONS(relativePath string, handlers ...httprouter.Handle){
+	s.OPTIONS(relativePath, MutilWrapHttpRouter(handlers...)...)
+}
+
 // HEAD is a shortcut for router.Handle("HEAD", path, handle).
 func (s *HttpServer) HEAD(relativePath string, handlers ...HandlerFunc) {
 	ws := append([]gin.HandlerFunc{pathHook(relativePath)}, mutilWrap(handlers...)...)
 	s.Engine.HEAD(relativePath, ws...)
+}
+
+// WHEAD is wrap httprouter handle to HEAD
+func (s *HttpServer) WHEAD(relativePath string, handlers ...httprouter.Handle){
+	s.HEAD(relativePath, MutilWrapHttpRouter(handlers...)...)
 }
 
 // Bind checks the Content-Type to select a binding engine automatically
@@ -171,5 +212,26 @@ func mutilWrap(handlers ...HandlerFunc) []gin.HandlerFunc {
 func wrap(h HandlerFunc) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		h(&Context{c})
+	}
+}
+
+func MutilWrapHttpRouter(handlers ...httprouter.Handle) []HandlerFunc {
+	var h = make([]HandlerFunc, len(handlers))
+	for k, v := range handlers {
+		h[k] = WrapHttpRouter(v)
+	}
+	return h
+}
+
+func WrapHttpRouter(handle httprouter.Handle) HandlerFunc {
+	return func(c *Context) {
+		params := make([]httprouter.Param, 0)
+		for param := range c.Params {
+			params = append(params, httprouter.Param{
+				Key:   c.Params[param].Key,
+				Value: c.Params[param].Value,
+			})
+		}
+		handle(c.Writer, c.Request, params)
 	}
 }
