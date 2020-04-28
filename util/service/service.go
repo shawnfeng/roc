@@ -396,6 +396,8 @@ func (m *ServBaseV2) ConfigCenter() xconfig.ConfigCenter {
 
 // RegInfos ...
 func (m *ServBaseV2) RegInfos() map[string]string {
+	m.muReg.Lock()
+	defer m.muReg.Unlock()
 	return m.regInfos
 }
 
