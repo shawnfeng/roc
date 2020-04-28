@@ -531,6 +531,7 @@ func GetProcessorAddress(processorName string) (addr string) {
 		data := new(RegData)
 		err := json.Unmarshal([]byte(val), data)
 		if err != nil {
+			slog.Warnf("GetProcessorAddress unmarshal, val = %s, err = %s", val, err.Error())
 			continue
 		}
 		if servInfo, ok := data.Servs[processorName]; ok {
