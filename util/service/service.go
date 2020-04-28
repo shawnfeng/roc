@@ -394,6 +394,11 @@ func (m *ServBaseV2) ConfigCenter() xconfig.ConfigCenter {
 	return m.configCenter
 }
 
+// RegInfos ...
+func (m *ServBaseV2) RegInfos() map[string]string {
+	return m.regInfos
+}
+
 func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 	fun := "ServBaseV2.ServConfig -->"
 	// 获取全局配置

@@ -5,6 +5,7 @@
 package rocserv
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -518,6 +519,26 @@ func GetConfigCenter() xconfig.ConfigCenter {
 		return server.sbase.ConfigCenter()
 	}
 	return nil
+}
+
+// GetAddress get processor ip+port by processorName
+func GetProcessorAddress(processorName string) (addr string) {
+	if server == nil {
+		return
+	}
+	reginfos := server.sbase.RegInfos()
+	for _, val := range reginfos {
+		data := new(RegData)
+		err := json.Unmarshal([]byte(val), data)
+		if err != nil {
+			continue
+		}
+		if servInfo, ok := data.Servs[processorName]; ok {
+			addr = servInfo.Addr
+			return
+		}
+	}
+	return
 }
 
 // Test 方便开发人员在本地启动服务、测试，实例信息不会注册到etcd

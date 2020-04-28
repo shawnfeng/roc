@@ -121,4 +121,7 @@ type ServBase interface {
 
 	// conf center
 	ConfigCenter() xconfig.ConfigCenter
+
+	// reginfos
+	RegInfos() map[string]string
 }
