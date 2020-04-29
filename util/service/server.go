@@ -34,6 +34,7 @@ const (
 
 	MODEL_SERVER      = 0
 	MODEL_MASTERSLAVE = 1
+	START_TYPE_LOCAL  = "local"
 )
 
 var server = NewServer()
@@ -63,7 +64,7 @@ type cmdArgs struct {
 	group         string
 	disable       bool
 	model         int
-	startType     string
+	startType     string // 启动方式：local - 不注册至etcd
 }
 
 func (m *Server) parseFlag() (*cmdArgs, error) {
@@ -76,7 +77,8 @@ func (m *Server) parseFlag() (*cmdArgs, error) {
 	flag.StringVar(&skey, "skey", "", "service session key")
 	flag.IntVar(&sidOffset, "sidoffset", 0, "service id offset for different data center")
 	flag.StringVar(&group, "group", "", "service group")
-	flag.StringVar(&startType, "stype", "", "start up type")
+	// 启动方式：local - 不注册至etcd
+	flag.StringVar(&startType, "stype", "", "start up type, local is not register to etcd")
 
 	flag.Parse()
 
@@ -370,7 +372,7 @@ func (m *Server) initProcessor(sb *ServBaseV2, procs map[string]Processor, start
 	}
 
 	// 本地启动不注册至etcd
-	if startType == "local" {
+	if startType == START_TYPE_LOCAL {
 		return nil
 	}
 
