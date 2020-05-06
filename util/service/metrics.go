@@ -41,6 +41,7 @@ const (
 
 var (
 	buckets = []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
+	msBuckets = []float64{1, 3, 5, 10, 25, 50, 100, 200, 300, 500, 1000, 3000, 5000, 10000, 15000}
 	// 目前只用作sla统计，后续通过修改标签作为所有微服务的耗时统计
 	_metricRequestDuration = xprom.NewHistogram(&xprom.HistogramVecOpts{
 		Namespace:  namespacePalfish,
@@ -84,7 +85,7 @@ var (
 		Namespace:  namespacePalfish,
 		Subsystem:  apiType,
 		Name:       "request_duration",
-		Buckets:    []float64{10, 50, 100, 200, 300, 500, 1000, 3000, 5000, 10000},
+		Buckets:    msBuckets,
 		Help:       "api request duration in millisecond",
 		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI},
 	})
@@ -110,7 +111,7 @@ var (
 		Namespace:  namespacePalfish,
 		Subsystem:  dbType,
 		Name:       "request_duration",
-		Buckets:    []float64{5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000},
+		Buckets:    msBuckets,
 		Help:       "db request time",
 		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelSource},
 	})
