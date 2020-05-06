@@ -166,6 +166,19 @@ func (m *Server) loadDriver(sb ServBase, procs map[string]Processor) (map[string
 				Type: PROCESSOR_GIN,
 				Addr: sa,
 			}
+		case *HttpServer:
+			sa, serv, err := powerGin(addr, d.Engine)
+			if err != nil {
+				return nil, err
+			}
+
+			m.addServer(n, serv)
+
+			slog.Infof("%s load ok processor:%s serv addr:%s", fun, n, sa)
+			infos[n] = &ServInfo{
+				Type: PROCESSOR_GIN,
+				Addr: sa,
+			}
 		default:
 			return nil, fmt.Errorf("processor:%s driver not recognition", n)
 
