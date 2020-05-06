@@ -309,7 +309,7 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 	sb.SetGroupAndDisable(args.group, args.disable)
 	m.initMetric(sb)
 
-	slog.Infoln("server start success...")
+	slog.Infoln("server start success, grpc: [%s], thrift: [%s]", GetProcessorAddress(PROCESSOR_GRPC_PROPERTY_NAME), GetProcessorAddress(PROCESSOR_THRIFT_PROPERTY_NAME))
 
 	m.awaitSignal(sb)
 
