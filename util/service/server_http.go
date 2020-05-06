@@ -215,6 +215,7 @@ func wrap(h HandlerFunc) gin.HandlerFunc {
 	}
 }
 
+// MutilWrapHttpRouter wrap many httprouter handle to roc httpserver handle
 func MutilWrapHttpRouter(handlers ...httprouter.Handle) []HandlerFunc {
 	var h = make([]HandlerFunc, len(handlers))
 	for k, v := range handlers {
@@ -223,6 +224,7 @@ func MutilWrapHttpRouter(handlers ...httprouter.Handle) []HandlerFunc {
 	return h
 }
 
+// WrapHttpRouter wrap httprouter handle to roc httpserver handle
 func WrapHttpRouter(handle httprouter.Handle) HandlerFunc {
 	return func(c *Context) {
 		params := make([]httprouter.Param, 0)
