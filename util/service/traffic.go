@@ -30,8 +30,8 @@ const (
 
 func httpTrafficLogMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// NOTE: log before handling business logic
-		logTrafficForHttpServer(r.Context())
+		// NOTE: log before handling business logic, too many useless logs, remove it
+		// logTrafficForHttpServer(r.Context())
 		next.ServeHTTP(w, r)
 	})
 }
