@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 
-	"github.com/shawnfeng/sutil/slog/slog"
 	"github.com/uber/jaeger-client-go"
 )
 
@@ -82,5 +82,5 @@ func serviceFromServPath(spath string) string {
 
 func logTrafficByKV(ctx context.Context, kv map[string]interface{}) {
 	bs, _ := json.Marshal(kv)
-	slog.Infof(ctx, "%s\t%s", TrafficLogID, string(bs))
+	xlog.Infof(ctx, "%s\t%s", TrafficLogID, string(bs))
 }

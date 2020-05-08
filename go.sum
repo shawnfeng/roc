@@ -272,6 +272,8 @@ github.com/shawnfeng/sutil v1.3.36 h1:LcRgw+4CP20mhhkjk1H77KuLPQFtzAWkzpUWJqznMc
 github.com/shawnfeng/sutil v1.3.36/go.mod h1:3wjPnkm0hyvjK/aah50Q0IFsTypT/Qs/gIda90pbIrw=
 github.com/shawnfeng/sutil v1.4.3 h1:Xs25Un0QuNGLAkepdTXg/B5MIXZa3ofoGPZyxsSJzZk=
 github.com/shawnfeng/sutil v1.4.3/go.mod h1:6zG6tHQzjp3fVSp/sFwhs+LFmrQsxAuHqYBDSzV4RcA=
+github.com/shawnfeng/sutil v1.4.4 h1:0dspRAxW4uDT5GDKnA/UeAV8ORoeSss7nNLHqAaFo6E=
+github.com/shawnfeng/sutil v1.4.4/go.mod h1:6zG6tHQzjp3fVSp/sFwhs+LFmrQsxAuHqYBDSzV4RcA=
 github.com/shirou/gopsutil v2.19.12+incompatible h1:WRstheAymn1WOPesh+24+bZKFkqrdCR8JOc77v4xV3Q=
 github.com/shirou/gopsutil v2.19.12+incompatible/go.mod h1:5b4v6he4MtMOwMlS0TUMTu2PcXUg8+E1lC7eC3UO/RA=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=

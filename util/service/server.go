@@ -14,10 +14,12 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"context"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 	stat "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/sys"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
@@ -106,17 +108,18 @@ func (m *Server) parseFlag() (*cmdArgs, error) {
 
 func (m *Server) loadDriver(sb ServBase, procs map[string]Processor) (map[string]*ServInfo, error) {
 	fun := "Server.loadDriver -->"
+	ctx := context.Background()
 
 	infos := make(map[string]*ServInfo)
 
 	for n, p := range procs {
 		addr, driver := p.Driver()
 		if driver == nil {
-			slog.Infof("%s processor:%s no driver", fun, n)
+			xlog.Infof(ctx, "%s processor:%s no driver", fun, n)
 			continue
 		}
 
-		slog.Infof("%s processor:%s type:%s addr:%s", fun, n, reflect.TypeOf(driver), addr)
+		xlog.Infof(ctx, "%s processor:%s type:%s addr:%s", fun, n, reflect.TypeOf(driver), addr)
 
 		switch d := driver.(type) {
 		case *httprouter.Router:
@@ -125,7 +128,7 @@ func (m *Server) loadDriver(sb ServBase, procs map[string]Processor) (map[string
 				return nil, err
 			}
 
-			slog.Infof("%s load ok processor:%s serv addr:%s", fun, n, sa)
+			xlog.Infof(ctx, "%s load ok processor:%s serv addr:%s", fun, n, sa)
 			infos[n] = &ServInfo{
 				Type: PROCESSOR_HTTP,
 				Addr: sa,
@@ -137,7 +140,7 @@ func (m *Server) loadDriver(sb ServBase, procs map[string]Processor) (map[string
 				return nil, err
 			}
 
-			slog.Infof("%s load ok processor:%s serv addr:%s", fun, n, sa)
+			xlog.Infof(ctx, "%s load ok processor:%s serv addr:%s", fun, n, sa)
 			infos[n] = &ServInfo{
 				Type: PROCESSOR_THRIFT,
 				Addr: sa,
@@ -148,7 +151,7 @@ func (m *Server) loadDriver(sb ServBase, procs map[string]Processor) (map[string
 				return nil, err
 			}
 
-			slog.Infof("%s load ok processor:%s serv addr:%s", fun, n, sa)
+			xlog.Infof(ctx, "%s load ok processor:%s serv addr:%s", fun, n, sa)
 			infos[n] = &ServInfo{
 				Type: PROCESSOR_GRPC,
 				Addr: sa,
@@ -161,7 +164,7 @@ func (m *Server) loadDriver(sb ServBase, procs map[string]Processor) (map[string
 
 			m.addServer(n, serv)
 
-			slog.Infof("%s load ok processor:%s serv addr:%s", fun, n, sa)
+			xlog.Infof(ctx, "%s load ok processor:%s serv addr:%s", fun, n, sa)
 			infos[n] = &ServInfo{
 				Type: PROCESSOR_GIN,
 				Addr: sa,
@@ -174,7 +177,7 @@ func (m *Server) loadDriver(sb ServBase, procs map[string]Processor) (map[string
 
 			m.addServer(n, serv)
 
-			slog.Infof("%s load ok processor:%s serv addr:%s", fun, n, sa)
+			xlog.Infof(ctx, "%s load ok processor:%s serv addr:%s", fun, n, sa)
 			infos[n] = &ServInfo{
 				Type: PROCESSOR_GIN,
 				Addr: sa,
@@ -214,7 +217,7 @@ func (m *Server) Serve(confEtcd configEtcd, initfn func(ServBase) error, procs m
 
 	args, err := m.parseFlag()
 	if err != nil {
-		slog.Panicf("%s parse arg err:%s", fun, err)
+		xlog.Panicf(context.Background(), "%s parse arg err:%s", fun, err)
 		return err
 	}
 
@@ -235,7 +238,7 @@ func (m *Server) initLog(sb *ServBaseV2, args *cmdArgs) error {
 
 	err := sb.ServConfig(&logConfig)
 	if err != nil {
-		slog.Errorf("%s serv config err:%s", fun, err)
+		xlog.Errorf(context.Background(), "%s serv config err:%s", fun, err)
 		return err
 	}
 
@@ -252,7 +255,7 @@ func (m *Server) initLog(sb *ServBaseV2, args *cmdArgs) error {
 		logdir = ""
 	}
 
-	slog.Infof("%s init log dir:%s name:%s level:%s", fun, logdir, args.servLoc, logConfig.Log.Level)
+	xlog.Infof(context.Background(), "%s init log dir:%s name:%s level:%s", fun, logdir, args.servLoc, logConfig.Log.Level)
 
 	slog.Init(logdir, "serv.log", logConfig.Log.Level)
 	statlog.Init(logdir, "stat.log", args.servLoc)
@@ -260,6 +263,7 @@ func (m *Server) initLog(sb *ServBaseV2, args *cmdArgs) error {
 }
 
 func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) error, procs map[string]Processor) error {
+	ctx := context.Background()
 	fun := "Server.Init -->"
 
 	servLoc := args.servLoc
@@ -267,7 +271,7 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 
 	sb, err := NewServBaseV2(confEtcd, servLoc, sessKey, args.group, args.sidOffset)
 	if err != nil {
-		slog.Panicf("%s init servbase loc:%s key:%s err:%s", fun, servLoc, sessKey, err)
+		xlog.Panicf(ctx, "%s init servbase loc: %s key: %s err: %v", fun, servLoc, sessKey, err)
 		return err
 	}
 	m.sbase = sb
@@ -286,14 +290,14 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 
 	err = m.handleModel(sb, servLoc, args.model)
 	if err != nil {
-		slog.Panicf("%s handleModel err:%s", fun, err)
+		xlog.Panicf(ctx, "%s handleModel err: %v", fun, err)
 		return err
 	}
 
 	// App层初始化
 	err = initfn(sb)
 	if err != nil {
-		slog.Panicf("%s callInitFunc err:%s", fun, err)
+		xlog.Panicf(ctx, "%s callInitFunc err: %v", fun, err)
 		return err
 	}
 
@@ -302,14 +306,14 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 
 	err = m.initProcessor(sb, procs, args.startType)
 	if err != nil {
-		slog.Panicf("%s initProcessor err:%s", fun, err)
+		xlog.Panicf(ctx, "%s initProcessor err: %v", fun, err)
 		return err
 	}
 
 	sb.SetGroupAndDisable(args.group, args.disable)
 	m.initMetric(sb)
 
-	slog.Infoln("server start success, grpc: [%s], thrift: [%s]", GetProcessorAddress(PROCESSOR_GRPC_PROPERTY_NAME), GetProcessorAddress(PROCESSOR_THRIFT_PROPERTY_NAME))
+	xlog.Infof(ctx, "server start success, grpc: [%s], thrift: [%s]", GetProcessorAddress(PROCESSOR_GRPC_PROPERTY_NAME), GetProcessorAddress(PROCESSOR_THRIFT_PROPERTY_NAME))
 
 	m.awaitSignal(sb)
 
@@ -318,6 +322,7 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 
 func (m *Server) awaitSignal(sb *ServBaseV2) {
 	c := make(chan os.Signal, 1)
+	ctx := context.Background()
 	signals := []os.Signal{syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGPIPE}
 	signal.Reset(signals...)
 	signal.Notify(c, signals...)
@@ -325,10 +330,10 @@ func (m *Server) awaitSignal(sb *ServBaseV2) {
 	for {
 		select {
 		case s := <-c:
-			slog.Infof("receive a signal:%s", s.String())
+			xlog.Infof(ctx, "receive a signal:%s", s.String())
 
 			if s.String() == syscall.SIGTERM.String() {
-				slog.Infof("receive a signal:%s, stop server", s.String())
+				xlog.Infof(ctx, "receive a signal: %s, stop server", s.String())
 				sb.Stop()
 				<-(chan int)(nil)
 			}
@@ -339,15 +344,16 @@ func (m *Server) awaitSignal(sb *ServBaseV2) {
 
 func (m *Server) handleModel(sb *ServBaseV2, servLoc string, model int) error {
 	fun := "Server.handleModel -->"
+	ctx := context.Background()
 
 	if model == MODEL_MASTERSLAVE {
 		lockKey := fmt.Sprintf("%s-master-slave", servLoc)
 		if err := sb.LockGlobal(lockKey); err != nil {
-			slog.Errorf("%s LockGlobal key: %s, err: %s", fun, lockKey, err)
+			xlog.Errorf(ctx, "%s LockGlobal key: %s, err: %v", fun, lockKey, err)
 			return err
 		}
 
-		slog.Infof("%s LockGlobal succ, key: %s", fun, lockKey)
+		xlog.Infof(ctx, "%s LockGlobal succ, key: %s", fun, lockKey)
 	}
 
 	return nil
@@ -355,25 +361,26 @@ func (m *Server) handleModel(sb *ServBaseV2, servLoc string, model int) error {
 
 func (m *Server) initProcessor(sb *ServBaseV2, procs map[string]Processor, startType string) error {
 	fun := "Server.initProcessor -->"
+	ctx := context.Background()
 
 	for n, p := range procs {
 		if len(n) == 0 {
-			slog.Errorf("%s processor name empty", fun)
+			xlog.Errorf(ctx, "%s processor name empty", fun)
 			return fmt.Errorf("processor name empty")
 		}
 
 		if n[0] == '_' {
-			slog.Errorf("%s processor name can not prefix '_'", fun)
+			xlog.Errorf(ctx, "%s processor name can not prefix '_'", fun)
 			return fmt.Errorf("processor name can not prefix '_'")
 		}
 
 		if p == nil {
-			slog.Errorf("%s processor:%s is nil", fun, n)
+			xlog.Errorf(ctx, "%s processor:%s is nil", fun, n)
 			return fmt.Errorf("processor:%s is nil", n)
 		} else {
 			err := p.Init()
 			if err != nil {
-				slog.Errorf("%s processor:%s init err:%v", fun, n, err)
+				xlog.Errorf(ctx, "%s processor: %s init err: %v", fun, n, err)
 				return fmt.Errorf("processor:%s init err:%s", n, err)
 			}
 		}
@@ -381,7 +388,7 @@ func (m *Server) initProcessor(sb *ServBaseV2, procs map[string]Processor, start
 
 	infos, err := m.loadDriver(sb, procs)
 	if err != nil {
-		slog.Errorf("%s load driver err:%s", fun, err)
+		xlog.Errorf(ctx, "%s load driver err: %v", fun, err)
 		return err
 	}
 
@@ -392,14 +399,14 @@ func (m *Server) initProcessor(sb *ServBaseV2, procs map[string]Processor, start
 
 	err = sb.RegisterService(infos)
 	if err != nil {
-		slog.Errorf("%s register service err:%s", fun, err)
+		xlog.Errorf(ctx, "%s register service err: %v", fun, err)
 		return err
 	}
 
 	// 注册跨机房服务
 	err = sb.RegisterCrossDCService(infos)
 	if err != nil {
-		slog.Errorf("%s register cross dc failed, err: %v", fun, err)
+		xlog.Errorf(ctx, "%s register cross dc failed, err: %v", fun, err)
 		return err
 	}
 
@@ -408,15 +415,16 @@ func (m *Server) initProcessor(sb *ServBaseV2, procs map[string]Processor, start
 
 func (m *Server) initTracer(servLoc string) error {
 	fun := "Server.initTracer -->"
+	ctx := context.Background()
 
 	err := trace.InitDefaultTracer(servLoc)
 	if err != nil {
-		slog.Errorf("%s init tracer fail:%v", fun, err)
+		xlog.Errorf(ctx, "%s init tracer err: %v", fun, err)
 	}
 
 	err = trace.InitTraceSpanFilter()
 	if err != nil {
-		slog.Errorf("%s init trace span filter fail: %s", fun, err.Error())
+		xlog.Errorf(ctx, "%s init trace span filter fail: %s", fun, err.Error())
 	}
 
 	return err
@@ -424,11 +432,12 @@ func (m *Server) initTracer(servLoc string) error {
 
 func (m *Server) initBackdoor(sb *ServBaseV2) error {
 	fun := "Server.initBackdoor -->"
+	ctx := context.Background()
 
 	backdoor := &backDoorHttp{}
 	err := backdoor.Init()
 	if err != nil {
-		slog.Errorf("%s init backdoor err:%s", fun, err)
+		xlog.Errorf(ctx, "%s init backdoor err:%s", fun, err)
 		return err
 	}
 
@@ -436,11 +445,11 @@ func (m *Server) initBackdoor(sb *ServBaseV2) error {
 	if err == nil {
 		err = sb.RegisterBackDoor(binfos)
 		if err != nil {
-			slog.Errorf("%s register backdoor err:%s", fun, err)
+			xlog.Errorf(ctx, "%s register backdoor err:%s", fun, err)
 		}
 
 	} else {
-		slog.Warnf("%s load backdoor driver err:%s", fun, err)
+		xlog.Warnf(ctx, "%s load backdoor driver err:%s", fun, err)
 	}
 
 	return err
@@ -448,22 +457,23 @@ func (m *Server) initBackdoor(sb *ServBaseV2) error {
 
 func (m *Server) initMetric(sb *ServBaseV2) error {
 	fun := "Server.initMetric -->"
+	ctx := context.Background()
 
 	metrics := xprom.NewMetricProcessor()
 	err := metrics.Init()
 	if err != nil {
-		slog.Warnf("%s init metrics err:%s", fun, err)
+		xlog.Warnf(ctx, "%s init metrics err:%s", fun, err)
 	}
 
 	metricInfo, err := m.loadDriver(sb, map[string]Processor{"_PROC_METRICS": metrics})
 	if err == nil {
 		err = sb.RegisterMetrics(metricInfo)
 		if err != nil {
-			slog.Warnf("%s register backdoor err:%s", fun, err)
+			xlog.Warnf(ctx, "%s register backdoor err:%s", fun, err)
 		}
 
 	} else {
-		slog.Warnf("%s load metrics driver err:%s", fun, err)
+		xlog.Warnf(ctx, "%s load metrics driver err:%s", fun, err)
 	}
 	return err
 }
@@ -484,10 +494,11 @@ func MasterSlave(etcdAddrs []string, baseLoc string, initLogic func(ServBase) er
 
 func (m *Server) MasterSlave(confEtcd configEtcd, initLogic func(ServBase) error, processors map[string]Processor) error {
 	fun := "Server.MasterSlave -->"
+	ctx := context.Background()
 
 	args, err := m.parseFlag()
 	if err != nil {
-		slog.Panicf("%s parse arg err:%s", fun, err)
+		xlog.Panicf(ctx, "%s parse arg err:%s", fun, err)
 		return err
 	}
 	args.model = MODEL_MASTERSLAVE
@@ -546,6 +557,7 @@ func GetConfigCenter() xconfig.ConfigCenter {
 
 // GetAddress get processor ip+port by processorName
 func GetProcessorAddress(processorName string) (addr string) {
+	ctx := context.Background()
 	if server == nil {
 		return
 	}
@@ -554,7 +566,7 @@ func GetProcessorAddress(processorName string) (addr string) {
 		data := new(RegData)
 		err := json.Unmarshal([]byte(val), data)
 		if err != nil {
-			slog.Warnf("GetProcessorAddress unmarshal, val = %s, err = %s", val, err.Error())
+			xlog.Warnf(ctx, "GetProcessorAddress unmarshal, val = %s, err = %s", val, err.Error())
 			continue
 		}
 		if servInfo, ok := data.Servs[processorName]; ok {

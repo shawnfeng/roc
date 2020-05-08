@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"sort"
 	"strconv"
 	"strings"
@@ -19,7 +20,6 @@ import (
 
 	etcd "github.com/coreos/etcd/client"
 	"github.com/shawnfeng/consistent"
-	"github.com/shawnfeng/sutil/slog"
 )
 
 type servCopyStr struct {
@@ -87,12 +87,13 @@ type ClientEtcdV2 struct {
 
 func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string {
 	fun := "checkDistVersion -->"
+	ctx := context.Background()
 
 	path := fmt.Sprintf("%s/%s/%s", prefloc, BASE_LOC_DIST_V2, servlocation)
 
 	r, err := client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
 	if err == nil {
-		slog.Infof("%s check dist v2 ok path:%s", fun, path)
+		xlog.Infof(ctx, "%s check dist v2 ok path:%s", fun, path)
 		for _, n := range r.Node.Nodes {
 			for _, nc := range n.Nodes {
 				if nc.Key == n.Key+"/"+BASE_LOC_REG_SERV && len(nc.Value) > 0 {
@@ -102,19 +103,19 @@ func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string 
 		}
 	}
 
-	slog.Warnf("%s check dist v2 path:%s err:%s", fun, path, err)
+	xlog.Warnf(ctx, "%s check dist v2 path:%s err:%s", fun, path, err)
 
 	path = fmt.Sprintf("%s/%s/%s", prefloc, BASE_LOC_DIST, servlocation)
 
 	r, err = client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
 	if err == nil {
-		slog.Infof("%s check dist v1 ok path:%s", fun, path)
+		xlog.Infof(ctx, "%s check dist v1 ok path:%s", fun, path)
 		if len(r.Node.Nodes) > 0 {
 			return BASE_LOC_DIST
 		}
 	}
 
-	slog.Warnf("%s use v2 if check dist v1 path:%s err:%s", fun, path, err)
+	xlog.Warnf(ctx, "%s use v2 if check dist v1 path:%s err:%s", fun, path, err)
 
 	return BASE_LOC_DIST_V2
 }
@@ -161,11 +162,11 @@ func NewClientEtcdV2(confEtcd configEtcd, servlocation string) (*ClientEtcdV2, e
 
 func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
 	fun := "ClientEtcdV2.startWatch -->"
-
+	ctx := context.Background()
 	for i := 0; ; i++ {
 		r, err := m.etcdClient.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
 		if err != nil {
-			slog.Infof("%s get path:%s err:%s", fun, path, err)
+			xlog.Infof(ctx, "%s get path:%s err:%s", fun, path, err)
 			close(chg)
 			return
 
@@ -185,7 +186,7 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
 		}
 		watcher := m.etcdClient.Watcher(path, wop)
 		if watcher == nil {
-			slog.Errorf("%s new watcher path:%s", fun, path)
+			xlog.Errorf(ctx, "%s new watcher path:%s", fun, path)
 			close(chg)
 			return
 		}
@@ -193,11 +194,11 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
 		resp, err := watcher.Next(context.Background())
 		// etcd 关闭时候会返回
 		if err != nil {
-			slog.Errorf("%s watch path:%s err:%s", fun, path, err)
+			xlog.Errorf(ctx, "%s watch path:%s err:%s", fun, path, err)
 			close(chg)
 			return
 		} else {
-			slog.Infof("%s next get idx:%d action:%s nodes:%d index:%d after:%d servPath:%s", fun, i, resp.Action, len(resp.Node.Nodes), resp.Index, wop.AfterIndex, path)
+			xlog.Infof(ctx, "%s next get idx:%d action:%s nodes:%d index:%d after:%d servPath:%s", fun, i, resp.Action, len(resp.Node.Nodes), resp.Index, wop.AfterIndex, path)
 			// 测试发现next获取到的返回，index，重新获取总有问题，触发两次，不确定，为什么？为什么？
 			// 所以这里每次next前使用的afterindex都重新get了
 		}
@@ -207,6 +208,7 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
 
 func (m *ClientEtcdV2) watch(path string, handler func(*etcd.Response), d time.Duration) {
 	fun := "ClientEtcdV2.watch -->"
+	ctx := context.Background()
 
 	backoff := xtime.NewBackOffCtrl(time.Millisecond*100, d)
 
@@ -215,10 +217,10 @@ func (m *ClientEtcdV2) watch(path string, handler func(*etcd.Response), d time.D
 
 	var chg chan *etcd.Response
 	go func() {
-		slog.Infof("%s start watch:%s", fun, path)
+		xlog.Infof(ctx, "%s start watch:%s", fun, path)
 		for {
 			if chg == nil {
-				slog.Infof("%s loop watch new receiver:%s", fun, path)
+				xlog.Infof(ctx, "%s loop watch new receiver:%s", fun, path)
 				chg = make(chan *etcd.Response)
 				go m.startWatch(chg, path)
 			}
@@ -233,7 +235,7 @@ func (m *ClientEtcdV2) watch(path string, handler func(*etcd.Response), d time.D
 
 				backoff.BackOff()
 			} else {
-				slog.Infof("%s update v:%s serv:%s", fun, r.Node.Key, path)
+				xlog.Infof(ctx, "%s update v:%s serv:%s", fun, r.Node.Key, path)
 				handler(r)
 
 				firstOnce.Do(func() {
@@ -247,30 +249,19 @@ func (m *ClientEtcdV2) watch(path string, handler func(*etcd.Response), d time.D
 
 	select {
 	case <-firstSync:
-		slog.Infof("%s init ok, serv:%s", fun, path)
+		xlog.Infof(ctx, "%s init ok, serv:%s", fun, path)
 		return
 	case <-time.After(time.Second):
-		slog.Warnf("%s init timeout, serv:%s", fun, path)
+		xlog.Warnf(ctx, "%s init timeout, serv:%s", fun, path)
 		return
 	}
 }
 
 func (m *ClientEtcdV2) parseResponse(r *etcd.Response) {
 	fun := "ClientEtcdV2.parseResponse -->"
-	/*
-		    r, err := m.etcdClient.Get(context.Background(), m.servPath, &etcd.GetOptions{Recursive: true, Sort: false})
-			if err != nil {
-				slog.Errorf("%s get err:%s", fun, err)
-			}
-
-			if r == nil {
-				slog.Errorf("%s nil", fun)
-				return
-			}
-	*/
-
+	ctx := context.Background()
 	if !r.Node.Dir {
-		slog.Errorf("%s not dir %s", fun, r.Node.Key)
+		xlog.Errorf(ctx, "%s not dir %s", fun, r.Node.Key)
 		return
 	}
 
@@ -279,16 +270,16 @@ func (m *ClientEtcdV2) parseResponse(r *etcd.Response) {
 	} else if m.distLoc == BASE_LOC_DIST_V2 {
 		m.parseResponseV2(r)
 	} else {
-		slog.Errorf("%s not support:%s dir:%s", fun, m.distLoc, r.Node.Key)
+		xlog.Errorf(ctx, "%s not support:%s dir:%s", fun, m.distLoc, r.Node.Key)
 	}
 
 }
 
 func (m *ClientEtcdV2) handleBreakerGlobalResponse(r *etcd.Response) {
 	fun := "ClientEtcdV2.handleBreakerGlobalResponse -->"
-
+	ctx := context.Background()
 	if r.Node.Dir {
-		slog.Errorf("%s not file %s", fun, r.Node.Key)
+		xlog.Errorf(ctx, "%s not file %s", fun, r.Node.Key)
 		return
 	}
 
@@ -315,7 +306,7 @@ func (m *ClientEtcdV2) handleBreakerServResponse(r *etcd.Response) {
 	fun := "ClientEtcdV2.handleBreakerServResponse -->"
 
 	if r.Node.Dir {
-		slog.Errorf("%s not file %s", fun, r.Node.Key)
+		xlog.Errorf(context.Background(), "%s not file %s", fun, r.Node.Key)
 		return
 	}
 
@@ -326,19 +317,20 @@ func (m *ClientEtcdV2) handleBreakerServResponse(r *etcd.Response) {
 
 func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 	fun := "ClientEtcdV2.parseResponseV2 -->"
+	ctx := context.Background()
 
 	idServ := make(map[int]*servCopyStr)
 	ids := make([]int, 0)
 	for _, n := range r.Node.Nodes {
 		if !n.Dir {
-			slog.Errorf("%s not dir %s", fun, n.Key)
+			xlog.Errorf(context.Background(), "%s not dir %s", fun, n.Key)
 			return
 		}
 
 		sid := n.Key[len(r.Node.Key)+1:]
 		id, err := strconv.Atoi(sid)
 		if err != nil || id < 0 {
-			slog.Errorf("%s sid error key:%s", fun, n.Key)
+			xlog.Errorf(context.Background(), "%s sid error key:%s", fun, n.Key)
 			continue
 		}
 		ids = append(ids, id)
@@ -360,19 +352,18 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 	}
 	sort.Ints(ids)
 
-	slog.Infof("%s chg action:%s nodes:%d index:%d servPath:%s len:%d", fun, r.Action, len(r.Node.Nodes), r.Index, m.servPath, len(ids))
+	xlog.Infof(ctx, "%s chg action:%s nodes:%d index:%d servPath:%s len:%d", fun, r.Action, len(r.Node.Nodes), r.Index, m.servPath, len(ids))
 	if len(ids) == 0 {
-		slog.Errorf("%s not found service path:%s please check deploy", fun, m.servPath)
+		xlog.Errorf(ctx, "%s not found service path:%s please check deploy", fun, m.servPath)
 	}
 
-	//slog.Infof("%s chg servpath:%s ids:%v", fun, r.Action, len(r.Node.Nodes), r.EtcdIndex, r.RaftIndex, r.RaftTerm, m.servPath, ids)
 
 	servCopy := make(servCopyCollect)
 	//for _, s := range vs {
 	for _, i := range ids {
 		is := idServ[i]
 		if is == nil {
-			slog.Warnf("%s serv not found idx:%d servpath:%s", fun, i, m.servPath)
+			xlog.Warnf(ctx, "%s serv not found idx:%d servpath:%s", fun, i, m.servPath)
 			continue
 		}
 
@@ -380,10 +371,10 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 		if len(is.reg) > 0 {
 			err := json.Unmarshal([]byte(is.reg), &regd)
 			if err != nil {
-				slog.Errorf("%s servpath:%s sid:%d json:%s error:%s", fun, m.servPath, i, is.reg, err)
+				xlog.Errorf(ctx, "%s servpath:%s sid:%d json:%s error:%s", fun, m.servPath, i, is.reg, err)
 			}
 			if len(regd.Servs) == 0 {
-				slog.Errorf("%s not found copy path:%s sid:%d info:%s please check deploy", fun, m.servPath, i, is.reg)
+				xlog.Errorf(ctx, "%s not found copy path:%s sid:%d info:%s please check deploy", fun, m.servPath, i, is.reg)
 			}
 		}
 
@@ -391,7 +382,7 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 		if len(is.manual) > 0 {
 			err := json.Unmarshal([]byte(is.manual), &manual)
 			if err != nil {
-				slog.Errorf("%s servpath:%s json:%s error:%s", fun, m.servPath, is.manual, err)
+				xlog.Errorf(ctx, "%s servpath:%s json:%s error:%s", fun, m.servPath, is.manual, err)
 			}
 		}
 
@@ -416,6 +407,7 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 
 func (m *ClientEtcdV2) parseResponseV1(r *etcd.Response) {
 	fun := "ClientEtcdV2.parseResponseV1 -->"
+	ctx := context.Background()
 
 	idServ := make(map[int]string)
 	ids := make([]int, 0)
@@ -423,21 +415,19 @@ func (m *ClientEtcdV2) parseResponseV1(r *etcd.Response) {
 		sid := n.Key[len(r.Node.Key)+1:]
 		id, err := strconv.Atoi(sid)
 		if err != nil || id < 0 {
-			slog.Errorf("%s sid error key:%s", fun, n.Key)
+			xlog.Errorf(ctx, "%s sid error key:%s", fun, n.Key)
 		} else {
-			slog.Infof("%s dist key:%s value:%s", fun, n.Key, n.Value)
+			xlog.Infof(ctx, "%s dist key:%s value:%s", fun, n.Key, n.Value)
 			ids = append(ids, id)
 			idServ[id] = n.Value
 		}
 	}
 	sort.Ints(ids)
 
-	slog.Infof("%s chg action:%s nodes:%d index:%d servPath:%s len:%d", fun, r.Action, len(r.Node.Nodes), r.Index, m.servPath, len(ids))
+	xlog.Infof(ctx, "%s chg action:%s nodes:%d index:%d servPath:%s len:%d", fun, r.Action, len(r.Node.Nodes), r.Index, m.servPath, len(ids))
 	if len(ids) == 0 {
-		slog.Errorf("%s not found service path:%s please check deploy", fun, m.servPath)
+		xlog.Errorf(ctx, "%s not found service path:%s please check deploy", fun, m.servPath)
 	}
-
-	//slog.Infof("%s chg servpath:%s ids:%v", fun, r.Action, len(r.Node.Nodes), r.EtcdIndex, r.RaftIndex, r.RaftTerm, m.servPath, ids)
 
 	servCopy := make(servCopyCollect)
 	//for _, s := range vs {
@@ -447,11 +437,11 @@ func (m *ClientEtcdV2) parseResponseV1(r *etcd.Response) {
 		var servs map[string]*ServInfo
 		err := json.Unmarshal([]byte(s), &servs)
 		if err != nil {
-			slog.Errorf("%s servpath:%s json:%s error:%s", fun, m.servPath, s, err)
+			xlog.Errorf(ctx, "%s servpath:%s json:%s error:%s", fun, m.servPath, s, err)
 		}
 
 		if len(servs) == 0 {
-			slog.Errorf("%s not found copy path:%s info:%s please check deploy", fun, m.servPath, s)
+			xlog.Errorf(ctx, "%s not found copy path:%s info:%s please check deploy", fun, m.servPath, s)
 		}
 
 		servCopy[i] = &servCopyData{
@@ -475,21 +465,22 @@ func (m *ClientEtcdV2) parseResponseV1(r *etcd.Response) {
 
 func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 	fun := "ClientEtcdV2.upServlist -->"
+	ctx := context.Background()
 
 	slist := make(map[string][]string)
 	for sid, c := range scopy {
 		if c == nil {
-			slog.Infof("%s not found copy path:%s sid:%d", fun, m.servPath, sid)
+			xlog.Infof(ctx, "%s not found copy path:%s sid:%d", fun, m.servPath, sid)
 			continue
 		}
 
 		if c.reg == nil {
-			slog.Infof("%s not found regdata path:%s sid:%d", fun, m.servPath, sid)
+			xlog.Infof(ctx, "%s not found regdata path:%s sid:%d", fun, m.servPath, sid)
 			continue
 		}
 
 		if len(c.reg.Servs) == 0 {
-			slog.Infof("%s not found servs path:%s sid:%d", fun, m.servPath, sid)
+			xlog.Infof(ctx, "%s not found servs path:%s sid:%d", fun, m.servPath, sid)
 			continue
 		}
 
@@ -507,7 +498,7 @@ func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 		}
 
 		if disable {
-			slog.Infof("%s disable path:%s sid:%d", fun, m.servPath, sid)
+			xlog.Infof(ctx, "%s disable path:%s sid:%d", fun, m.servPath, sid)
 			continue
 		}
 
@@ -547,16 +538,17 @@ func (m *ClientEtcdV2) GetServAddr(processor, key string) *ServInfo {
 
 func (m *ClientEtcdV2) GetServAddrWithGroup(group string, processor, key string) *ServInfo {
 	fun := "ClientEtcdV2.GetServAddrWithGroup-->"
+	ctx := context.Background()
 	m.muServlist.Lock()
 	defer m.muServlist.Unlock()
 
 	if m.servHash == nil {
-		slog.Errorf("%s m.servHash == nil, serv path:%s hash circle processor:%s key:%s", fun, m.servPath, processor, key)
+		xlog.Errorf(ctx, "%s m.servHash == nil, serv path:%s hash circle processor:%s key:%s", fun, m.servPath, processor, key)
 		return nil
 	}
 
 	if m.servHash[""] == nil {
-		slog.Errorf("%s m.servHash[\"\"] == nil, serv path:%s hash circle processor:%s key:%s", fun, m.servPath, processor, key)
+		xlog.Errorf(ctx, "%s m.servHash[\"\"] == nil, serv path:%s hash circle processor:%s key:%s", fun, m.servPath, processor, key)
 		return nil
 	}
 
@@ -567,19 +559,19 @@ func (m *ClientEtcdV2) GetServAddrWithGroup(group string, processor, key string)
 
 	s, err := shash.Get(key)
 	if err != nil {
-		slog.Errorf("%s get serv path:%s processor:%s key:%s err:%s", fun, m.servPath, processor, key, err)
+		xlog.Errorf(ctx, "%s get serv path:%s processor:%s key:%s err:%s", fun, m.servPath, processor, key, err)
 		return nil
 	}
 
 	idx := strings.Index(s, "-")
 	if idx == -1 {
-		slog.Fatalf("%s servid path:%s processor:%s key:%s sid:%s", fun, m.servPath, processor, key, s)
+		xlog.Fatalf(ctx, "%s servid path:%s processor:%s key:%s sid:%s", fun, m.servPath, processor, key, s)
 		return nil
 	}
 
 	sid, err := strconv.Atoi(s[:idx])
 	if err != nil || sid < 0 {
-		slog.Fatalf("%s servid path:%s processor:%s key:%s sid:%s id:%d err:%s", fun, m.servPath, processor, key, s, sid, err)
+		xlog.Fatalf(ctx, "%s servid path:%s processor:%s key:%s sid:%s id:%d err:%s", fun, m.servPath, processor, key, s, sid, err)
 		return nil
 	}
 	return m.getServAddrWithServid(sid, processor, key)

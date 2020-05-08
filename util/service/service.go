@@ -14,12 +14,12 @@ import (
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig/apollo"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	xmgo "gitlab.pri.ibanyu.com/middleware/seaweed/xmgo/manager"
 	xsql "gitlab.pri.ibanyu.com/middleware/seaweed/xsql/manager"
 
 	etcd "github.com/coreos/etcd/client"
 	"github.com/shawnfeng/sutil/dbrouter"
-	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/slowid"
 	"github.com/shawnfeng/sutil/ssync"
 )
@@ -146,7 +146,7 @@ func (m *ServBaseV2) clearRegisterInfos() {
 			Recursive: true,
 		})
 		if err != nil {
-			slog.Warnf("%s path: %s, err: %v", fun, path, err)
+			xlog.Warnf(context.Background(), "%s path: %s, err: %v", fun, path, err)
 		}
 	}
 }
@@ -182,20 +182,21 @@ func (m *ServBaseV2) RegisterMetrics(servs map[string]*ServInfo) error {
 // {type:http/thrift, addr:10.3.3.3:23233, processor:fuck}
 func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) error {
 	fun := "ServBaseV2.RegisterService -->"
+	ctx := context.Background()
 
 	err := m.RegisterServiceV2(servs, BASE_LOC_REG_SERV, false)
 	if err != nil {
-		slog.Errorf("%s register server v2 failed, err: %v", fun, err)
+		xlog.Errorf(ctx, "%s register server v2 failed, err: %v", fun, err)
 		return err
 	}
 
 	err = m.RegisterServiceV1(servs, false)
 	if err != nil {
-		slog.Errorf("%s register server v1 failed, err: %v", fun, err)
+		xlog.Errorf(ctx, "%s register server v1 failed, err: %v", fun, err)
 		return err
 	}
 
-	slog.Infof("%s register server ok", fun)
+	xlog.Infof(ctx, "%s register server ok", fun)
 
 	return nil
 }
@@ -228,7 +229,7 @@ func (m *ServBaseV2) RegisterServiceV1(servs map[string]*ServInfo, crossDC bool)
 		return err
 	}
 
-	slog.Infof("%s servs:%s", fun, js)
+	xlog.Infof(context.Background(), "%s servs:%s", fun, js)
 
 	path := fmt.Sprintf("%s/%s/%s/%d", m.confEtcd.useBaseloc, BASE_LOC_DIST, m.servLocation, m.servId)
 
@@ -242,17 +243,18 @@ func (m *ServBaseV2) RegisterServiceV1(servs map[string]*ServInfo, crossDC bool)
 
 func (m *ServBaseV2) SetGroupAndDisable(group string, disable bool) error {
 	fun := "ServBaseV2.SetGroupAndDisable -->"
+	ctx := context.Background()
 
 	path := fmt.Sprintf("%s/%s/%s/%d/%s", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId, BASE_LOC_REG_MANUAL)
 	value, err := m.getValueFromEtcd(path)
 	if err != nil {
-		slog.Warnf("%s getValueFromEtcd err, path:%s, err:%v", fun, path, err)
+		xlog.Warnf(ctx, "%s getValueFromEtcd err, path:%s, err:%v", fun, path, err)
 	}
 
 	manual := &ManualData{}
 	err = json.Unmarshal([]byte(value), manual)
 	if len(value) > 0 && err != nil {
-		slog.Errorf("%s unmarshal err, value:%s, err:%v", fun, value, err)
+		xlog.Errorf(ctx, "%s unmarshal err, value:%s, err:%v", fun, value, err)
 		return err
 	}
 
@@ -278,14 +280,14 @@ func (m *ServBaseV2) SetGroupAndDisable(group string, disable bool) error {
 
 	newValue, err := json.Marshal(manual)
 	if err != nil {
-		slog.Errorf("%s marshal err, manual:%v, err:%v", fun, manual, err)
+		xlog.Errorf(ctx, "%s marshal err, manual:%v, err:%v", fun, manual, err)
 		return err
 	}
 
-	slog.Infof("%s path:%s old value:%s new value:%s", fun, path, value, newValue)
+	xlog.Infof(ctx, "%s path:%s old value:%s new value:%s", fun, path, value, newValue)
 	err = m.setValueToEtcd(path, string(newValue), nil)
 	if err != nil {
-		slog.Errorf("%s setValueToEtcd err, path:%s value:%s", fun, path, newValue)
+		xlog.Errorf(ctx, "%s setValueToEtcd err, path:%s value:%s", fun, path, newValue)
 	}
 
 	return err
@@ -293,10 +295,11 @@ func (m *ServBaseV2) SetGroupAndDisable(group string, disable bool) error {
 
 func (m *ServBaseV2) getValueFromEtcd(path string) (value string, err error) {
 	fun := "ServBaseV2.getValueFromEtcd -->"
+	ctx := context.Background()
 
 	r, err := m.etcdClient.Get(context.Background(), path, &etcd.GetOptions{Recursive: false, Sort: false})
 	if err != nil {
-		slog.Warnf("%s path:%s err:%v", fun, path, err)
+		xlog.Warnf(ctx, "%s path:%s err:%v", fun, path, err)
 		return "", err
 	}
 
@@ -314,7 +317,7 @@ func (m *ServBaseV2) setValueToEtcd(path, value string, opts *etcd.SetOptions) e
 
 	_, err := m.etcdClient.Set(context.Background(), path, value, opts)
 	if err != nil {
-		slog.Errorf("%s path:%s value:%s opts:%v", fun, path, value, opts)
+		xlog.Errorf(context.Background(), "%s path:%s value:%s opts:%v", fun, path, value, opts)
 	}
 
 	return err
@@ -322,6 +325,7 @@ func (m *ServBaseV2) setValueToEtcd(path, value string, opts *etcd.SetOptions) e
 
 func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 	fun := "ServBaseV2.doRegister -->"
+	ctx := context.Background()
 	m.addRegisterInfo(path, js)
 
 	// 创建完成标志
@@ -331,7 +335,7 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 		for i := 0; ; i++ {
 			var err error
 			if !isCreated {
-				slog.Warnf("%s create node, round: %d server_info: %s", fun, i, js)
+				xlog.Warnf(ctx, "%s create node, round: %d server_info: %s", fun, i, js)
 				_, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
 					TTL: time.Second * 60,
 				})
@@ -353,7 +357,7 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 
 			if err != nil {
 				isCreated = false
-				slog.Warnf("%s register need create node, round: %d, err: %v", fun, i, err)
+				xlog.Warnf(ctx, "%s register need create node, round: %d, err: %v", fun, i, err)
 
 			} else {
 				isCreated = true
@@ -362,7 +366,7 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 			time.Sleep(time.Second * 20)
 
 			if m.isStop() {
-				slog.Infof("%s server stop, register path [%s] clear", fun, path)
+				xlog.Infof(ctx, "%s server stop, register path [%s] clear", fun, path)
 				return
 			}
 		}
@@ -403,18 +407,19 @@ func (m *ServBaseV2) RegInfos() map[string]string {
 
 func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 	fun := "ServBaseV2.ServConfig -->"
+	ctx := context.Background()
 	// 获取全局配置
 	path := fmt.Sprintf("%s/%s", m.confEtcd.useBaseloc, BASE_LOC_ETC_GLOBAL)
 	scfg_global, err := getValue(m.etcdClient, path)
 	if err != nil {
-		slog.Warnf("%s serv config global value path:%s err:%s", fun, path, err)
+		xlog.Warnf(ctx, "%s serv config global value path:%s err:%s", fun, path, err)
 	}
-	slog.Infof("%s global cfg:%s path:%s", fun, scfg_global, path)
+	xlog.Infof(ctx, "%s global cfg:%s path:%s", fun, scfg_global, path)
 
 	path = fmt.Sprintf("%s/%s/%s", m.confEtcd.useBaseloc, BASE_LOC_ETC, m.servLocation)
 	scfg, err := getValue(m.etcdClient, path)
 	if err != nil {
-		slog.Warnf("%s serv config value path:%s err:%s", fun, path, err)
+		xlog.Warnf(context.Background(), "%s serv config value path:%s err:%s", fun, path, err)
 	}
 
 	tf := xconfig.NewTierConf()
@@ -439,6 +444,7 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 // etcd v2 接口
 func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sidOffset int) (*ServBaseV2, error) {
 	fun := "NewServBaseV2 -->"
+	ctx := context.Background()
 
 	cfg := etcd.Config{
 		Endpoints: confEtcd.etcdAddrs,
@@ -462,14 +468,14 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 		return nil, err
 	}
 
-	slog.Infof("%s path:%s sid:%d skey:%s, envGroup", fun, path, sid, skey, envGroup)
+	xlog.Infof(ctx, "%s path:%s sid:%d skey:%s, envGroup", fun, path, sid, skey, envGroup)
 
 	dbloc := fmt.Sprintf("%s/%s", confEtcd.useBaseloc, BASE_LOC_DB)
 
 	var dr *dbrouter.Router
 	jscfg, err := getValue(client, dbloc)
 	if err != nil {
-		slog.Warnf("%s db:%s config notfound", fun, dbloc)
+		xlog.Warnf(ctx, "%s db:%s config notfound", fun, dbloc)
 	} else {
 		dr, err = dbrouter.NewRouter(jscfg)
 		if err != nil {
@@ -505,7 +511,7 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 		reg.servGroup = svrInfo[0]
 		reg.servName = svrInfo[1]
 	} else {
-		slog.Warnf("%s servLocation:%s do not match group/service format", fun, servLocation)
+		xlog.Warnf(ctx, "%s servLocation:%s do not match group/service format", fun, servLocation)
 	}
 
 	sf, err := initSnowflake(sid + sidOffset)

@@ -9,8 +9,9 @@ import (
 	"fmt"
 	"time"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
+
 	etcd "github.com/coreos/etcd/client"
-	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/ssync"
 )
 
@@ -37,6 +38,7 @@ func (m *ServBaseV2) lockValue() string {
 
 func (m *ServBaseV2) resetExistLock(path string) error {
 	fun := "ServBaseV2.resetExistLock -->"
+	ctx := context.Background()
 
 	// key 不存在返回类似:100: Key not found (/roc/lock) [6961237]
 	// key 不相等返回类似:101: Compare failed ([7e07d3e6-2737-43ac-86fa-157bc1bb8943a != ttt]) [6962486]
@@ -47,10 +49,10 @@ func (m *ServBaseV2) resetExistLock(path string) error {
 	})
 
 	if err != nil {
-		slog.Infof("%s exist check path:%s resp:%v err:%v", fun, path, r, err)
+		xlog.Infof(ctx, "%s exist check path: %s resp: %v err: %v", fun, path, r, err)
 	} else {
 		// 正常只有重启服务重新获取锁才会到这里
-		slog.Warnf("%s exist check path:%s resp:%v", fun, path, r)
+		xlog.Warnf(ctx, "%s exist check path: %s resp: %v", fun, path, r)
 	}
 
 	return err
@@ -58,16 +60,16 @@ func (m *ServBaseV2) resetExistLock(path string) error {
 
 func (m *ServBaseV2) setNoExistLock(path string) error {
 	fun := "ServBaseV2.setNoExistLock -->"
-
+	ctx := context.Background()
 	r, err := m.etcdClient.Set(context.Background(), path, m.lockValue(), &etcd.SetOptions{
 		PrevExist: etcd.PrevNoExist,
 		TTL:       TTL_LOCK,
 	})
 
 	if err != nil {
-		slog.Warnf("%s noexist check path:%s resp:%v err:%v", fun, path, r, err)
+		xlog.Warnf(ctx, "%s noexist check path: %s resp: %v err: %v", fun, path, r, err)
 	} else {
-		slog.Infof("%s noexist check path:%s resp:%v", fun, path, r)
+		xlog.Infof(ctx, "%s noexist check path: %s resp: %v", fun, path, r)
 	}
 
 	return err
@@ -76,7 +78,7 @@ func (m *ServBaseV2) setNoExistLock(path string) error {
 
 func (m *ServBaseV2) heartLock(path string) error {
 	fun := "ServBaseV2.heartLock -->"
-
+	ctx := context.Background()
 	r, err := m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions{
 		PrevExist: etcd.PrevExist,
 		TTL:       TTL_LOCK,
@@ -84,9 +86,9 @@ func (m *ServBaseV2) heartLock(path string) error {
 	})
 
 	if err != nil {
-		slog.Fatalf("%s noexist heart path:%s resp:%v err:%v", fun, path, r, err)
+		xlog.Fatalf(ctx, "%s noexist heart path: %s resp: %v err: %v", fun, path, r, err)
 	} else {
-		slog.Infof("%s noexist heartpath:%s resp:%v", fun, path, r)
+		xlog.Infof(ctx, "%s noexist heartpath: %s resp: %v", fun, path, r)
 	}
 
 	return err
@@ -95,15 +97,16 @@ func (m *ServBaseV2) heartLock(path string) error {
 
 func (m *ServBaseV2) delLock(path string) error {
 	fun := "ServBaseV2.delLock -->"
+	ctx := context.Background()
 	r, err := m.etcdClient.Delete(context.Background(), path, &etcd.DeleteOptions{
 		PrevValue: m.lockValue(),
 	})
 	// 100: Key not found (/roc/lock/local/niubi/fuck/testlock) [7044841]
 	// 101: Compare failed ([7e07d3e6-2737-43ac-86fa-157bc1bb8943a != 332]) [7044908]
 	if err != nil {
-		slog.Fatalf("%s unlock path:%s resp:%v err:%v", fun, path, r, err)
+		xlog.Fatalf(ctx, "%s unlock path: %s resp: %v err: %v", fun, path, r, err)
 	} else {
-		slog.Infof("%s unlock path:%s resp:%v", fun, path, r)
+		xlog.Infof(ctx, "%s unlock path: %s resp: %v", fun, path, r)
 	}
 
 	return err
@@ -111,6 +114,7 @@ func (m *ServBaseV2) delLock(path string) error {
 
 func (m *ServBaseV2) getDistLock(path string) error {
 	fun := "ServBaseV2.getDistLock -->"
+	ctx := context.Background()
 
 	if err := m.resetExistLock(path); err == nil {
 		return nil
@@ -124,10 +128,10 @@ func (m *ServBaseV2) getDistLock(path string) error {
 		}
 
 		r, err := m.etcdClient.Get(context.Background(), path, &etcd.GetOptions{})
-		slog.Infof("%s get check path:%s resp:%v err:%v", fun, path, r, err)
+		xlog.Infof(ctx, "%s get check path:%s resp:%v err:%v", fun, path, r, err)
 		if err != nil {
 			// 上面检查存在，这里又get不到，发生概率非常小
-			slog.Warnf("%s little rate get check path:%s resp:%v err:%v", fun, path, r, err)
+			xlog.Warnf(ctx, "%s little rate get check path:%s resp:%v err:%v", fun, path, r, err)
 			continue
 		}
 
@@ -137,14 +141,14 @@ func (m *ServBaseV2) getDistLock(path string) error {
 		}
 		watcher := m.etcdClient.Watcher(path, wop)
 		if watcher == nil {
-			slog.Errorf("%s get watcher get check path:%s err:%v", fun, path, err)
+			xlog.Errorf(ctx, "%s get watcher get check path:%s err:%v", fun, path, err)
 			return fmt.Errorf("get wather err")
 		}
 
-		slog.Infof("%s set watcher path:%s watcher:%v", fun, path, wop)
+		xlog.Infof(ctx, "%s set watcher path:%s watcher:%v", fun, path, wop)
 
 		r, err = watcher.Next(context.Background())
-		slog.Infof("%s watchnext check path:%s resp:%v err:%v", fun, path, r, err)
+		xlog.Infof(ctx, "%s watchnext check path:%s resp:%v err:%v", fun, path, r, err)
 
 		// 节点过期返回  expire {Key: /roc/lock/local/niubi/fuck/testlock, CreatedIndex: 7043099, ModifiedIndex: 7043144, TTL: 0
 
@@ -178,9 +182,9 @@ func (m *ServBaseV2) unlock(path string) error {
 
 func (m *ServBaseV2) trylock(path string) (bool, error) {
 	fun := "ServBaseV2.trylock -->"
-
+	ctx := context.Background()
 	islock := m.lookupLock(path).Trylock()
-	slog.Infof("%s try lock:%s r:%v", fun, path, islock)
+	xlog.Infof(ctx, "%s try lock:%s r:%v", fun, path, islock)
 	if !islock {
 		return islock, nil
 	}
@@ -294,19 +298,20 @@ func newdistLockHeart(sb *ServBaseV2, path string) *distLockHeart {
 
 func (m *distLockHeart) loop() {
 	fun := "distLockHeart.loop -->"
+	ctx := context.Background()
 	var ison bool
 	tick := time.NewTicker(time.Second * 20)
 
 	for {
 		select {
 		case <-tick.C:
-			slog.Infof("%s heart check path:%s ison:%v", fun, m.path, ison)
+			xlog.Infof(ctx, "%s heart check path:%s ison:%v", fun, m.path, ison)
 			if ison {
 				m.sb.heartLock(m.path)
 			}
 
 		case v := <-m.onoff:
-			slog.Infof("%s onoff path:%s ison:%v", fun, m.path, v)
+			xlog.Infof(ctx, "%s onoff path:%s ison:%v", fun, m.path, v)
 			ison = v
 		}
 	}
@@ -314,12 +319,12 @@ func (m *distLockHeart) loop() {
 
 func (m *distLockHeart) start() {
 	fun := "distLockHeart.start -->"
-	slog.Infof("%s heart check path:%s start", fun, m.path)
+	xlog.Infof(context.Background(), "%s heart check path:%s start", fun, m.path)
 	m.onoff <- true
 }
 
 func (m *distLockHeart) stop() {
 	fun := "distLockHeart.stop -->"
-	slog.Infof("%s heart check path:%s stop", fun, m.path)
+	xlog.Infof(context.Background(), "%s heart check path:%s stop", fun, m.path)
 	m.onoff <- false
 }

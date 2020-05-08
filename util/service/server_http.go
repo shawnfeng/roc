@@ -2,19 +2,18 @@ package rocserv
 
 import (
 	"fmt"
-	"github.com/julienschmidt/httprouter"
 	"net/http/httputil"
 	"runtime"
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin/binding"
-
-	"github.com/uber/jaeger-client-go"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/julienschmidt/httprouter"
+	"github.com/uber/jaeger-client-go"
 )
 
 const (
@@ -58,7 +57,7 @@ func (s *HttpServer) GET(relativePath string, handlers ...HandlerFunc) {
 }
 
 // WGET is wrap httprouter handle to GET
-func (s *HttpServer) WGET(relativePath string, handlers ...httprouter.Handle){
+func (s *HttpServer) WGET(relativePath string, handlers ...httprouter.Handle) {
 	s.GET(relativePath, MutilWrapHttpRouter(handlers...)...)
 }
 
@@ -69,7 +68,7 @@ func (s *HttpServer) POST(relativePath string, handlers ...HandlerFunc) {
 }
 
 // WPOST is wrap httprouter handle to POST
-func (s *HttpServer) WPOST(relativePath string, handlers ...httprouter.Handle){
+func (s *HttpServer) WPOST(relativePath string, handlers ...httprouter.Handle) {
 	s.POST(relativePath, MutilWrapHttpRouter(handlers...)...)
 }
 
@@ -80,7 +79,7 @@ func (s *HttpServer) PUT(relativePath string, handlers ...HandlerFunc) {
 }
 
 // WPUT is wrap httprouter handle to PUT
-func (s *HttpServer) WPUT(relativePath string, handlers ...httprouter.Handle){
+func (s *HttpServer) WPUT(relativePath string, handlers ...httprouter.Handle) {
 	s.PUT(relativePath, MutilWrapHttpRouter(handlers...)...)
 }
 
@@ -91,7 +90,7 @@ func (s *HttpServer) Any(relativePath string, handlers ...HandlerFunc) {
 }
 
 // WAny is wrap httprouter handle to ANY
-func (s *HttpServer) WAny(relativePath string, handlers ...httprouter.Handle){
+func (s *HttpServer) WAny(relativePath string, handlers ...httprouter.Handle) {
 	s.Any(relativePath, MutilWrapHttpRouter(handlers...)...)
 }
 
@@ -102,7 +101,7 @@ func (s *HttpServer) DELETE(relativePath string, handlers ...HandlerFunc) {
 }
 
 // WDELETE is wrap httprouter handle to DELETE
-func (s *HttpServer) WDELETE(relativePath string, handlers ...httprouter.Handle){
+func (s *HttpServer) WDELETE(relativePath string, handlers ...httprouter.Handle) {
 	s.DELETE(relativePath, MutilWrapHttpRouter(handlers...)...)
 }
 
@@ -113,7 +112,7 @@ func (s *HttpServer) PATCH(relativePath string, handlers ...HandlerFunc) {
 }
 
 // WPATCH is wrap httprouter handle to PATCH
-func (s *HttpServer) WPATCH(relativePath string, handlers ...httprouter.Handle){
+func (s *HttpServer) WPATCH(relativePath string, handlers ...httprouter.Handle) {
 	s.PATCH(relativePath, MutilWrapHttpRouter(handlers...)...)
 }
 
@@ -124,7 +123,7 @@ func (s *HttpServer) OPTIONS(relativePath string, handlers ...HandlerFunc) {
 }
 
 // WOPTIONS is wrap httprouter handle to OPTIONS
-func (s *HttpServer) WOPTIONS(relativePath string, handlers ...httprouter.Handle){
+func (s *HttpServer) WOPTIONS(relativePath string, handlers ...httprouter.Handle) {
 	s.OPTIONS(relativePath, MutilWrapHttpRouter(handlers...)...)
 }
 
@@ -135,7 +134,7 @@ func (s *HttpServer) HEAD(relativePath string, handlers ...HandlerFunc) {
 }
 
 // WHEAD is wrap httprouter handle to HEAD
-func (s *HttpServer) WHEAD(relativePath string, handlers ...httprouter.Handle){
+func (s *HttpServer) WHEAD(relativePath string, handlers ...httprouter.Handle) {
 	s.HEAD(relativePath, MutilWrapHttpRouter(handlers...)...)
 }
 

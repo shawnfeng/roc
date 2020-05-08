@@ -12,7 +12,7 @@ require (
 	github.com/sdming/gosnow v0.0.0-20130403030620-3a05c415e886
 	github.com/shawnfeng/consistent v1.0.3
 	github.com/shawnfeng/hystrix-go v0.0.0-20190320120533-5e2bc39f173a
-	github.com/shawnfeng/sutil v1.4.3
+	github.com/shawnfeng/sutil v1.4.4
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.4.0
 	github.com/uber/jaeger-client-go v2.20.1+incompatible

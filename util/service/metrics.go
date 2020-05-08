@@ -5,11 +5,11 @@ import (
 	"strconv"
 	"time"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 
-	"github.com/shawnfeng/sutil/slog"
 	"github.com/uber/jaeger-client-go"
 )
 
@@ -40,7 +40,7 @@ const (
 )
 
 var (
-	buckets = []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
+	buckets   = []float64{.005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}
 	msBuckets = []float64{1, 3, 5, 10, 25, 50, 100, 200, 300, 500, 1000, 3000, 5000, 10000, 15000}
 	// 目前只用作sla统计，后续通过修改标签作为所有微服务的耗时统计
 	_metricRequestDuration = xprom.NewHistogram(&xprom.HistogramVecOpts{
@@ -193,8 +193,6 @@ func collectAPM(ctx context.Context, calleeService, calleeEndpoint string, servI
 
 	span := xtrace.SpanFromContext(ctx)
 	if span == nil {
-		// too many logs
-		//slog.Infof("%s span not found", fun)
 		return
 	}
 
@@ -202,7 +200,7 @@ func collectAPM(ctx context.Context, calleeService, calleeEndpoint string, servI
 	if jspan, ok := span.(*jaeger.Span); ok {
 		callerEndpoint = jspan.OperationName()
 	} else {
-		slog.Infof("%s unsupported span %v", fun, span)
+		xlog.Warnf(ctx, "%s unsupported span %v", fun, span)
 		return
 	}
 

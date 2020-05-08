@@ -6,10 +6,10 @@ import (
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/opentracing-contrib/go-grpc"
-	"github.com/shawnfeng/sutil/slog/slog"
 	"google.golang.org/grpc"
 )
 
@@ -74,7 +74,7 @@ func monitorServerInterceptor() grpc.UnaryServerInterceptor {
 		_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun).Inc()
 		st := xtime.NewTimeStat()
 		resp, err = handler(ctx, req)
-		slog.Infof(ctx, "%s req: %v err: %v cost: %d us", fun, req, err, st.Microsecond())
+		xlog.Infow(ctx, "", "func", fun, "req", req, "err", err, "cost", st.Millisecond())
 		_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun).Observe(float64(st.Millisecond()))
 		return resp, err
 	}
@@ -88,7 +88,7 @@ func monitorStreamServerInterceptor() grpc.StreamServerInterceptor {
 		_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun).Inc()
 		st := xtime.NewTimeStat()
 		err := handler(srv, ss)
-		slog.Infof(ss.Context(), "%s req: %v err: %v cost: %d us", fun, srv, err, st.Microsecond())
+		xlog.Infof(ss.Context(), "%s req: %v err: %v cost: %d us", fun, srv, err, st.Microsecond())
 		_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun).Observe(float64(st.Millisecond()))
 		return err
 	}

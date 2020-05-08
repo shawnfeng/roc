@@ -5,34 +5,35 @@ import (
 	"fmt"
 	"time"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
+
 	etcd "github.com/coreos/etcd/client"
-	"github.com/shawnfeng/sutil/slog"
 )
 
 // RegisterCrossDCService, the path and value is the same as RegisterService, but different register center
 func (m *ServBaseV2) RegisterCrossDCService(servs map[string]*ServInfo) error {
 	fun := "ServBaseV2.RegisterService -->"
-
+	ctx := context.Background()
 	err := m.RegisterServiceV2(servs, BASE_LOC_REG_SERV, true)
 	if err != nil {
-		slog.Errorf("%s register server v2 failed, err: %v", fun, err)
+		xlog.Errorf(ctx, "%s register server v2 failed, err: %v", fun, err)
 		return err
 	}
 
 	err = m.RegisterServiceV1(servs, true)
 	if err != nil {
-		slog.Errorf("%s register server v1 failed, err: %v", fun, err)
+		xlog.Errorf(ctx, "%s register server v1 failed, err: %v", fun, err)
 		return err
 	}
 
-	slog.Infof("%s register cross dc server ok", fun)
+	xlog.Infof(ctx, "%s register cross dc server ok", fun)
 
 	return nil
 }
 
 func (m *ServBaseV2) doCrossDCRegister(path, js string, refresh bool) error {
 	fun := "ServBaseV2.doCrossDCRegister -->"
-
+	ctx := context.Background()
 	for addr, _ := range m.crossRegisterClients {
 		// 创建完成标志
 		var isCreated bool
@@ -43,7 +44,7 @@ func (m *ServBaseV2) doCrossDCRegister(path, js string, refresh bool) error {
 				var err error
 				var r *etcd.Response
 				if !isCreated {
-					slog.Warnf("%s create idx:%d server_info: %s", fun, j, js)
+					xlog.Warnf(ctx, "%s create idx:%d server_info: %s", fun, j, js)
 					r, err = m.crossRegisterClients[addr].Set(context.Background(), path, js, &etcd.SetOptions{
 						TTL: time.Second * 60,
 					})
@@ -65,7 +66,7 @@ func (m *ServBaseV2) doCrossDCRegister(path, js string, refresh bool) error {
 
 				if err != nil {
 					isCreated = false
-					slog.Errorf("%s reg idx: %d, resp: %v, err: %v", fun, j, r, err)
+					xlog.Errorf(ctx, "%s reg idx: %d, resp: %v, err: %v", fun, j, r, err)
 
 				} else {
 					isCreated = true
@@ -74,7 +75,7 @@ func (m *ServBaseV2) doCrossDCRegister(path, js string, refresh bool) error {
 				time.Sleep(time.Second * 20)
 
 				if m.isStop() {
-					slog.Infof("%s server stop, register info [%s] clear", fun, path)
+					xlog.Infof(ctx, "%s server stop, register info [%s] clear", fun, path)
 					return
 				}
 			}
@@ -87,6 +88,7 @@ func (m *ServBaseV2) doCrossDCRegister(path, js string, refresh bool) error {
 
 func (m *ServBaseV2) clearCrossDCRegisterInfos() {
 	fun := "ServBaseV2.clearCrossDCRegisterInfos -->"
+	ctx := context.Background()
 	//延迟清理注册信息,防止新实例还没有完成注册
 	time.Sleep(time.Second * 2)
 
@@ -99,7 +101,7 @@ func (m *ServBaseV2) clearCrossDCRegisterInfos() {
 				Recursive: true,
 			})
 			if err != nil {
-				slog.Warnf("%s path: %s, err: %v", fun, path, err)
+				xlog.Warnf(ctx, "%s path: %s, err: %v", fun, path, err)
 			}
 		}
 	}

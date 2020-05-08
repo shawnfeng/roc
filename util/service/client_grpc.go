@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 
 	otgrpc "github.com/opentracing-contrib/go-grpc"
-	"github.com/shawnfeng/sutil/slog"
 	"github.com/uber/jaeger-client-go"
 	"google.golang.org/grpc"
 )
@@ -188,7 +188,6 @@ func (m *ClientGrpc) doWithContext(ctx context.Context, hashKey, funcName string
 		return fmt.Errorf("not find grpc service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
 	}
 
-	m.logTraffic(ctx, si)
 	ctx = m.injectServInfo(ctx, si)
 
 	m.router.Pre(si)
@@ -257,17 +256,17 @@ func (m *ClientGrpc) injectServInfo(ctx context.Context, si *ServInfo) context.C
 	return ctx
 }
 
-func (m *ClientGrpc) logTraffic(ctx context.Context, si *ServInfo) {
-	kv := make(map[string]interface{})
-	for k, v := range trafficKVFromContext(ctx) {
-		kv[k] = v
-	}
-
-	kv[TrafficLogKeyServerType] = si.Type
-	kv[TrafficLogKeyServerID] = si.Servid
-	kv[TrafficLogKeyServerName] = serviceFromServPath(m.clientLookup.ServPath())
-	logTrafficByKV(ctx, kv)
-}
+//func (m *ClientGrpc) logTraffic(ctx context.Context, si *ServInfo) {
+//	kv := make(map[string]interface{})
+//	for k, v := range trafficKVFromContext(ctx) {
+//		kv[k] = v
+//	}
+//
+//	kv[TrafficLogKeyServerType] = si.Type
+//	kv[TrafficLogKeyServerID] = si.Servid
+//	kv[TrafficLogKeyServerName] = serviceFromServPath(m.clientLookup.ServPath())
+//	logTrafficByKV(ctx, kv)
+//}
 
 type grpcClientConn struct {
 	serviceClient interface{}
@@ -304,7 +303,7 @@ func (m *ClientGrpc) newConn(addr string) (rpcClientConn, error) {
 	}
 	conn, err := grpc.Dial(addr, opts...)
 	if err != nil {
-		slog.Errorf("%s dial addr: %s failed, err: %v", fun, addr, err)
+		xlog.Errorf(context.Background(), "%s dial addr: %s failed, err: %v", fun, addr, err)
 		return nil, err
 	}
 	client := m.fnFactory(conn)
