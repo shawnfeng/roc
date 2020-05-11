@@ -103,7 +103,7 @@ func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string 
 		}
 	}
 
-	xlog.Warnf(ctx, "%s check dist v2 path:%s err:%s", fun, path, err)
+	xlog.Warnf(ctx, "%s check dist v2 path: %s err: %v", fun, path, err)
 
 	path = fmt.Sprintf("%s/%s/%s", prefloc, BASE_LOC_DIST, servlocation)
 
@@ -115,7 +115,7 @@ func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string 
 		}
 	}
 
-	xlog.Warnf(ctx, "%s use v2 if check dist v1 path:%s err:%s", fun, path, err)
+	xlog.Warnf(ctx, "%s use v2 if check dist v1 path: %s err: %v", fun, path, err)
 
 	return BASE_LOC_DIST_V2
 }
@@ -166,7 +166,7 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
 	for i := 0; ; i++ {
 		r, err := m.etcdClient.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
 		if err != nil {
-			xlog.Infof(ctx, "%s get path:%s err:%s", fun, path, err)
+			xlog.Errorf(ctx, "%s get path: %s err: %v", fun, path, err)
 			close(chg)
 			return
 
@@ -194,11 +194,11 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
 		resp, err := watcher.Next(context.Background())
 		// etcd 关闭时候会返回
 		if err != nil {
-			xlog.Errorf(ctx, "%s watch path:%s err:%s", fun, path, err)
+			xlog.Errorf(ctx, "%s watch path: %s err: %v", fun, path, err)
 			close(chg)
 			return
 		} else {
-			xlog.Infof(ctx, "%s next get idx:%d action:%s nodes:%d index:%d after:%d servPath:%s", fun, i, resp.Action, len(resp.Node.Nodes), resp.Index, wop.AfterIndex, path)
+			xlog.Infof(ctx, "%s next get idx: %d action: %s nodes: %d index: %d after: %d servPath: %s", fun, i, resp.Action, len(resp.Node.Nodes), resp.Index, wop.AfterIndex, path)
 			// 测试发现next获取到的返回，index，重新获取总有问题，触发两次，不确定，为什么？为什么？
 			// 所以这里每次next前使用的afterindex都重新get了
 		}
@@ -357,7 +357,6 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 		xlog.Errorf(ctx, "%s not found service path:%s please check deploy", fun, m.servPath)
 	}
 
-
 	servCopy := make(servCopyCollect)
 	//for _, s := range vs {
 	for _, i := range ids {
@@ -371,10 +370,10 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 		if len(is.reg) > 0 {
 			err := json.Unmarshal([]byte(is.reg), &regd)
 			if err != nil {
-				xlog.Errorf(ctx, "%s servpath:%s sid:%d json:%s error:%s", fun, m.servPath, i, is.reg, err)
+				xlog.Errorf(ctx, "%s servpath: %s sid: %d json: %s error: %v", fun, m.servPath, i, is.reg, err)
 			}
 			if len(regd.Servs) == 0 {
-				xlog.Errorf(ctx, "%s not found copy path:%s sid:%d info:%s please check deploy", fun, m.servPath, i, is.reg)
+				xlog.Errorf(ctx, "%s not found copy path: %s sid: %d info: %s please check deploy", fun, m.servPath, i, is.reg)
 			}
 		}
 
@@ -382,7 +381,7 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 		if len(is.manual) > 0 {
 			err := json.Unmarshal([]byte(is.manual), &manual)
 			if err != nil {
-				xlog.Errorf(ctx, "%s servpath:%s json:%s error:%s", fun, m.servPath, is.manual, err)
+				xlog.Errorf(ctx, "%s servpath: %s json: %s err: %v", fun, m.servPath, is.manual, err)
 			}
 		}
 
@@ -437,7 +436,7 @@ func (m *ClientEtcdV2) parseResponseV1(r *etcd.Response) {
 		var servs map[string]*ServInfo
 		err := json.Unmarshal([]byte(s), &servs)
 		if err != nil {
-			xlog.Errorf(ctx, "%s servpath:%s json:%s error:%s", fun, m.servPath, s, err)
+			xlog.Errorf(ctx, "%s servpath: %s json: %s err: %v", fun, m.servPath, s, err)
 		}
 
 		if len(servs) == 0 {
@@ -559,19 +558,19 @@ func (m *ClientEtcdV2) GetServAddrWithGroup(group string, processor, key string)
 
 	s, err := shash.Get(key)
 	if err != nil {
-		xlog.Errorf(ctx, "%s get serv path:%s processor:%s key:%s err:%s", fun, m.servPath, processor, key, err)
+		xlog.Errorf(ctx, "%s get serv path: %s processor: %s key: %s err: %v", fun, m.servPath, processor, key, err)
 		return nil
 	}
 
 	idx := strings.Index(s, "-")
 	if idx == -1 {
-		xlog.Fatalf(ctx, "%s servid path:%s processor:%s key:%s sid:%s", fun, m.servPath, processor, key, s)
+		xlog.Fatalf(ctx, "%s servid path: %s, processor: %s, key: %s, sid: %s", fun, m.servPath, processor, key, s)
 		return nil
 	}
 
 	sid, err := strconv.Atoi(s[:idx])
 	if err != nil || sid < 0 {
-		xlog.Fatalf(ctx, "%s servid path:%s processor:%s key:%s sid:%s id:%d err:%s", fun, m.servPath, processor, key, s, sid, err)
+		xlog.Fatalf(ctx, "%s servid path:%s processor:%s key: %s, sid: %s, id: %d, err: %v", fun, m.servPath, processor, key, s, sid, err)
 		return nil
 	}
 	return m.getServAddrWithServid(sid, processor, key)

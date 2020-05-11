@@ -412,14 +412,14 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 	path := fmt.Sprintf("%s/%s", m.confEtcd.useBaseloc, BASE_LOC_ETC_GLOBAL)
 	scfg_global, err := getValue(m.etcdClient, path)
 	if err != nil {
-		xlog.Warnf(ctx, "%s serv config global value path:%s err:%s", fun, path, err)
+		xlog.Warnf(ctx, "%s serv config global value path: %s err: %v", fun, path, err)
 	}
 	xlog.Infof(ctx, "%s global cfg:%s path:%s", fun, scfg_global, path)
 
 	path = fmt.Sprintf("%s/%s/%s", m.confEtcd.useBaseloc, BASE_LOC_ETC, m.servLocation)
 	scfg, err := getValue(m.etcdClient, path)
 	if err != nil {
-		xlog.Warnf(context.Background(), "%s serv config value path:%s err:%s", fun, path, err)
+		xlog.Warnf(context.Background(), "%s serv config value path: %s err: %v", fun, path, err)
 	}
 
 	tf := xconfig.NewTierConf()

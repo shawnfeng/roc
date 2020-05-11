@@ -150,7 +150,7 @@ func genSid(client etcd.KeysAPI, path, skey string) (int, error) {
 	}
 
 	jr, _ := json.Marshal(r)
-	xlog.Infof(ctx, "%s newserv:%s rep:%s", fun, nserv, jr)
+	xlog.Infof(ctx, "%s newserv:%s resp:%s", fun, nserv, jr)
 
 	return sid, nil
 
@@ -163,7 +163,7 @@ func retryGenSid(client etcd.KeysAPI, path, skey string, try int) (int, error) {
 		// 重试3次
 		sid, err := genSid(client, path, skey)
 		if err != nil {
-			xlog.Errorf(ctx, "%s gensid try:%d path:%s err:%s", fun, i, path, err)
+			xlog.Errorf(ctx, "%s gensid try: %d path: %s err: %v", fun, i, path, err)
 		} else {
 			return sid, nil
 		}

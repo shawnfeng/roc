@@ -4,10 +4,10 @@ import (
 	"context"
 	"runtime"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/grpc-ecosystem/go-grpc-middleware/recovery"
@@ -69,13 +69,13 @@ func monitorStreamServerInterceptor() grpc.StreamServerInterceptor {
 		_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun).Inc()
 		st := xtime.NewTimeStat()
 		err := handler(srv, ss)
-		xlog.Infof(ss.Context(), "%s req: %v err: %v cost: %d us", fun, srv, err, st.Microsecond())
+		xlog.Infow(ss.Context(), "", "func", fun, "req", srv, "err", err, "cost", st.Millisecond())
 		_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun).Observe(float64(st.Millisecond()))
 		return err
 	}
 }
 
-func recoveryFunc(p interface{})(err error){
+func recoveryFunc(p interface{}) (err error) {
 	ctx := context.Background()
 	const size = 4096
 	buf := make([]byte, size)

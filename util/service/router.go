@@ -30,7 +30,7 @@ func NewRouter(routerType int, cb ClientLookup) Router {
 	case 2:
 		return NewAddr(cb)
 	default:
-		xlog.Errorf(context.Background(), "%s routerType err: %d", fun, routerType)
+		xlog.Errorf(context.Background(), "%s err routerType: %d", fun, routerType)
 		return NewHash(cb)
 	}
 }
@@ -97,7 +97,7 @@ func (m *Concurrent) Route(ctx context.Context, processor, key string) *ServInfo
 	group := xcontext.GetControlRouteGroupWithDefault(ctx, xcontext.DefaultGroup)
 	s := m.route(group, processor, key)
 	if s != nil {
-		xlog.Infof(ctx, "%s group:%s, processor:%s, key:%s, s:%v", fun, group, processor, key, s)
+		xlog.Infof(ctx, "%s group: %s, processor: %s, key: %s, router: %v", fun, group, processor, key, s)
 		return s
 	}
 

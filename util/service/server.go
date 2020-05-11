@@ -215,7 +215,7 @@ func (m *Server) Serve(confEtcd configEtcd, initfn func(ServBase) error, procs m
 
 	args, err := m.parseFlag()
 	if err != nil {
-		xlog.Panicf(context.Background(), "%s parse arg err:%s", fun, err)
+		xlog.Panicf(context.Background(), "%s parse arg err: %v", fun, err)
 		return err
 	}
 
@@ -236,7 +236,7 @@ func (m *Server) initLog(sb *ServBaseV2, args *cmdArgs) error {
 
 	err := sb.ServConfig(&logConfig)
 	if err != nil {
-		xlog.Errorf(context.Background(), "%s serv config err:%s", fun, err)
+		xlog.Errorf(context.Background(), "%s serv config err: %v", fun, err)
 		return err
 	}
 
@@ -436,7 +436,7 @@ func (m *Server) initBackdoor(sb *ServBaseV2) error {
 	backdoor := &backDoorHttp{}
 	err := backdoor.Init()
 	if err != nil {
-		xlog.Errorf(ctx, "%s init backdoor err:%s", fun, err)
+		xlog.Errorf(ctx, "%s init backdoor err: %v", fun, err)
 		return err
 	}
 
@@ -444,11 +444,11 @@ func (m *Server) initBackdoor(sb *ServBaseV2) error {
 	if err == nil {
 		err = sb.RegisterBackDoor(binfos)
 		if err != nil {
-			xlog.Errorf(ctx, "%s register backdoor err:%s", fun, err)
+			xlog.Errorf(ctx, "%s register backdoor err: %v", fun, err)
 		}
 
 	} else {
-		xlog.Warnf(ctx, "%s load backdoor driver err:%s", fun, err)
+		xlog.Warnf(ctx, "%s load backdoor driver err: %v", fun, err)
 	}
 
 	return err
@@ -461,18 +461,18 @@ func (m *Server) initMetric(sb *ServBaseV2) error {
 	metrics := xprom.NewMetricProcessor()
 	err := metrics.Init()
 	if err != nil {
-		xlog.Warnf(ctx, "%s init metrics err:%s", fun, err)
+		xlog.Warnf(ctx, "%s init metrics err: %v", fun, err)
 	}
 
 	metricInfo, err := m.loadDriver(sb, map[string]Processor{"_PROC_METRICS": metrics})
 	if err == nil {
 		err = sb.RegisterMetrics(metricInfo)
 		if err != nil {
-			xlog.Warnf(ctx, "%s register backdoor err:%s", fun, err)
+			xlog.Warnf(ctx, "%s register backdoor err: %v", fun, err)
 		}
 
 	} else {
-		xlog.Warnf(ctx, "%s load metrics driver err:%s", fun, err)
+		xlog.Warnf(ctx, "%s load metrics driver err: %v", fun, err)
 	}
 	return err
 }
@@ -497,7 +497,7 @@ func (m *Server) MasterSlave(confEtcd configEtcd, initLogic func(ServBase) error
 
 	args, err := m.parseFlag()
 	if err != nil {
-		xlog.Panicf(ctx, "%s parse arg err:%s", fun, err)
+		xlog.Panicf(ctx, "%s parse arg err: %v", fun, err)
 		return err
 	}
 	args.model = MODEL_MASTERSLAVE
