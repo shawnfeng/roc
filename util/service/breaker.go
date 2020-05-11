@@ -14,7 +14,6 @@ import (
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 
 	"github.com/shawnfeng/hystrix-go/hystrix"
-	"github.com/shawnfeng/sutil/slog"
 )
 
 type ItemConf struct {
@@ -180,7 +179,7 @@ type Breaker struct {
 }
 
 func NewBreaker(clientLookup ClientLookup) *Breaker {
-	hystrix.SetLogger(slog.GetLogger())
+	hystrix.SetLogger(&Logger{})
 	m := &Breaker{
 		useFuncConf:  make(map[string]*ItemConf),
 		clientLookup: clientLookup,

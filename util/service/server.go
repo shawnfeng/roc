@@ -5,6 +5,7 @@
 package rocserv
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -14,18 +15,15 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"context"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	stat "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/sys"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
 	"github.com/julienschmidt/httprouter"
-	"github.com/shawnfeng/sutil/slog"
-	"github.com/shawnfeng/sutil/slog/statlog"
 	"github.com/shawnfeng/sutil/trace"
 )
 
@@ -257,8 +255,9 @@ func (m *Server) initLog(sb *ServBaseV2, args *cmdArgs) error {
 
 	xlog.Infof(context.Background(), "%s init log dir:%s name:%s level:%s", fun, logdir, args.servLoc, logConfig.Log.Level)
 
-	slog.Init(logdir, "serv.log", logConfig.Log.Level)
-	statlog.Init(logdir, "stat.log", args.servLoc)
+	xlog.InitAppLog(logdir, "serv.log", convertLevel(logConfig.Log.Level))
+	xlog.InitStatLog(logDir, "stat.log")
+	xlog.SetStatLogService(args.servLoc)
 	return nil
 }
 
@@ -282,8 +281,8 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 	// 初始化服务进程打点
 	stat.Init(sb.servGroup, sb.servName, "")
 
-	defer slog.Sync()
-	defer statlog.Sync()
+	defer xlog.AppLogSync()
+	defer xlog.StatLogSync()
 
 	// NOTE: initBackdoor会启动http服务，但由于health check的http请求不需要追踪，且它是判断服务启动与否的关键，所以initTracer可以放在它之后进行
 	m.initBackdoor(sb)
