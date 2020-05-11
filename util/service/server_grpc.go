@@ -2,6 +2,7 @@ package rocserv
 
 import (
 	"context"
+	"runtime"
 
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
@@ -9,8 +10,12 @@ import (
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"github.com/opentracing-contrib/go-grpc"
+
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type GrpcServer struct {
@@ -25,37 +30,13 @@ func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
 	var unaryInterceptors []grpc.UnaryServerInterceptor
 	var streamInterceptors []grpc.StreamServerInterceptor
 
-	// add tracer、monitor interceptor
+	// add tracer、monitor、recovery interceptor
 	tracer := xtrace.GlobalTracer()
-	unaryInterceptors = append(unaryInterceptors, otgrpc.OpenTracingServerInterceptor(tracer), monitorServerInterceptor())
-	streamInterceptors = append(streamInterceptors, otgrpc.OpenTracingStreamServerInterceptor(tracer), monitorStreamServerInterceptor())
-
-	// TODO 采用框架内显式注入interceptors的方式，不再进行二次包装，后续该部分功能会删除掉
-	//for _, fn := range fns {
-	//	// 注册interceptor
-	//	var interceptor grpc.UnaryServerInterceptor
-	//	interceptor = func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-	//		err = fn(ctx, req, info.FullMethod)
-	//		if err != nil {
-	//			return
-	//		}
-	//		// 继续处理请求
-	//		return handler(ctx, req)
-	//	}
-	//	unaryInterceptors = append(unaryInterceptors, interceptor)
-	//
-	//	var streamInterceptor grpc.StreamServerInterceptor
-	//	streamInterceptor = func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	//		ss.Context()
-	//		err := fn(ss.Context(), srv, info.FullMethod)
-	//		if err != nil {
-	//			return err
-	//		}
-	//		// 继续处理请求
-	//		return handler(srv, ss)
-	//	}
-	//	streamInterceptors = append(streamInterceptors, streamInterceptor)
-	//}
+	recoveryOpts := []grpc_recovery.Option{
+		grpc_recovery.WithRecoveryHandler(recoveryFunc),
+	}
+	unaryInterceptors = append(unaryInterceptors, otgrpc.OpenTracingServerInterceptor(tracer), monitorServerInterceptor(), grpc_recovery.UnaryServerInterceptor(recoveryOpts...))
+	streamInterceptors = append(streamInterceptors, otgrpc.OpenTracingStreamServerInterceptor(tracer), monitorStreamServerInterceptor(), grpc_recovery.StreamServerInterceptor(recoveryOpts...))
 
 	var opts []grpc.ServerOption
 	opts = append(opts, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaryInterceptors...)))
@@ -92,4 +73,13 @@ func monitorStreamServerInterceptor() grpc.StreamServerInterceptor {
 		_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun).Observe(float64(st.Millisecond()))
 		return err
 	}
+}
+
+func recoveryFunc(p interface{})(err error){
+	ctx := context.Background()
+	const size = 4096
+	buf := make([]byte, size)
+	buf = buf[:runtime.Stack(buf, false)]
+	xlog.Errorf(ctx, "%v catch panic, stack: %s", p, string(buf))
+	return status.Errorf(codes.Internal, "panic triggered: %v", p)
 }
