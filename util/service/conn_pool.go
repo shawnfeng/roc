@@ -7,12 +7,11 @@ import (
 	"sync"
 	"time"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil/pool"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil/sync2"
-
-	"github.com/shawnfeng/sutil/slog"
 )
 
 const (
@@ -82,7 +81,7 @@ func (cp *ConnectionPool) stat() {
 			select {
 			case <-tickC:
 				confActive, confIdle, active, idle := cp.connections.Stat()
-				slog.Infof("caller: %s, callee: %s, callee_addr: %s, conf_active: %d, conf_idle: %d, active: %d, idle: %d", GetServName(), cp.calleeServiceKey, cp.addr, confActive, confIdle, active, idle)
+				xlog.Infof(context.Background(), "caller: %s, callee: %s, callee_addr: %s, conf_active: %d, conf_idle: %d, active: %d, idle: %d", GetServName(), cp.calleeServiceKey, cp.addr, confActive, confIdle, active, idle)
 				group, service := GetGroupAndService()
 				_metricRPCConnectionPool.With(xprom.LabelGroupName, group,
 					xprom.LabelServiceName, service,
@@ -106,7 +105,7 @@ func (cp *ConnectionPool) stat() {
 					connectionPoolStatType, idleType).Set(float64(idle))
 			}
 		}
-		slog.Infof("caller: %s, callee: %s, callee_addr: %s exit stat", GetServName(), cp.calleeServiceKey, cp.addr)
+		xlog.Infof(context.Background(), "caller: %s, callee: %s, callee_addr: %s exit stat", GetServName(), cp.calleeServiceKey, cp.addr)
 	}()
 }
 

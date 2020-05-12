@@ -5,13 +5,15 @@
 package rocserv
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
+
 	"github.com/shawnfeng/hystrix-go/hystrix"
-	"github.com/shawnfeng/sutil/slog"
 )
 
 type ItemConf struct {
@@ -38,21 +40,13 @@ func NewBreakerConf() *BreakerConf {
 
 func (m *BreakerConf) tryUpdate(servname, rawGlobalConf, rawServConf string) {
 	fun := "BreakerConf.tryUpdate -->"
-
-	/*
-		st := stime.NewTimeStat()
-		defer func() {
-			dur := st.Duration()
-			slog.Infof("%s servname:%s rawGlobalConf:%s rawServConf:%s dur:%d", fun, servname, rawGlobalConf, rawServConf, dur)
-		}()
-	*/
+	ctx := context.Background()
 
 	if len(rawGlobalConf) > 0 && rawGlobalConf != m.getRawGlobalConf() {
-
 		var globalConf []*ItemConf
 		err := json.Unmarshal([]byte(rawGlobalConf), &globalConf)
 		if err != nil {
-			slog.Errorf("%s servname:%s Unmarshal err, rawGlobalConf:%s", fun, servname, rawGlobalConf)
+			xlog.Errorf(ctx, "%s servname:%s Unmarshal err, rawGlobalConf:%s", fun, servname, rawGlobalConf)
 		} else {
 			m.setGlobalConf(globalConf)
 			m.setRawGlobalConf(rawGlobalConf)
@@ -63,7 +57,7 @@ func (m *BreakerConf) tryUpdate(servname, rawGlobalConf, rawServConf string) {
 		var items []*ItemConf
 		err := json.Unmarshal([]byte(rawServConf), &items)
 		if err != nil {
-			slog.Errorf("%s servname:%s Unmarshal err, rawServConf:%s", fun, servname, rawServConf)
+			xlog.Errorf(ctx, "%s servname:%s Unmarshal err, rawServConf:%s", fun, servname, rawServConf)
 		} else {
 
 			var servConf []*ItemConf
@@ -185,7 +179,7 @@ type Breaker struct {
 }
 
 func NewBreaker(clientLookup ClientLookup) *Breaker {
-	hystrix.SetLogger(slog.GetLogger())
+	hystrix.SetLogger(&Logger{})
 	m := &Breaker{
 		useFuncConf:  make(map[string]*ItemConf),
 		clientLookup: clientLookup,
@@ -214,6 +208,7 @@ func (m *Breaker) run() {
 
 func (m *Breaker) monitor() {
 	fun := "Breaker.monitor -->"
+	ctx := context.Background()
 
 	ticker := time.NewTicker(60 * time.Second)
 	for {
@@ -222,7 +217,7 @@ func (m *Breaker) monitor() {
 			for _, stat := range m.statCounter {
 				if stat.fail > 5 && stat.total > 5 &&
 					(float64(stat.fail)/float64(stat.total)) > 0.02 {
-					slog.Errorf("%s breaker stat, key:%s, total:%d, fail:%d", fun, stat.key, stat.total, stat.fail)
+					xlog.Errorf(ctx, "%s breaker stat, key:%s, total:%d, fail:%d", fun, stat.key, stat.total, stat.fail)
 				}
 			}
 
@@ -256,7 +251,7 @@ func (m *Breaker) doStat(key string, total, fail int64) {
 	select {
 	case m.statChan <- stat:
 	default:
-		slog.Errorf("%s drop, key:%s, total:%d, fail:%d", fun, stat.key, stat.total, stat.fail)
+		xlog.Errorf(context.Background(), "%s drop, key:%s, total:%d, fail:%d", fun, stat.key, stat.total, stat.fail)
 	}
 }
 
@@ -291,7 +286,6 @@ func (m *Breaker) checkOrUpdateConf(source int32, servid int, funcName string, k
 	//fun := "Breaker.checkOrUpdateConf -->"
 
 	newConf := m.conf.getFuncConf(source, funcName)
-	//slog.Infof("%s servid:%d funcName:%s key:%s, newConf:%v", fun, servid, funcName, key, *newConf)
 
 	if newConf.Enable == false {
 		return false
@@ -316,6 +310,7 @@ func (m *Breaker) checkOrUpdateConf(source int32, servid int, funcName string, k
 
 func (m *Breaker) Do(source int32, servid int, funcName string, run func() error, protocol ServProtocol, fallback func(error) error) error {
 	fun := "Breaker.Do -->"
+	ctx := context.Background()
 	key := m.generateKey(source, servid, funcName, protocol)
 	if m.checkOrUpdateConf(source, servid, funcName, key) == false {
 		return run()
@@ -324,15 +319,12 @@ func (m *Breaker) Do(source int32, servid int, funcName string, run func() error
 	fail := int64(0)
 	err := hystrix.Do(key, run, fallback)
 	if err != nil {
-		slog.Warnf("%s key:%s err:%s", fun, key, err.Error())
+		xlog.Warnf(ctx, "%s key:%s err: %s", fun, key, err)
 		fail = 1
 	}
 
-	slog.Debugf("Breaker key:%s fail:%d", key, fail)
+	xlog.Debugf(ctx, "Breaker key:%s fail:%d", key, fail)
 	m.doStat(key, 1, fail)
-
-	//dur := st.Duration()
-	//slog.Infof("%s key:%s dur:%d", fun, key, dur)
 
 	return err
 }

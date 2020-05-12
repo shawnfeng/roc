@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil"
 )
 
@@ -85,4 +86,29 @@ func GetFuncRetry(servKey, funcName string) int {
 		}
 	}
 	return t
+}
+
+func convertLevel(level string) xlog.Level {
+	switch level {
+	case "info":
+		return xlog.InfoLevel
+	case "warn":
+		return xlog.WarnLevel
+	case "error":
+		return xlog.ErrorLevel
+	case "fatal":
+		return xlog.FatalLevel
+	case "panic":
+		return xlog.PanicLevel
+	default:
+		return xlog.InfoLevel
+	}
+}
+
+// Logger 注入其他基础库的日志句柄
+type Logger struct {
+}
+
+func (m *Logger) Printf(format string, items ...interface{}) {
+	xlog.Errorf(context.Background(), format, items...)
 }

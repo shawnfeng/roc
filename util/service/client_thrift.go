@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 
 	"git.apache.org/thrift.git/lib/go/thrift"
-	"github.com/shawnfeng/sutil/slog"
 	"github.com/uber/jaeger-client-go"
 )
 
@@ -132,7 +132,6 @@ func (m *ClientThrift) doWithContext(ctx context.Context, hashKey, funcName stri
 		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
 	}
 
-	m.logTraffic(ctx, si)
 	ctx = m.injectServInfo(ctx, si)
 
 	m.router.Pre(si)
@@ -195,17 +194,17 @@ func (m *ClientThrift) injectServInfo(ctx context.Context, si *ServInfo) context
 	return ctx
 }
 
-func (m *ClientThrift) logTraffic(ctx context.Context, si *ServInfo) {
-	kv := make(map[string]interface{})
-	for k, v := range trafficKVFromContext(ctx) {
-		kv[k] = v
-	}
-
-	kv[TrafficLogKeyServerType] = si.Type
-	kv[TrafficLogKeyServerID] = si.Servid
-	kv[TrafficLogKeyServerName] = serviceFromServPath(m.clientLookup.ServPath())
-	logTrafficByKV(ctx, kv)
-}
+//func (m *ClientThrift) logTraffic(ctx context.Context, si *ServInfo) {
+//	kv := make(map[string]interface{})
+//	for k, v := range trafficKVFromContext(ctx) {
+//		kv[k] = v
+//	}
+//
+//	kv[TrafficLogKeyServerType] = si.Type
+//	kv[TrafficLogKeyServerID] = si.Servid
+//	kv[TrafficLogKeyServerName] = serviceFromServPath(m.clientLookup.ServPath())
+//	logTrafficByKV(ctx, kv)
+//}
 
 type thriftClientConn struct {
 	tsock         *thrift.TSocket
@@ -233,25 +232,26 @@ func (m *thriftClientConn) GetServiceClient() interface{} {
 
 func (m *ClientThrift) newConn(addr string) (rpcClientConn, error) {
 	fun := "ClientThrift.newConn -->"
+	ctx := context.Background()
 
 	transportFactory := thrift.NewTFramedTransportFactory(thrift.NewTTransportFactory())
 	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
 
 	transport, err := thrift.NewTSocket(addr)
 	if err != nil {
-		slog.Errorf("%s NetTSocket addr:%s serv:%s err:%s", fun, addr, m.clientLookup.ServKey(), err)
+		xlog.Errorf(ctx, "%s NetTSocket addr: %s serv: %s err: %v", fun, addr, m.clientLookup.ServKey(), err)
 		return nil, err
 	}
 	useTransport := transportFactory.GetTransport(transport)
 
 	if err := useTransport.Open(); err != nil {
-		slog.Errorf("%s Open addr:%s serv:%s err:%s", fun, addr, m.clientLookup.ServKey(), err)
+		xlog.Errorf(ctx, "%s Open addr: %s serv: %s err: %v", fun, addr, m.clientLookup.ServKey(), err)
 		return nil, err
 	}
 	// 必须要close么？
 	//useTransport.Close()
 
-	slog.Infof("%s new client addr:%s serv:%s", fun, addr, m.clientLookup.ServKey())
+	xlog.Infof(ctx, "%s new client addr: %s serv: %s", fun, addr, m.clientLookup.ServKey())
 	return &thriftClientConn{
 		tsock:         transport,
 		trans:         useTransport,

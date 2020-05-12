@@ -5,30 +5,32 @@
 package rocserv
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
 	"github.com/julienschmidt/httprouter"
 	"github.com/opentracing-contrib/go-stdlib/nethttp"
-	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/snetutil"
 	"github.com/shawnfeng/sutil/trace"
 )
 
 func powerHttp(addr string, router *httprouter.Router) (string, error) {
 	fun := "powerHttp -->"
+	ctx := context.Background()
 
 	paddr, err := snetutil.GetListenAddr(addr)
 	if err != nil {
 		return "", err
 	}
 
-	slog.Infof("%s config addr[%s]", fun, paddr)
+	xlog.Infof(ctx, "%s config addr[%s]", fun, paddr)
 
 	tcpAddr, err := net.ResolveTCPAddr("tcp", paddr)
 	if err != nil {
@@ -46,7 +48,7 @@ func powerHttp(addr string, router *httprouter.Router) (string, error) {
 		return "", err
 	}
 
-	slog.Infof("%s listen addr[%s]", fun, laddr)
+	xlog.Infof(ctx, "%s listen addr[%s]", fun, laddr)
 
 	// tracing
 	mw := nethttp.Middleware(
@@ -61,7 +63,7 @@ func powerHttp(addr string, router *httprouter.Router) (string, error) {
 	go func() {
 		err := http.Serve(netListen, mw)
 		if err != nil {
-			slog.Panicf("%s laddr[%s]", fun, laddr)
+			xlog.Panicf(ctx, "%s laddr[%s]", fun, laddr)
 		}
 	}()
 
@@ -70,13 +72,14 @@ func powerHttp(addr string, router *httprouter.Router) (string, error) {
 
 func powerThrift(addr string, processor thrift.TProcessor) (string, error) {
 	fun := "powerThrift -->"
+	ctx := context.Background()
 
 	paddr, err := snetutil.GetListenAddr(addr)
 	if err != nil {
 		return "", err
 	}
 
-	slog.Infof("%s config addr[%s]", fun, paddr)
+	xlog.Infof(ctx, "%s config addr[%s]", fun, paddr)
 
 	transportFactory := thrift.NewTFramedTransportFactory(thrift.NewTTransportFactory())
 	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
@@ -101,12 +104,12 @@ func powerThrift(addr string, processor thrift.TProcessor) (string, error) {
 		return "", err
 	}
 
-	slog.Infof("%s listen addr[%s]", fun, laddr)
+	xlog.Infof(ctx, "%s listen addr[%s]", fun, laddr)
 
 	go func() {
 		err := server.Serve()
 		if err != nil {
-			slog.Panicf("%s laddr[%s]", fun, laddr)
+			xlog.Panicf(ctx, "%s laddr[%s]", fun, laddr)
 		}
 	}()
 
@@ -117,11 +120,12 @@ func powerThrift(addr string, processor thrift.TProcessor) (string, error) {
 //启动grpc ，并返回端口信息
 func powerGrpc(addr string, server *GrpcServer) (string, error) {
 	fun := "powerGrpc -->"
+	ctx := context.Background()
 	paddr, err := snetutil.GetListenAddr(addr)
 	if err != nil {
 		return "", err
 	}
-	slog.Infof("%s config addr[%s]", fun, paddr)
+	xlog.Infof(ctx, "%s config addr[%s]", fun, paddr)
 	lis, err := net.Listen("tcp", paddr)
 	if err != nil {
 		return "", fmt.Errorf("grpc tcp Listen err:%v", err)
@@ -130,10 +134,10 @@ func powerGrpc(addr string, server *GrpcServer) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf(" GetServAddr err:%v", err)
 	}
-	slog.Infof("%s listen grpc addr[%s]", fun, laddr)
+	xlog.Infof(ctx, "%s listen grpc addr[%s]", fun, laddr)
 	go func() {
 		if err := server.Server.Serve(lis); err != nil {
-			slog.Panicf("%s grpc laddr[%s]", fun, laddr)
+			xlog.Panicf(ctx, "%s grpc laddr[%s]", fun, laddr)
 		}
 	}()
 	return laddr, nil
@@ -141,13 +145,14 @@ func powerGrpc(addr string, server *GrpcServer) (string, error) {
 
 func powerGin(addr string, router *gin.Engine) (string, *http.Server, error) {
 	fun := "powerGin -->"
+	ctx := context.Background()
 
 	paddr, err := snetutil.GetListenAddr(addr)
 	if err != nil {
 		return "", nil, err
 	}
 
-	slog.Infof("%s config addr[%s]", fun, paddr)
+	xlog.Infof(ctx, "%s config addr[%s]", fun, paddr)
 
 	tcpAddr, err := net.ResolveTCPAddr("tcp", paddr)
 	if err != nil {
@@ -165,7 +170,7 @@ func powerGin(addr string, router *gin.Engine) (string, *http.Server, error) {
 		return "", nil, err
 	}
 
-	slog.Infof("%s listen addr[%s]", fun, laddr)
+	xlog.Infof(ctx, "%s listen addr[%s]", fun, laddr)
 
 	// tracing
 	mw := nethttp.Middleware(
@@ -180,7 +185,7 @@ func powerGin(addr string, router *gin.Engine) (string, *http.Server, error) {
 	go func() {
 		err := serv.Serve(netListen)
 		if err != nil {
-			slog.Panicf("%s laddr[%s]", fun, laddr)
+			xlog.Panicf(ctx, "%s laddr[%s]", fun, laddr)
 		}
 	}()
 
@@ -204,7 +209,7 @@ func reloadRouter(processor string, server interface{}, driver interface{}) erro
 				return "HTTP " + r.Method + ": " + r.URL.Path
 			}))
 		s.Handler = mw
-		slog.Infof("%s reload ok, processors:%s", fun, processor)
+		xlog.Infof(context.Background(), "%s reload ok, processors:%s", fun, processor)
 	default:
 		return fmt.Errorf("processor:%s driver not recognition", processor)
 	}

@@ -5,15 +5,16 @@
 package rocserv
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"time"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xfile"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 
 	"github.com/julienschmidt/httprouter"
-	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/snetutil"
 )
 
@@ -62,8 +63,7 @@ func FactoryRestart() snetutil.HandleRequest {
 }
 
 func (m *Restart) Handle(r *snetutil.HttpRequest) snetutil.HttpResponse {
-
-	slog.Infof("RECEIVE RESTART COMMAND")
+	xlog.Infof(context.Background(), "RECEIVE RESTART COMMAND")
 	os.Exit(0)
 	// 这里的代码执行不到了，因为之前已经退出了
 	return snetutil.NewHttpRespString(200, "{}")
@@ -79,7 +79,7 @@ func FactoryHealthCheck() snetutil.HandleRequest {
 
 func (m *HealthCheck) Handle(r *snetutil.HttpRequest) snetutil.HttpResponse {
 	fun := "HealthCheck -->"
-	slog.Infof("%s in", fun)
+	xlog.Infof(context.Background(), "%s in", fun)
 
 	return snetutil.NewHttpRespString(200, "{}")
 }

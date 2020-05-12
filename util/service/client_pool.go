@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shawnfeng/sutil/slog"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 )
 
 const (
@@ -38,7 +38,7 @@ func (m *ClientPool) Get(addr string) (rpcClientConn, error) {
 	defer cancel()
 	c, err := cp.Get(ctx)
 	if err != nil {
-		slog.Errorf("%s get conn from connection pool failed, callee_service: %s, addr: %s, err: %v", fun, m.calleeServiceKey, addr, err)
+		xlog.Errorf(context.Background(), "%s get conn from connection pool failed, callee_service: %s, addr: %s, err: %v", fun, m.calleeServiceKey, addr, err)
 		return nil, err
 	}
 	return c.(rpcClientConn), nil
@@ -50,7 +50,7 @@ func (m *ClientPool) Put(addr string, client rpcClientConn, err error) {
 	cp := m.getPool(addr)
 	// close client and don't put to pool
 	if err != nil {
-		slog.Warnf("%s put rpc client to pool with err: %v, callee_service: %s, addr: %s", fun, err, m.calleeServiceKey, addr)
+		xlog.Warnf(context.Background(), "%s put rpc client to pool with err: %v, callee_service: %s, addr: %s", fun, err, m.calleeServiceKey, addr)
 		cp.Put(client, true)
 		return
 	}
@@ -81,7 +81,7 @@ func (m *ClientPool) getPool(addr string) *ConnectionPool {
 		if ok == true {
 			cp = value.(*ConnectionPool)
 		} else {
-			slog.Infof("%s not found connection pool of callee_service: %s, addr: %s, create it", fun, m.calleeServiceKey, addr)
+			xlog.Infof(context.Background(), "%s not found connection pool of callee_service: %s, addr: %s, create it", fun, m.calleeServiceKey, addr)
 			cp = NewConnectionPool(addr, m.idle, m.active, m.idleTimeout, m.rpcFactory, m.calleeServiceKey)
 			cp.Open()
 			m.clientPool.Store(addr, cp)

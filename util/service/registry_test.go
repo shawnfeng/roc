@@ -5,28 +5,26 @@
 package rocserv
 
 import (
+	"context"
 	"fmt"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"testing"
 	"time"
-
-	"github.com/shawnfeng/sutil/slog"
 )
 
 func TestClient(t *testing.T) {
+	ctx := context.Background()
 	etcds := []string{"http://127.0.0.1:20002"}
 
 	cli, err := NewClientLookup(etcds, "roc", "base/account")
 
-	slog.Infof("Test client:%s err:%v", cli, err)
+	xlog.Infof(ctx, "Test client:%s err:%v", cli, err)
 
 	if err != nil {
 		t.Errorf("create err:%s", err)
 		return
 	}
 	time.Sleep(time.Second * 2)
-
-	//allserv := cli.GetAllServAddr()
-	//slog.Infoln("ALL", allserv)
 
 	s := cli.GetServAddr("noexit", "key")
 	if s != nil {
@@ -45,7 +43,6 @@ func TestClient(t *testing.T) {
 		if s == nil {
 			t.Errorf("get err")
 		}
-		//slog.Infoln("get test_thrift", s)
 		ss := s.String()
 		if _, ok := count[ss]; !ok {
 			count[ss] = 0
@@ -54,7 +51,7 @@ func TestClient(t *testing.T) {
 	}
 
 	for k, v := range count {
-		slog.Infoln("stat", k, v)
+		xlog.Info(ctx, "stat", k, v)
 	}
 
 	s = cli.GetServAddrWithServid(3, "proc_thrift", "key")
@@ -62,6 +59,6 @@ func TestClient(t *testing.T) {
 		t.Errorf("get err")
 	}
 
-	slog.Infoln("get test_thrift", s)
+	xlog.Info(ctx, "get test_thrift", s)
 
 }

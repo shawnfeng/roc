@@ -11,10 +11,11 @@ import (
 	"sync"
 	"time"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
+
 	etcd "github.com/coreos/etcd/client"
 	"github.com/sdming/gosnow"
 	"github.com/shawnfeng/sutil"
-	"github.com/shawnfeng/sutil/slog"
 	"github.com/shawnfeng/sutil/slowid"
 )
 
@@ -99,6 +100,7 @@ func (m *IdGenerator) GenUuidMd5() (string, error) {
 
 func genSid(client etcd.KeysAPI, path, skey string) (int, error) {
 	fun := "genSid -->"
+	ctx := context.Background()
 	r, err := client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
 	if err != nil {
 		return -1, err
@@ -106,13 +108,13 @@ func genSid(client etcd.KeysAPI, path, skey string) (int, error) {
 
 	js, _ := json.Marshal(r)
 
-	slog.Infof("%s", js)
+	xlog.Infof(ctx, "%s", js)
 
 	if r.Node == nil || !r.Node.Dir {
 		return -1, fmt.Errorf("node error location:%s", path)
 	}
 
-	slog.Infof("%s serv:%s len:%d", fun, r.Node.Key, r.Node.Nodes.Len())
+	xlog.Infof(ctx, "%s serv:%s len:%d", fun, r.Node.Key, r.Node.Nodes.Len())
 
 	// 获取已有的servid，按从小到大排列
 	ids := make([]int, 0)
@@ -120,7 +122,7 @@ func genSid(client etcd.KeysAPI, path, skey string) (int, error) {
 		sid := n.Key[len(r.Node.Key)+1:]
 		id, err := strconv.Atoi(sid)
 		if err != nil || id < 0 {
-			slog.Errorf("%s sid error key:%s", fun, n.Key)
+			xlog.Errorf(ctx, "%s sid error key:%s", fun, n.Key)
 		} else {
 			ids = append(ids, id)
 			if n.Value == skey {
@@ -148,7 +150,7 @@ func genSid(client etcd.KeysAPI, path, skey string) (int, error) {
 	}
 
 	jr, _ := json.Marshal(r)
-	slog.Infof("%s newserv:%s rep:%s", fun, nserv, jr)
+	xlog.Infof(ctx, "%s newserv:%s resp:%s", fun, nserv, jr)
 
 	return sid, nil
 
@@ -156,11 +158,12 @@ func genSid(client etcd.KeysAPI, path, skey string) (int, error) {
 
 func retryGenSid(client etcd.KeysAPI, path, skey string, try int) (int, error) {
 	fun := "retryGenSid -->"
+	ctx := context.Background()
 	for i := 0; i < try; i++ {
 		// 重试3次
 		sid, err := genSid(client, path, skey)
 		if err != nil {
-			slog.Errorf("%s gensid try:%d path:%s err:%s", fun, i, path, err)
+			xlog.Errorf(ctx, "%s gensid try: %d path: %s err: %v", fun, i, path, err)
 		} else {
 			return sid, nil
 		}

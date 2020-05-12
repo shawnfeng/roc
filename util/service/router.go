@@ -9,8 +9,7 @@ import (
 	"sync"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
-
-	"github.com/shawnfeng/sutil/slog"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 )
 
 // Router router include consistent hash、load of concurrent、concrete addr
@@ -31,7 +30,7 @@ func NewRouter(routerType int, cb ClientLookup) Router {
 	case 2:
 		return NewAddr(cb)
 	default:
-		slog.Errorf("%s routerType err: %d", fun, routerType)
+		xlog.Errorf(context.Background(), "%s err routerType: %d", fun, routerType)
 		return NewHash(cb)
 	}
 }
@@ -60,7 +59,6 @@ func (m *Hash) Route(ctx context.Context, processor, key string) *ServInfo {
 	group := xcontext.GetControlRouteGroupWithDefault(ctx, xcontext.DefaultGroup)
 	s := m.cb.GetServAddrWithGroup(group, processor, key)
 
-	//slog.Infof("%s group:%s, processor:%s, key:%s, s:%v", fun, group, processor, key, s)
 	return s
 }
 
@@ -99,12 +97,11 @@ func (m *Concurrent) Route(ctx context.Context, processor, key string) *ServInfo
 	group := xcontext.GetControlRouteGroupWithDefault(ctx, xcontext.DefaultGroup)
 	s := m.route(group, processor, key)
 	if s != nil {
-		slog.Infof("%s group:%s, processor:%s, key:%s, s:%v", fun, group, processor, key, s)
+		xlog.Infof(ctx, "%s group: %s, processor: %s, key: %s, router: %v", fun, group, processor, key, s)
 		return s
 	}
 
 	s = m.route("", processor, key)
-	//slog.Infof("%s group:%s, new group:%s, processor:%s, key:%s, s:%v", fun, group, "", processor, key, s)
 	return s
 }
 
@@ -124,7 +121,6 @@ func (m *Concurrent) route(group, processor, key string) *ServInfo {
 	for _, serv := range list {
 
 		count := m.counter[serv.Addr]
-		//slog.Infof("%s processor:%s, addr:%s, count: %d", fun, processor, serv.Addr, count)
 		if count == 0 {
 			min = count
 			s = serv
@@ -137,9 +133,8 @@ func (m *Concurrent) route(group, processor, key string) *ServInfo {
 		}
 	}
 	if s != nil {
-		//slog.Infof("%s processor:%s, addr:%s", fun, processor, s.Addr)
 	} else {
-		slog.Errorf("%s processor:%s, route fail", fun, processor)
+		xlog.Errorf(context.Background(), "%s processor:%s, route fail", fun, processor)
 	}
 
 	return s
@@ -180,9 +175,9 @@ func (m *Addr) Route(ctx context.Context, processor, addr string) (si *ServInfo)
 	}
 
 	if si != nil {
-		slog.Infof("%s processor:%s, addr:%s", fun, processor, addr)
+		xlog.Infof(ctx, "%s processor:%s, addr:%s", fun, processor, addr)
 	} else {
-		slog.Errorf("%s processor:%s, route failed", fun, processor)
+		xlog.Errorf(ctx, "%s processor:%s, route failed", fun, processor)
 	}
 
 	return
