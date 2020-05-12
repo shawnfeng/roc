@@ -166,7 +166,8 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
 	for i := 0; ; i++ {
 		r, err := m.etcdClient.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
 		if err != nil {
-			xlog.Errorf(ctx, "%s get path: %s err: %v", fun, path, err)
+			// TODO 因为目前breaker都报错key not found，所以用info，这里继续保持info的方式，后续再优化吧
+			xlog.Infof(ctx, "%s get path: %s err: %v", fun, path, err)
 			close(chg)
 			return
 
