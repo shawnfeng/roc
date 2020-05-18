@@ -402,7 +402,12 @@ func (m *ServBaseV2) ConfigCenter() xconfig.ConfigCenter {
 func (m *ServBaseV2) RegInfos() map[string]string {
 	m.muReg.Lock()
 	defer m.muReg.Unlock()
-	return m.regInfos
+
+	result := make(map[string]string, len(m.regInfos))
+	for k, v := range m.regInfos {
+		result[k] = v
+	}
+	return result
 }
 
 func (m *ServBaseV2) ServConfig(cfg interface{}) error {
