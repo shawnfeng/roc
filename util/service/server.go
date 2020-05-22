@@ -256,7 +256,7 @@ func (m *Server) initLog(sb *ServBaseV2, args *cmdArgs) error {
 	xlog.Infof(context.Background(), "%s init log dir:%s name:%s level:%s", fun, logdir, args.servLoc, logConfig.Log.Level)
 
 	xlog.InitAppLog(logdir, "serv.log", convertLevel(logConfig.Log.Level))
-	xlog.InitStatLog(logDir, "stat.log")
+	xlog.InitStatLog(logdir, "stat.log")
 	xlog.SetStatLogService(args.servLoc)
 	return nil
 }
