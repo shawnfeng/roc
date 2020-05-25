@@ -45,7 +45,7 @@ func (m *backDoorHttp) Driver() (string, interface{}) {
 
 	router := httprouter.New()
 	// 重启
-	router.GET("/backdoor/restart", snetutil.HttpRequestWrapper(FactoryRestart))
+	router.POST("/backdoor/restart", snetutil.HttpRequestWrapper(FactoryRestart))
 
 	// healthcheck
 	router.GET("/backdoor/health/check", snetutil.HttpRequestWrapper(FactoryHealthCheck))
