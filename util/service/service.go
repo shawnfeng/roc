@@ -116,7 +116,6 @@ func (m *ServBaseV2) Stop() {
 	m.setStatusToStop()
 	m.clearRegisterInfos()
 	m.clearCrossDCRegisterInfos()
-
 }
 
 func (m *ServBaseV2) setStatusToStop() {
