@@ -124,4 +124,7 @@ type ServBase interface {
 
 	// reginfos
 	RegInfos() map[string]string
+
+	// stop
+	Stop()
 }

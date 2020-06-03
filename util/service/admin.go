@@ -45,7 +45,9 @@ func (m *backDoorHttp) Driver() (string, interface{}) {
 
 	router := httprouter.New()
 	// 重启
-	//router.POST("/restart", snetutil.HttpRequestWrapper(FactoryRestart))
+	router.POST("/backdoor/restart", snetutil.HttpRequestWrapper(FactoryRestart))
+
+	// healthcheck
 	router.GET("/backdoor/health/check", snetutil.HttpRequestWrapper(FactoryHealthCheck))
 
 	// 获取实例md5值
@@ -64,7 +66,8 @@ func FactoryRestart() snetutil.HandleRequest {
 
 func (m *Restart) Handle(r *snetutil.HttpRequest) snetutil.HttpResponse {
 	xlog.Infof(context.Background(), "RECEIVE RESTART COMMAND")
-	os.Exit(0)
+	server.sbase.Stop()
+	os.Exit(1)
 	// 这里的代码执行不到了，因为之前已经退出了
 	return snetutil.NewHttpRespString(200, "{}")
 }
