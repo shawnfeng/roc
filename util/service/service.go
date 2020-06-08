@@ -60,7 +60,8 @@ const (
 	ENV_GROUP_PRE = "pre"
 
 	// RPCConfNamespace RPC Apollo Conf Namespace
-	RPCConfNamespace = "rpc.client"
+	RPCConfNamespace     = "rpc.client"
+	ApplicationNamespace = "application"
 )
 
 type configEtcd struct {
@@ -488,7 +489,7 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 		}
 	}
 
-	configCenter, err := xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, servLocation, []string{RPCConfNamespace, xsql.MysqlConfNamespace, xmgo.MongoConfNamespace})
+	configCenter, err := xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, servLocation, []string{ApplicationNamespace, RPCConfNamespace, xsql.MysqlConfNamespace, xmgo.MongoConfNamespace})
 	if err != nil {
 		return nil, err
 	}
