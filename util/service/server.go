@@ -27,12 +27,16 @@ import (
 	"github.com/shawnfeng/sutil/trace"
 )
 
+// rpc protocol
 const (
 	PROCESSOR_HTTP   = "http"
 	PROCESSOR_THRIFT = "thrift"
-	PROCESSOR_GRPC   = "gprc"
+	PROCESSOR_GRPC   = "grpc"
 	PROCESSOR_GIN    = "gin"
+)
 
+// server model
+const (
 	MODEL_SERVER      = 0
 	MODEL_MASTERSLAVE = 1
 	START_TYPE_LOCAL  = "local"
