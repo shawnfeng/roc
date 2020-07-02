@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"gitlab.pri.ibanyu.com/middleware/dolphin/rate_limit/registry"
+	"gitlab.pri.ibanyu.com/middleware/util/servbase"
 	"os"
 	"os/signal"
 	"reflect"
@@ -307,6 +309,12 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 	// NOTE: processor 在初始化 trace middleware 前需要保证 xtrace.GlobalTracer() 初始化完毕
 	m.initTracer(servLoc)
 
+	err = m.initDolphin(sb)
+	if err != nil {
+		xlog.Errorf(ctx, "%s initDolphin() failed, error: %v", fun, err)
+		return err
+	}
+
 	err = m.initProcessor(sb, procs, args.startType)
 	if err != nil {
 		xlog.Panicf(ctx, "%s initProcessor err: %v", fun, err)
@@ -479,6 +487,15 @@ func (m *Server) initMetric(sb *ServBaseV2) error {
 		xlog.Warnf(ctx, "%s load metrics driver err: %v", fun, err)
 	}
 	return err
+}
+
+func (m *Server) initDolphin(sb *ServBaseV2) error {
+	etcdInterfaceRateLimitRegistry, err := registry.NewEtcdInterfaceRateLimitRegistry(sb.servGroup, sb.servName, servbase.ETCDS_CLUSTER_0)
+	if err != nil {
+		return err
+	}
+	rateLimitRegistry = etcdInterfaceRateLimitRegistry
+	return nil
 }
 
 func ReloadRouter(processor string, driver interface{}) error {
