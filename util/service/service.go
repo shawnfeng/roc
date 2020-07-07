@@ -303,11 +303,8 @@ func (m *ServBaseV2) getValueFromEtcd(path string) (value string, err error) {
 		xlog.Warnf(ctx, "%s path:%s err:%v", fun, path, err)
 		return "", err
 	}
-
-	for _, n := range r.Node.Nodes {
-		for _, nc := range n.Nodes {
-			return nc.Value, nil
-		}
+	if r != nil && r.Node != nil {
+		return r.Node.Value, nil
 	}
 
 	return "", nil
