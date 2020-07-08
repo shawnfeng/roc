@@ -299,6 +299,12 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 		return err
 	}
 
+	err = m.initDolphin(sb)
+	if err != nil {
+		xlog.Errorf(ctx, "%s initDolphin() failed, error: %v", fun, err)
+		return err
+	}
+
 	// App层初始化
 	err = initfn(sb)
 	if err != nil {
@@ -308,12 +314,6 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 
 	// NOTE: processor 在初始化 trace middleware 前需要保证 xtrace.GlobalTracer() 初始化完毕
 	m.initTracer(servLoc)
-
-	err = m.initDolphin(sb)
-	if err != nil {
-		xlog.Errorf(ctx, "%s initDolphin() failed, error: %v", fun, err)
-		return err
-	}
 
 	err = m.initProcessor(sb, procs, args.startType)
 	if err != nil {
@@ -495,6 +495,9 @@ func (m *Server) initDolphin(sb *ServBaseV2) error {
 		return err
 	}
 	rateLimitRegistry = etcdInterfaceRateLimitRegistry
+	go func() {
+		etcdInterfaceRateLimitRegistry.Watch()
+	}()
 	return nil
 }
 

@@ -333,6 +333,12 @@ gitlab.pri.ibanyu.com/middleware/dolphin v0.0.0-20200702082421-a7aad3f05339 h1:V
 gitlab.pri.ibanyu.com/middleware/dolphin v0.0.0-20200702082421-a7aad3f05339/go.mod h1:z/GcqzICbT28jNSVd+8n1uKJxB8anXz1HHxSawZQc3g=
 gitlab.pri.ibanyu.com/middleware/dolphin v0.0.0-20200702083544-892c254d7053 h1:U3mz8oa8FAwqLOJSpbepI2pOjDZk23HA65q0c3agScU=
 gitlab.pri.ibanyu.com/middleware/dolphin v0.0.0-20200702083544-892c254d7053/go.mod h1:z/GcqzICbT28jNSVd+8n1uKJxB8anXz1HHxSawZQc3g=
+gitlab.pri.ibanyu.com/middleware/dolphin v0.0.0-20200708043919-1d0bad332151 h1:E+vdzDKk2vnRLnb4OQH1BcR57ZAGAVoxnzej9orrnpQ=
+gitlab.pri.ibanyu.com/middleware/dolphin v0.0.0-20200708043919-1d0bad332151/go.mod h1:z/GcqzICbT28jNSVd+8n1uKJxB8anXz1HHxSawZQc3g=
+gitlab.pri.ibanyu.com/middleware/dolphin v0.0.0-20200708073758-47fae8be09c7 h1:MaCUu/BVhpYrv5KCndRTWsH6WP9NCJ9LHMBphNA4zBc=
+gitlab.pri.ibanyu.com/middleware/dolphin v0.0.0-20200708073758-47fae8be09c7/go.mod h1:z/GcqzICbT28jNSVd+8n1uKJxB8anXz1HHxSawZQc3g=
+gitlab.pri.ibanyu.com/middleware/dolphin v0.0.0-20200709083941-d8f9ea783452 h1:NsbJA4tMkxAEVAriOEwFFxVZGMUThsi9Xl+NhDvMRX0=
+gitlab.pri.ibanyu.com/middleware/dolphin v0.0.0-20200709083941-d8f9ea783452/go.mod h1:z/GcqzICbT28jNSVd+8n1uKJxB8anXz1HHxSawZQc3g=
 gitlab.pri.ibanyu.com/middleware/seaweed v1.0.5/go.mod h1:iCFyLPlxZOk9Z6sJ+b92gN+mN1OsmZ67Ez8j/1wtp14=
 gitlab.pri.ibanyu.com/middleware/seaweed v1.0.20/go.mod h1:MpSbv4ZwqbtESMEils0BcjET3+Qp+XeWtAwLqbk07fg=
 gitlab.pri.ibanyu.com/middleware/seaweed v1.0.21/go.mod h1:MpSbv4ZwqbtESMEils0BcjET3+Qp+XeWtAwLqbk07fg=
