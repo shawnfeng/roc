@@ -2,7 +2,9 @@ package rocserv
 
 import (
 	"context"
+	"gitlab.pri.ibanyu.com/middleware/dolphin/rate_limit"
 	"runtime"
+	"strings"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
@@ -35,8 +37,8 @@ func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
 	recoveryOpts := []grpc_recovery.Option{
 		grpc_recovery.WithRecoveryHandler(recoveryFunc),
 	}
-	unaryInterceptors = append(unaryInterceptors, otgrpc.OpenTracingServerInterceptor(tracer), monitorServerInterceptor(), grpc_recovery.UnaryServerInterceptor(recoveryOpts...))
-	streamInterceptors = append(streamInterceptors, otgrpc.OpenTracingStreamServerInterceptor(tracer), monitorStreamServerInterceptor(), grpc_recovery.StreamServerInterceptor(recoveryOpts...))
+	unaryInterceptors = append(unaryInterceptors, rateLimitInterceptor(), otgrpc.OpenTracingServerInterceptor(tracer), monitorServerInterceptor(), grpc_recovery.UnaryServerInterceptor(recoveryOpts...))
+	streamInterceptors = append(streamInterceptors, rateLimitStreamServerInterceptor(), otgrpc.OpenTracingStreamServerInterceptor(tracer), monitorStreamServerInterceptor(), grpc_recovery.StreamServerInterceptor(recoveryOpts...))
 
 	var opts []grpc.ServerOption
 	opts = append(opts, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaryInterceptors...)))
@@ -45,6 +47,26 @@ func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
 	// 实例化grpc Server
 	server := grpc.NewServer(opts...)
 	return &GrpcServer{Server: server}
+}
+
+// rate limiter interceptor, should be before OpenTracingServerInterceptor and monitorServerInterceptor
+func rateLimitInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+		parts := strings.Split(info.FullMethod, "/")
+		interfaceName := parts[len(parts)-1]
+
+		// 暂时不支持按照调用方限流
+		caller := UNSPECIFIED_CALLER
+		err = rateLimitRegistry.InterfaceRateLimit(ctx, interfaceName, caller)
+		if err != nil {
+			if err == rate_limit.ErrRateLimited {
+				xlog.Warnf(ctx, "rate limited: method=%s, caller=%s", info.FullMethod, caller)
+			}
+			return nil, err
+		} else {
+			return handler(ctx, req)
+		}
+	}
 }
 
 // server rpc cost, record to log and prometheus
@@ -58,6 +80,27 @@ func monitorServerInterceptor() grpc.UnaryServerInterceptor {
 		xlog.Infow(ctx, "", "func", fun, "req", req, "err", err, "cost", st.Millisecond())
 		_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun).Observe(float64(st.Millisecond()))
 		return resp, err
+	}
+}
+
+// rate limiter interceptor, should be before OpenTracingStreamServerInterceptor and monitorStreamServerInterceptor
+func rateLimitStreamServerInterceptor() grpc.StreamServerInterceptor {
+	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		ctx := context.Background()
+		parts := strings.Split(info.FullMethod, "/")
+		interfaceName := parts[len(parts)-1]
+
+		// 暂时不支持按照调用方限流
+		caller := UNSPECIFIED_CALLER
+		err := rateLimitRegistry.InterfaceRateLimit(ctx, interfaceName, caller)
+		if err != nil {
+			if err == rate_limit.ErrRateLimited {
+				xlog.Warnf(ctx, "rate limited: method=%s, caller=%s", info.FullMethod, caller)
+			}
+			return err
+		} else {
+			return handler(ctx, ss)
+		}
 	}
 }
 
