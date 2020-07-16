@@ -89,6 +89,7 @@ func GetFuncRetry(servKey, funcName string) int {
 }
 
 func convertLevel(level string) xlog.Level {
+	level = strings.ToLower(level)
 	switch level {
 	case "info":
 		return xlog.InfoLevel

@@ -494,6 +494,7 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 		}
 	}
 
+	// init global config center
 	configCenter, err := xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, servLocation, []string{ApplicationNamespace, RPCConfNamespace, xsql.MysqlConfNamespace, xmgo.MongoConfNamespace})
 	if err != nil {
 		return nil, err
