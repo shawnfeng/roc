@@ -165,6 +165,7 @@ github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7V
 github.com/kaneshin/go-pkg v0.0.0-20150919125626-a8e1479186cf h1:kBpksZbhb1xNFDTPbxh5H5G0o0MJZKrH004ELvq/zWI=
 github.com/kaneshin/go-pkg v0.0.0-20150919125626-a8e1479186cf/go.mod h1:XI2QuPvM6xUXWcpwlqaMB+SxxV7XNr3aO/DrUK8lRZo=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
+github.com/klauspost/compress v1.9.8/go.mod h1:RyIbtBH6LamlWaDj8nUwkbUhJ87Yi3uG0guNDohfE1A=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515/go.mod h1:+0opPa2QZZtGFBFZlji/RkVcI2GknAs/DXo4wKdlNEc=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
@@ -234,6 +235,7 @@ github.com/sdming/gosnow v0.0.0-20130403030620-3a05c415e886 h1:dkA4/6HgXq1Nq09XT
 github.com/sdming/gosnow v0.0.0-20130403030620-3a05c415e886/go.mod h1:xucuMeiX1TAS2KBgvWFPd0UZN3BnOmHZEggfq28hlfA=
 github.com/segmentio/kafka-go v0.2.4/go.mod h1:MyX8oKJCSypBXY66FgANfFbqN8aFXAGoLlnR3eKCzoU=
 github.com/segmentio/kafka-go v0.3.4/go.mod h1:OT5KXBPbaJJTcvokhWR2KFmm0niEx3mnccTwjmLvSi4=
+github.com/segmentio/kafka-go v0.3.7/go.mod h1:8rEphJEczp+yDE/R5vwmaqZgF1wllrl4ioQcNKB8wVA=
 github.com/serialx/hashring v0.0.0-20160507062712-75d57fa264ad/go.mod h1:/yeG0My1xr/u+HZrFQ1tOQQQQrOawfyMUH13ai5brBc=
 github.com/shawnfeng/consistent v1.0.2/go.mod h1:TpBWBTkEGx/yt72C1fvM9zfHfKAKXfeMEIxrmdI34xg=
 github.com/shawnfeng/consistent v1.0.3 h1:ilrK9gACa6S14E7otsWkgIF+2VPz9oATOWaUnT5OxHE=
@@ -274,6 +276,8 @@ github.com/shawnfeng/sutil v1.4.3 h1:Xs25Un0QuNGLAkepdTXg/B5MIXZa3ofoGPZyxsSJzZk
 github.com/shawnfeng/sutil v1.4.3/go.mod h1:6zG6tHQzjp3fVSp/sFwhs+LFmrQsxAuHqYBDSzV4RcA=
 github.com/shawnfeng/sutil v1.4.4 h1:0dspRAxW4uDT5GDKnA/UeAV8ORoeSss7nNLHqAaFo6E=
 github.com/shawnfeng/sutil v1.4.4/go.mod h1:6zG6tHQzjp3fVSp/sFwhs+LFmrQsxAuHqYBDSzV4RcA=
+github.com/shawnfeng/sutil v1.4.11 h1:v4vNFoYpGQhcswqjV8RU4JrFwY63wExGkxEr2JRTLKE=
+github.com/shawnfeng/sutil v1.4.11/go.mod h1:v3nJUWTjeMo9BsO3eFEAyThTmj4Bv42pF5Oi7S+PmRU=
 github.com/shirou/gopsutil v2.19.12+incompatible h1:WRstheAymn1WOPesh+24+bZKFkqrdCR8JOc77v4xV3Q=
 github.com/shirou/gopsutil v2.19.12+incompatible/go.mod h1:5b4v6he4MtMOwMlS0TUMTu2PcXUg8+E1lC7eC3UO/RA=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
@@ -327,6 +331,8 @@ gitlab.pri.ibanyu.com/middleware/seaweed v1.1.11 h1:GWDbAxLwy88meUOvRqRIsEs7tU2u
 gitlab.pri.ibanyu.com/middleware/seaweed v1.1.11/go.mod h1:/jdJeuMOKlxO0+fC18Lrv4xJEchrzyVJdXi1oc5D9oA=
 gitlab.pri.ibanyu.com/middleware/seaweed v1.1.12 h1:jr1ZtcXyJ8BsysJG33lRo2kF8sbR5H0cs9ZGjA9vAEw=
 gitlab.pri.ibanyu.com/middleware/seaweed v1.1.12/go.mod h1:/jdJeuMOKlxO0+fC18Lrv4xJEchrzyVJdXi1oc5D9oA=
+gitlab.pri.ibanyu.com/middleware/seaweed v1.1.14 h1:XBzf+YnAOhPg1T0Df4TypvSCrbCLZLDJ3xWKqgRa2Q4=
+gitlab.pri.ibanyu.com/middleware/seaweed v1.1.14/go.mod h1:/jdJeuMOKlxO0+fC18Lrv4xJEchrzyVJdXi1oc5D9oA=
 gitlab.pri.ibanyu.com/middleware/util v1.0.27/go.mod h1:quXdc6vUclNPa1AB1z5eTdlegRmXL+tOOfkMvezxk8k=
 go.opencensus.io v0.20.1/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=
 go.uber.org/atomic v1.3.2/go.mod h1:gD2HeocX3+yG+ygLZcrzQJaqmWj9AIm7n08wl/qW/PE=

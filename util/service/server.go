@@ -259,6 +259,11 @@ func (m *Server) initLog(sb *ServBaseV2, args *cmdArgs) error {
 
 	xlog.Infof(context.Background(), "%s init log dir:%s name:%s level:%s", fun, logdir, args.servLoc, logConfig.Log.Level)
 
+	// 最终根据Apollo中配置的log level决定日志级别， TODO 后续将从etcd获取日志配置的逻辑去掉，统一在Apollo内配置
+	logLevel, ok := m.sbase.ConfigCenter().GetString(context.TODO(), "log_level")
+	if ok {
+		logConfig.Log.Level = logLevel
+	}
 	xlog.InitAppLog(logdir, "serv.log", convertLevel(logConfig.Log.Level))
 	xlog.InitStatLog(logdir, "stat.log")
 	xlog.SetStatLogService(args.servLoc)

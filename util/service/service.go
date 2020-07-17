@@ -99,8 +99,9 @@ type ServBaseV2 struct {
 	muHearts ssync.Mutex
 	hearts   map[string]*distLockHeart
 
-	muStop sync.Mutex
-	stop   bool
+	muStop     sync.Mutex
+	stop       bool
+	onShutdown func()
 
 	muReg    sync.Mutex
 	regInfos map[string]string
@@ -113,10 +114,17 @@ func (m *ServBaseV2) isStop() bool {
 	return m.stop
 }
 
+// Stop server stop
 func (m *ServBaseV2) Stop() {
 	m.setStatusToStop()
 	m.clearRegisterInfos()
 	m.clearCrossDCRegisterInfos()
+	m.onShutdown()
+}
+
+// SetOnShutdown add shutdown hook in app
+func (m *ServBaseV2) SetOnShutdown(onShutdown func()) {
+	m.onShutdown = onShutdown
 }
 
 func (m *ServBaseV2) setStatusToStop() {
@@ -486,6 +494,7 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 		}
 	}
 
+	// init global config center
 	configCenter, err := xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, servLocation, []string{ApplicationNamespace, RPCConfNamespace, xsql.MysqlConfNamespace, xmgo.MongoConfNamespace})
 	if err != nil {
 		return nil, err
@@ -506,7 +515,8 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 		dbRouter:     dr,
 		configCenter: configCenter,
 
-		envGroup: envGroup,
+		envGroup:   envGroup,
+		onShutdown: func() { xlog.Info(context.TODO(), "app shutdown") },
 	}
 
 	svrInfo := strings.SplitN(servLocation, "/", 2)
