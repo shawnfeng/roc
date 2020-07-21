@@ -19,8 +19,7 @@ import (
 	"github.com/shawnfeng/sutil/slowid"
 )
 
-//====================
-// id生成逻辑
+// IdGenerator id生成逻辑, will move to idgen service
 type IdGenerator struct {
 	workerID int
 	mu       sync.Mutex
@@ -53,8 +52,9 @@ func (m *IdGenerator) GenSlowId(tp string) (int64, error) {
 	return s.Next()
 }
 
-func (m *IdGenerator) GetSlowIdStamp(sid int64) int64 {
-	return slowid.Since + sid>>11
+// GetSlowIdStamp return timestamp part of slow id, will move to idgen service
+func (m *IdGenerator) GetSlowIdStamp(id int64) int64 {
+	return slowid.Since + id>>11
 }
 
 func (m *IdGenerator) GetSlowIdWithStamp(stamp int64) int64 {
