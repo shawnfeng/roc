@@ -16,6 +16,8 @@ import (
 
 // ClientThrift client of thrift in adapter
 type ClientThrift struct {
+	fallbacks
+
 	clientLookup ClientLookup
 	processor    string
 	fnFactory    func(thrift.TTransport, thrift.TProtocolFactory) interface{}
@@ -93,12 +95,9 @@ func (m *ClientThrift) do(ctx context.Context, hashKey, funcName string, timeout
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
-	// 目前Adapter内通过Rpc函数调用RpcWithContext时层次会出错，直接调用RpcWithContext和RpcWithContextV2的层次是正确的，所以修正前者进行兼容
-	call := func(si *ServInfo, rc rpcClientConn, timeout time.Duration, fnrpc func(interface{}) error) func() error {
-		return func() error {
-			return m.rpc(si, rc, timeout, fnrpc)
-		}
-	}(si, rc, timeout, fnrpc)
+	call := func(_ctx context.Context) error {
+		return m.rpc(si, rc, timeout, fnrpc)
+	}
 
 	var err error
 	// record request duration
@@ -108,7 +107,7 @@ func (m *ClientThrift) do(ctx context.Context, hashKey, funcName string, timeout
 		collector(m.clientLookup.ServKey(), m.processor, dur, 0, si.Servid, funcName, err)
 		collectAPM(ctx, m.clientLookup.ServKey(), funcName, si.Servid, dur, err)
 	}()
-	err = m.breaker.Do(0, si.Servid, funcName, call, THRIFT, nil)
+	err = m.breaker.Do(ctx, funcName, call, m.GetFallbackFunc(funcName))
 	return err
 }
 
@@ -137,11 +136,9 @@ func (m *ClientThrift) doWithContext(ctx context.Context, hashKey, funcName stri
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
-	call := func(si *ServInfo, rc rpcClientConn, timeout time.Duration, fnrpc func(context.Context, interface{}) error) func() error {
-		return func() error {
-			return m.rpcWithContext(ctx, si, rc, timeout, fnrpc)
-		}
-	}(si, rc, timeout, fnrpc)
+	call := func(ctx context.Context) error {
+		return m.rpcWithContext(ctx, si, rc, timeout, fnrpc)
+	}
 
 	var err error
 	st := xtime.NewTimeStat()
@@ -150,9 +147,10 @@ func (m *ClientThrift) doWithContext(ctx context.Context, hashKey, funcName stri
 		collector(m.clientLookup.ServKey(), m.processor, dur, 0, si.Servid, funcName, err)
 		collectAPM(ctx, m.clientLookup.ServKey(), funcName, si.Servid, dur, err)
 	}()
-	err = m.breaker.Do(0, si.Servid, funcName, call, THRIFT, nil)
+	err = m.breaker.Do(ctx, funcName, call, m.GetFallbackFunc(funcName))
 	return err
 }
+
 func (m *ClientThrift) rpc(si *ServInfo, rc rpcClientConn, timeout time.Duration, fnrpc func(interface{}) error) error {
 	rc.SetTimeout(timeout)
 	c := rc.GetServiceClient()

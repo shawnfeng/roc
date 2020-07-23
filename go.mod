@@ -12,14 +12,14 @@ require (
 	github.com/sdming/gosnow v0.0.0-20130403030620-3a05c415e886
 	github.com/shawnfeng/consistent v1.0.3
 	github.com/shawnfeng/hystrix-go v0.0.0-20190320120533-5e2bc39f173a
-	github.com/shawnfeng/sutil v1.4.6
+	github.com/shawnfeng/sutil v1.4.11
 	github.com/stretchr/testify v1.6.1
 	github.com/uber/jaeger-client-go v2.20.1+incompatible
-	gitlab.pri.ibanyu.com/middleware/dolphin v1.0.0
+	gitlab.pri.ibanyu.com/middleware/dolphin v1.0.4
 	gitlab.pri.ibanyu.com/middleware/seaweed v1.1.14
 	gitlab.pri.ibanyu.com/middleware/util v1.1.15
 	golang.org/x/net v0.0.0-20191002035440-2ec189313ef0
-	google.golang.org/grpc v1.30.0
+	google.golang.org/grpc v1.20.0
 )
 
 go 1.13
