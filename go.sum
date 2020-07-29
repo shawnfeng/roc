@@ -353,6 +353,7 @@ gitlab.pri.ibanyu.com/middleware/dolphin v1.0.3 h1:VTnIvvO86y+m1ypwjBF+wmFIC2Cdj
 gitlab.pri.ibanyu.com/middleware/dolphin v1.0.3/go.mod h1:z/GcqzICbT28jNSVd+8n1uKJxB8anXz1HHxSawZQc3g=
 gitlab.pri.ibanyu.com/middleware/dolphin v1.0.4 h1:nrBAimzRqHtrfd3q7bwWezrOQVAHdvDflpFEotI4x70=
 gitlab.pri.ibanyu.com/middleware/dolphin v1.0.4/go.mod h1:205+jmF+Ai0JHm/SzJP1Bpkrd64H98XO+Q99s0wvyuA=
+gitlab.pri.ibanyu.com/middleware/dolphin v1.0.6/go.mod h1:205+jmF+Ai0JHm/SzJP1Bpkrd64H98XO+Q99s0wvyuA=
 gitlab.pri.ibanyu.com/middleware/seaweed v1.0.5/go.mod h1:iCFyLPlxZOk9Z6sJ+b92gN+mN1OsmZ67Ez8j/1wtp14=
 gitlab.pri.ibanyu.com/middleware/seaweed v1.0.20/go.mod h1:MpSbv4ZwqbtESMEils0BcjET3+Qp+XeWtAwLqbk07fg=
 gitlab.pri.ibanyu.com/middleware/seaweed v1.0.21/go.mod h1:MpSbv4ZwqbtESMEils0BcjET3+Qp+XeWtAwLqbk07fg=
