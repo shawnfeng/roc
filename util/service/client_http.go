@@ -14,6 +14,8 @@ import (
 
 // ClientWrapper 目前网关通过common/go/pub在使用
 type ClientWrapper struct {
+	fallbacks
+
 	clientLookup ClientLookup
 	processor    string
 	breaker      *Breaker
@@ -60,18 +62,16 @@ func (m *ClientWrapper) do(hashKey, funcName string, timeout time.Duration, run 
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
-	call := func(addr string, timeout time.Duration) func() error {
-		return func() error {
-			return run(addr, timeout)
-		}
-	}(si.Addr, timeout)
+	call := func(_ctx context.Context) error {
+		return run(si.Addr, timeout)
+	}
 
 	var err error
 	st := xtime.NewTimeStat()
 	defer func() {
 		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
 	}()
-	err = m.breaker.Do(0, si.Servid, funcName, call, HTTP, nil)
+	err = m.breaker.Do(context.Background(), funcName, call, m.GetFallbackFunc(funcName))
 	return err
 }
 
@@ -85,17 +85,15 @@ func (m *ClientWrapper) Call(ctx context.Context, hashKey, funcName string, run 
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
-	call := func(addr string) func() error {
-		return func() error {
-			return run(addr)
-		}
-	}(si.Addr)
+	call := func(_ctx context.Context) error {
+		return run(si.Addr)
+	}
 
 	var err error
 	st := xtime.NewTimeStat()
 	defer func() {
 		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
 	}()
-	err = m.breaker.Do(0, si.Servid, funcName, call, HTTP, nil)
+	err = m.breaker.Do(ctx, funcName, call, m.GetFallbackFunc(funcName))
 	return err
 }

@@ -16,10 +16,13 @@ import (
 	"sync"
 	"syscall"
 
+	"gitlab.pri.ibanyu.com/middleware/dolphin/circuit_breaker"
+	"gitlab.pri.ibanyu.com/middleware/dolphin/rate_limit/registry"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	stat "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/sys"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
+	"gitlab.pri.ibanyu.com/middleware/util/servbase"
 
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
@@ -302,6 +305,12 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 		return err
 	}
 
+	err = m.initDolphin(sb)
+	if err != nil {
+		xlog.Errorf(ctx, "%s initDolphin() failed, error: %v", fun, err)
+		return err
+	}
+
 	// App层初始化
 	err = initfn(sb)
 	if err != nil {
@@ -484,6 +493,28 @@ func (m *Server) initMetric(sb *ServBaseV2) error {
 		xlog.Warnf(ctx, "%s load metrics driver err: %v", fun, err)
 	}
 	return err
+}
+
+func (m *Server) initDolphin(sb *ServBaseV2) error {
+	fun := "Server.initDolphin -->"
+	// circuit breaker
+	err := circuit_breaker.Init(sb.servGroup, sb.servName)
+	if err != nil {
+		xlog.Errorf(context.Background(), "%s: circuit_breaker.Init() failed, error: %+v", fun, err)
+		return err
+	}
+
+	// rate limiter
+	etcdInterfaceRateLimitRegistry, err := registry.NewEtcdInterfaceRateLimitRegistry(sb.servGroup, sb.servName, servbase.ETCDS_CLUSTER_0)
+	if err != nil {
+		xlog.Errorf(context.Background(), "%s: registry.NewEtcdInterfaceRateLimitRegistry() failed, error: %+v", fun, err)
+		return err
+	}
+	rateLimitRegistry = etcdInterfaceRateLimitRegistry
+	go func() {
+		etcdInterfaceRateLimitRegistry.Watch()
+	}()
+	return nil
 }
 
 func ReloadRouter(processor string, driver interface{}) error {

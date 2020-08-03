@@ -62,7 +62,7 @@ func (m servCopyCollect) String() string {
 
 type ClientEtcdV2 struct {
 	confEtcd configEtcd
-	servKey  string
+	servKey  string // 形如 {servGroup}/{servName}
 	servPath string
 	// 使用的注册器位置，不同版本会注册到不同版本的dist目录
 	// 但是会保持多版本的兼容，客户端优先使用最新版本的
@@ -76,13 +76,6 @@ type ClientEtcdV2 struct {
 	muServlist sync.Mutex
 	servCopy   servCopyCollect
 	servHash   map[string]*consistent.Consistent
-
-	breakerGlobalPath string
-	breakerServPath   string
-
-	breakerMutex      sync.RWMutex
-	breakerGlobalConf string
-	breakerServConf   string
 }
 
 func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string {
@@ -147,17 +140,10 @@ func NewClientEtcdV2(confEtcd configEtcd, servlocation string) (*ClientEtcdV2, e
 		servPath: fmt.Sprintf("%s/%s/%s", confEtcd.useBaseloc, distloc, servlocation),
 
 		etcdClient: client,
-
-		breakerServPath:   fmt.Sprintf("%s/%s/%s", confEtcd.useBaseloc, BASE_LOC_BREAKER, servlocation),
-		breakerGlobalPath: fmt.Sprintf("%s/%s", confEtcd.useBaseloc, BASE_LOC_BREAKER_GLOBAL),
 	}
 
 	cli.watch(cli.servPath, cli.parseResponse, time.Second*5)
-	cli.watch(cli.breakerServPath, cli.handleBreakerServResponse, time.Second*60)
-	cli.watch(cli.breakerGlobalPath, cli.handleBreakerGlobalResponse, time.Second*60)
-
 	return cli, nil
-
 }
 
 func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
@@ -274,46 +260,6 @@ func (m *ClientEtcdV2) parseResponse(r *etcd.Response) {
 		xlog.Errorf(ctx, "%s not support:%s dir:%s", fun, m.distLoc, r.Node.Key)
 	}
 
-}
-
-func (m *ClientEtcdV2) handleBreakerGlobalResponse(r *etcd.Response) {
-	fun := "ClientEtcdV2.handleBreakerGlobalResponse -->"
-	ctx := context.Background()
-	if r.Node.Dir {
-		xlog.Errorf(ctx, "%s not file %s", fun, r.Node.Key)
-		return
-	}
-
-	m.breakerMutex.Lock()
-	defer m.breakerMutex.Unlock()
-	m.breakerGlobalConf = r.Node.Value
-}
-
-func (m *ClientEtcdV2) GetBreakerServConf() string {
-	m.breakerMutex.RLock()
-	defer m.breakerMutex.RUnlock()
-
-	return m.breakerServConf
-}
-
-func (m *ClientEtcdV2) GetBreakerGlobalConf() string {
-	m.breakerMutex.RLock()
-	defer m.breakerMutex.RUnlock()
-
-	return m.breakerGlobalConf
-}
-
-func (m *ClientEtcdV2) handleBreakerServResponse(r *etcd.Response) {
-	fun := "ClientEtcdV2.handleBreakerServResponse -->"
-
-	if r.Node.Dir {
-		xlog.Errorf(context.Background(), "%s not file %s", fun, r.Node.Key)
-		return
-	}
-
-	m.breakerMutex.Lock()
-	defer m.breakerMutex.Unlock()
-	m.breakerServConf = r.Node.Value
 }
 
 func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
