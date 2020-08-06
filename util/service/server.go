@@ -16,10 +16,13 @@ import (
 	"sync"
 	"syscall"
 
+	"gitlab.pri.ibanyu.com/middleware/dolphin/circuit_breaker"
+	"gitlab.pri.ibanyu.com/middleware/dolphin/rate_limit/registry"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	stat "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/sys"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
+	"gitlab.pri.ibanyu.com/middleware/util/servbase"
 
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
@@ -27,12 +30,16 @@ import (
 	"github.com/shawnfeng/sutil/trace"
 )
 
+// rpc protocol
 const (
 	PROCESSOR_HTTP   = "http"
 	PROCESSOR_THRIFT = "thrift"
-	PROCESSOR_GRPC   = "gprc"
+	PROCESSOR_GRPC   = "grpc"
 	PROCESSOR_GIN    = "gin"
+)
 
+// server model
+const (
 	MODEL_SERVER      = 0
 	MODEL_MASTERSLAVE = 1
 	START_TYPE_LOCAL  = "local"
@@ -255,8 +262,13 @@ func (m *Server) initLog(sb *ServBaseV2, args *cmdArgs) error {
 
 	xlog.Infof(context.Background(), "%s init log dir:%s name:%s level:%s", fun, logdir, args.servLoc, logConfig.Log.Level)
 
+	// 最终根据Apollo中配置的log level决定日志级别， TODO 后续将从etcd获取日志配置的逻辑去掉，统一在Apollo内配置
+	logLevel, ok := m.sbase.ConfigCenter().GetString(context.TODO(), "log_level")
+	if ok {
+		logConfig.Log.Level = logLevel
+	}
 	xlog.InitAppLog(logdir, "serv.log", convertLevel(logConfig.Log.Level))
-	xlog.InitStatLog(logDir, "stat.log")
+	xlog.InitStatLog(logdir, "stat.log")
 	xlog.SetStatLogService(args.servLoc)
 	return nil
 }
@@ -290,6 +302,12 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 	err = m.handleModel(sb, servLoc, args.model)
 	if err != nil {
 		xlog.Panicf(ctx, "%s handleModel err: %v", fun, err)
+		return err
+	}
+
+	err = m.initDolphin(sb)
+	if err != nil {
+		xlog.Errorf(ctx, "%s initDolphin() failed, error: %v", fun, err)
 		return err
 	}
 
@@ -475,6 +493,28 @@ func (m *Server) initMetric(sb *ServBaseV2) error {
 		xlog.Warnf(ctx, "%s load metrics driver err: %v", fun, err)
 	}
 	return err
+}
+
+func (m *Server) initDolphin(sb *ServBaseV2) error {
+	fun := "Server.initDolphin -->"
+	// circuit breaker
+	err := circuit_breaker.Init(sb.servGroup, sb.servName)
+	if err != nil {
+		xlog.Errorf(context.Background(), "%s: circuit_breaker.Init() failed, error: %+v", fun, err)
+		return err
+	}
+
+	// rate limiter
+	etcdInterfaceRateLimitRegistry, err := registry.NewEtcdInterfaceRateLimitRegistry(sb.servGroup, sb.servName, servbase.ETCDS_CLUSTER_0)
+	if err != nil {
+		xlog.Errorf(context.Background(), "%s: registry.NewEtcdInterfaceRateLimitRegistry() failed, error: %+v", fun, err)
+		return err
+	}
+	rateLimitRegistry = etcdInterfaceRateLimitRegistry
+	go func() {
+		etcdInterfaceRateLimitRegistry.Watch()
+	}()
+	return nil
 }
 
 func ReloadRouter(processor string, driver interface{}) error {

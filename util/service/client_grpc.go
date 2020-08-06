@@ -26,6 +26,8 @@ const (
 
 // ClientGrpc client of grpc in adapter
 type ClientGrpc struct {
+	fallbacks
+
 	clientLookup ClientLookup
 	processor    string
 	breaker      *Breaker
@@ -86,18 +88,17 @@ func (m *ClientGrpc) DirectRouteRpc(provider *Provider, fnrpc func(interface{}) 
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
-	call := func(si *ServInfo, rc rpcClientConn, fnrpc func(interface{}) error) func() error {
-		return func() error {
-			return m.rpc(si, rc, fnrpc)
-		}
-	}(si, rc, fnrpc)
+	call := func(_ctx context.Context) error {
+		return m.rpc(si, rc, fnrpc)
+	}
+
 	funcName := GetFuncName(3)
 	var err error
 	st := xtime.NewTimeStat()
 	defer func() {
 		collector(m.clientLookup.ServKey(), m.processor, st.Duration(), 0, si.Servid, funcName, err)
 	}()
-	err = m.breaker.Do(0, si.Servid, funcName, call, GRPC, nil)
+	err = m.breaker.Do(context.Background(), funcName, call, m.GetFallbackFunc(funcName))
 	return err
 }
 
@@ -151,13 +152,10 @@ func (m *ClientGrpc) do(ctx context.Context, hashKey, funcName string, fnrpc fun
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
-	call := func(si *ServInfo, rc rpcClientConn, fnrpc func(interface{}) error) func() error {
-		return func() error {
-			return m.rpc(si, rc, fnrpc)
-		}
-	}(si, rc, fnrpc)
+	call := func(_ctx context.Context) error {
+		return m.rpc(si, rc, fnrpc)
+	}
 
-	// 目前Adapter内通过Rpc函数调用RpcWithContext时层次会出错，直接调用RpcWithContext和RpcWithContextV2的层次是正确的，所以修正前者进行兼容
 	var err error
 	st := xtime.NewTimeStat()
 	defer func() {
@@ -165,7 +163,7 @@ func (m *ClientGrpc) do(ctx context.Context, hashKey, funcName string, fnrpc fun
 		collector(m.clientLookup.ServKey(), m.processor, dur, 0, si.Servid, funcName, err)
 		collectAPM(ctx, m.clientLookup.ServKey(), funcName, si.Servid, dur, err)
 	}()
-	err = m.breaker.Do(0, si.Servid, funcName, call, GRPC, nil)
+	err = m.breaker.Do(ctx, funcName, call, m.GetFallbackFunc(funcName))
 	return err
 }
 
@@ -193,11 +191,9 @@ func (m *ClientGrpc) doWithContext(ctx context.Context, hashKey, funcName string
 	m.router.Pre(si)
 	defer m.router.Post(si)
 
-	call := func(si *ServInfo, rc rpcClientConn, fnrpc func(context.Context, interface{}) error) func() error {
-		return func() error {
-			return m.rpcWithContext(ctx, si, rc, fnrpc)
-		}
-	}(si, rc, fnrpc)
+	call := func(ctx context.Context) error {
+		return m.rpcWithContext(ctx, si, rc, fnrpc)
+	}
 
 	var err error
 	st := xtime.NewTimeStat()
@@ -206,7 +202,7 @@ func (m *ClientGrpc) doWithContext(ctx context.Context, hashKey, funcName string
 		collector(m.clientLookup.ServKey(), m.processor, dur, 0, si.Servid, funcName, err)
 		collectAPM(ctx, m.clientLookup.ServKey(), funcName, si.Servid, dur, err)
 	}()
-	err = m.breaker.Do(0, si.Servid, funcName, call, GRPC, nil)
+	err = m.breaker.Do(ctx, funcName, call, m.GetFallbackFunc(funcName))
 	return err
 }
 

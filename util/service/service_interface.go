@@ -127,4 +127,7 @@ type ServBase interface {
 
 	// stop
 	Stop()
+
+	// set app shutdown hook
+	SetOnShutdown(func())
 }

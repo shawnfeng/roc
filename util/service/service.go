@@ -60,7 +60,8 @@ const (
 	ENV_GROUP_PRE = "pre"
 
 	// RPCConfNamespace RPC Apollo Conf Namespace
-	RPCConfNamespace = "rpc.client"
+	RPCConfNamespace     = "rpc.client"
+	ApplicationNamespace = "application"
 )
 
 type configEtcd struct {
@@ -98,8 +99,9 @@ type ServBaseV2 struct {
 	muHearts ssync.Mutex
 	hearts   map[string]*distLockHeart
 
-	muStop sync.Mutex
-	stop   bool
+	muStop     sync.Mutex
+	stop       bool
+	onShutdown func()
 
 	muReg    sync.Mutex
 	regInfos map[string]string
@@ -112,10 +114,17 @@ func (m *ServBaseV2) isStop() bool {
 	return m.stop
 }
 
+// Stop server stop
 func (m *ServBaseV2) Stop() {
 	m.setStatusToStop()
 	m.clearRegisterInfos()
 	m.clearCrossDCRegisterInfos()
+	m.onShutdown()
+}
+
+// SetOnShutdown add shutdown hook in app
+func (m *ServBaseV2) SetOnShutdown(onShutdown func()) {
+	m.onShutdown = onShutdown
 }
 
 func (m *ServBaseV2) setStatusToStop() {
@@ -302,11 +311,8 @@ func (m *ServBaseV2) getValueFromEtcd(path string) (value string, err error) {
 		xlog.Warnf(ctx, "%s path:%s err:%v", fun, path, err)
 		return "", err
 	}
-
-	for _, n := range r.Node.Nodes {
-		for _, nc := range n.Nodes {
-			return nc.Value, nil
-		}
+	if r != nil && r.Node != nil {
+		return r.Node.Value, nil
 	}
 
 	return "", nil
@@ -402,7 +408,12 @@ func (m *ServBaseV2) ConfigCenter() xconfig.ConfigCenter {
 func (m *ServBaseV2) RegInfos() map[string]string {
 	m.muReg.Lock()
 	defer m.muReg.Unlock()
-	return m.regInfos
+
+	result := make(map[string]string, len(m.regInfos))
+	for k, v := range m.regInfos {
+		result[k] = v
+	}
+	return result
 }
 
 func (m *ServBaseV2) ServConfig(cfg interface{}) error {
@@ -483,7 +494,8 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 		}
 	}
 
-	configCenter, err := xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, servLocation, []string{RPCConfNamespace, xsql.MysqlConfNamespace, xmgo.MongoConfNamespace})
+	// init global config center
+	configCenter, err := xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, servLocation, []string{ApplicationNamespace, RPCConfNamespace, xsql.MysqlConfNamespace, xmgo.MongoConfNamespace})
 	if err != nil {
 		return nil, err
 	}
@@ -503,7 +515,8 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 		dbRouter:     dr,
 		configCenter: configCenter,
 
-		envGroup: envGroup,
+		envGroup:   envGroup,
+		onShutdown: func() { xlog.Info(context.TODO(), "app shutdown") },
 	}
 
 	svrInfo := strings.SplitN(servLocation, "/", 2)

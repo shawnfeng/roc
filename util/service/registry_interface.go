@@ -8,8 +8,6 @@ type ClientLookup interface {
 	GetAllServAddrWithGroup(group, processor string) []*ServInfo
 	ServKey() string
 	ServPath() string
-	GetBreakerServConf() string
-	GetBreakerGlobalConf() string
 }
 
 func NewClientLookup(etcdaddrs []string, baseLoc string, servlocation string) (*ClientEtcdV2, error) {
