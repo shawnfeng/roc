@@ -409,6 +409,11 @@ func (m *Server) initProcessor(sb *ServBaseV2, procs map[string]Processor, start
 		return err
 	}
 
+	//将ip存储
+	if ok := sb.setIp(infos); !ok {
+		xlog.Errorf(ctx, "%s set ip error", fun)
+	}
+
 	// 本地启动不注册至etcd
 	if startType == START_TYPE_LOCAL {
 		return nil

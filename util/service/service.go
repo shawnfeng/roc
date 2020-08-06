@@ -79,6 +79,7 @@ type ServBaseV2 struct {
 	servLocation string
 	servGroup    string
 	servName     string
+	servIp       string
 	copyName     string
 	sessKey      string
 
@@ -186,6 +187,17 @@ func (m *ServBaseV2) RegisterMetrics(servs map[string]*ServInfo) error {
 	path := fmt.Sprintf("%s/%s/%s/%d/%s", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId, BASE_LOC_REG_METRICS)
 
 	return m.doRegister(path, string(js), true)
+}
+
+func (m *ServBaseV2) setIp(servs map[string]*ServInfo) bool {
+	for _, value := range servs {
+		if value != nil && strings.ContainsAny(value.Addr, ":") {
+			resultList := strings.Split(value.Addr, ":")
+			m.servIp = resultList[0]
+			return true
+		}
+	}
+	return false
 }
 
 // {type:http/thrift, addr:10.3.3.3:23233, processor:fuck}
@@ -393,6 +405,10 @@ func (m *ServBaseV2) Copyname() string {
 
 func (m *ServBaseV2) Servname() string {
 	return m.servLocation
+}
+
+func (m *ServBaseV2) ServIp() string {
+	return m.servIp
 }
 
 func (m *ServBaseV2) Dbrouter() *dbrouter.Router {
