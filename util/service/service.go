@@ -21,6 +21,7 @@ import (
 	etcd "github.com/coreos/etcd/client"
 	"github.com/shawnfeng/sutil/dbrouter"
 	"github.com/shawnfeng/sutil/slowid"
+	"github.com/shawnfeng/sutil/snetutil"
 	"github.com/shawnfeng/sutil/ssync"
 )
 
@@ -79,6 +80,7 @@ type ServBaseV2 struct {
 	servLocation string
 	servGroup    string
 	servName     string
+	servIp       string
 	copyName     string
 	sessKey      string
 
@@ -186,6 +188,19 @@ func (m *ServBaseV2) RegisterMetrics(servs map[string]*ServInfo) error {
 	path := fmt.Sprintf("%s/%s/%s/%d/%s", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId, BASE_LOC_REG_METRICS)
 
 	return m.doRegister(path, string(js), true)
+}
+
+func (m *ServBaseV2) setIp() error {
+	addr, err := snetutil.GetListenAddr("")
+	if err != nil {
+		return err
+	}
+	fields := strings.Split(addr, ":")
+	if len(fields) < 1 {
+		return fmt.Errorf("get listen addr error")
+	}
+	m.servIp = fields[0]
+	return nil
 }
 
 // {type:http/thrift, addr:10.3.3.3:23233, processor:fuck}
@@ -393,6 +408,10 @@ func (m *ServBaseV2) Copyname() string {
 
 func (m *ServBaseV2) Servname() string {
 	return m.servLocation
+}
+
+func (m *ServBaseV2) ServIp() string {
+	return m.servIp
 }
 
 func (m *ServBaseV2) Dbrouter() *dbrouter.Router {

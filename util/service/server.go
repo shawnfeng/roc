@@ -287,6 +287,11 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 	}
 	m.sbase = sb
 
+	//将ip存储
+	if err := sb.setIp(); err != nil {
+		xlog.Errorf(ctx, "%s set ip error: %v", fun, err)
+	}
+
 	// 初始化日志
 	m.initLog(sb, args)
 

@@ -75,6 +75,7 @@ type ServBase interface {
 	RegisterCrossDCService(servs map[string]*ServInfo) error
 
 	Servname() string
+	ServIp() string
 	Servid() int
 	// 服务副本名称, servename + servid
 	Copyname() string
