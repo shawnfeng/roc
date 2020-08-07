@@ -287,6 +287,11 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 	}
 	m.sbase = sb
 
+	//将ip存储
+	if err := sb.setIp(); err != nil {
+		xlog.Errorf(ctx, "%s set ip error: %v", fun, err)
+	}
+
 	// 初始化日志
 	m.initLog(sb, args)
 
@@ -407,11 +412,6 @@ func (m *Server) initProcessor(sb *ServBaseV2, procs map[string]Processor, start
 	if err != nil {
 		xlog.Errorf(ctx, "%s load driver err: %v", fun, err)
 		return err
-	}
-
-	//将ip存储
-	if ok := sb.setIp(infos); !ok {
-		xlog.Errorf(ctx, "%s set ip error", fun)
 	}
 
 	// 本地启动不注册至etcd

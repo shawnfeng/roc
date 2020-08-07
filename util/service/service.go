@@ -21,6 +21,7 @@ import (
 	etcd "github.com/coreos/etcd/client"
 	"github.com/shawnfeng/sutil/dbrouter"
 	"github.com/shawnfeng/sutil/slowid"
+	"github.com/shawnfeng/sutil/snetutil"
 	"github.com/shawnfeng/sutil/ssync"
 )
 
@@ -189,15 +190,13 @@ func (m *ServBaseV2) RegisterMetrics(servs map[string]*ServInfo) error {
 	return m.doRegister(path, string(js), true)
 }
 
-func (m *ServBaseV2) setIp(servs map[string]*ServInfo) bool {
-	for _, value := range servs {
-		if value != nil && strings.ContainsAny(value.Addr, ":") {
-			resultList := strings.Split(value.Addr, ":")
-			m.servIp = resultList[0]
-			return true
-		}
+func (m *ServBaseV2) setIp() error {
+	ip, err := snetutil.GetInterIp()
+	if err != nil {
+		return err
 	}
-	return false
+	m.servIp = ip
+	return nil
 }
 
 // {type:http/thrift, addr:10.3.3.3:23233, processor:fuck}
