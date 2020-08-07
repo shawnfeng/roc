@@ -191,11 +191,15 @@ func (m *ServBaseV2) RegisterMetrics(servs map[string]*ServInfo) error {
 }
 
 func (m *ServBaseV2) setIp() error {
-	ip, err := snetutil.GetInterIp()
+	addr, err := snetutil.GetListenAddr("")
 	if err != nil {
 		return err
 	}
-	m.servIp = ip
+	fields := strings.Split(addr, ":")
+	if len(fields) < 1 {
+		return fmt.Errorf("get listen addr error")
+	}
+	m.servIp = fields[0]
 	return nil
 }
 
