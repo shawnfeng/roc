@@ -43,7 +43,7 @@ func reqInfoInjectClientInterceptor() grpc.UnaryClientInterceptor {
 	) error {
 		head := ctx.Value(ContextKeyHead)
 		if head == nil {
-			xlog.Debugf(ctx, "context Head is nil")
+			xlog.Warnf(ctx, "context Head is nil")
 			return invoker(ctx, method, req, resp, cc, opts...)
 		}
 
