@@ -42,6 +42,7 @@ func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
 		rateLimitInterceptor(),
 		otgrpc.OpenTracingServerInterceptor(tracer),
 		monitorServerInterceptor(),
+		reqInfoInjectServerInterceptor(),
 		grpc_recovery.UnaryServerInterceptor(recoveryOpts...),
 	)
 	streamInterceptors = append(

@@ -294,6 +294,7 @@ func (m *ClientGrpc) newConn(addr string) (rpcClientConn, error) {
 		grpc.WithInsecure(),
 		grpc.WithUnaryInterceptor(
 			otgrpc.OpenTracingClientInterceptor(tracer)),
+		grpc.WithUnaryInterceptor(reqInfoInjectClientInterceptor()),
 		grpc.WithStreamInterceptor(
 			otgrpc.OpenTracingStreamClientInterceptor(tracer)),
 	}
