@@ -53,15 +53,13 @@ func reqInfoInjectClientInterceptor() grpc.UnaryClientInterceptor {
 			return invoker(ctx, method, req, resp, cc, opts...)
 		}
 
-		md := metadata.MD{}
-		if err := addHeadIntoMD(md, ohead); err != nil {
-			xlog.Warnf(ctx, "addHeadIntoMD error, head: %+v, err: %v", head, err)
+		bytes, err := json.Marshal(ohead)
+		if err != nil {
+			xlog.Warnf(ctx,"marshal head error, head: %+v, err: %v", head, err)
 			return invoker(ctx, method, req, resp, cc, opts...)
 		}
 
-		if err := grpc.SetHeader(ctx, md); err != nil {
-			xlog.Warnf(ctx, "grpc.SetHeader error, head: %+v, err: %v", head, err)
-		}
+		ctx = metadata.AppendToOutgoingContext(ctx, ContextKeyHead, string(bytes))
 		return invoker(ctx, method, req, resp, cc, opts...)
 	}
 }
