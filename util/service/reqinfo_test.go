@@ -25,6 +25,20 @@ func Test_extractHeadFromMD(t *testing.T) {
 	assert.Equal(t, head, retHead)
 }
 
+func Test_addHeadIntoMD(t *testing.T) {
+	md := metadata.MD{}
+	head := createTestHead()
+	err := addHeadIntoMD(md, head)
+
+	assert.NoError(t, err)
+
+	bytes, err := json.Marshal(head)
+	assert.NoError(t, err)
+	ret := md.Get(ContextKeyHead)
+	assert.Equal(t, 1, len(ret))
+	assert.Equal(t, string(bytes), ret[0])
+}
+
 func createTestHead() *thriftutil.Head {
 	head := thriftutil.Head{
 		Uid:     123,

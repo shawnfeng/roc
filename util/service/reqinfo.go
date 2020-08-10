@@ -46,3 +46,18 @@ func extractHeadFromMD(md metadata.MD) (*thriftutil.Head, error) {
 	}
 	return &head, nil
 }
+
+func addHeadIntoMD(md metadata.MD, head *thriftutil.Head) error {
+	if md == nil {
+		return fmt.Errorf("md is nil")
+	}
+	if head == nil {
+		return fmt.Errorf("head is nil")
+	}
+	bytes, err := json.Marshal(head)
+	if err != nil {
+		return fmt.Errorf("marshal head error, head: %+v, err: %v", head, err)
+	}
+	md.Append(ContextKeyHead, string(bytes))
+	return nil
+}
