@@ -32,6 +32,40 @@ func reqInfoInjectServerInterceptor() grpc.UnaryServerInterceptor {
 	}
 }
 
+func reqInfoInjectClientInterceptor() grpc.UnaryClientInterceptor {
+	return func(
+		ctx context.Context,
+		method string,
+		req, resp interface{},
+		cc *grpc.ClientConn,
+		invoker grpc.UnaryInvoker,
+		opts ...grpc.CallOption,
+	) error {
+		head := ctx.Value(ContextKeyHead)
+		if head == nil {
+			xlog.Debugf(ctx, "context Head is nil")
+			return invoker(ctx, method, req, resp, cc, opts...)
+		}
+
+		ohead, ok := head.(*thriftutil.Head)
+		if !ok {
+			xlog.Warnf(ctx, "invalid head type: %T", head)
+			return invoker(ctx, method, req, resp, cc, opts...)
+		}
+
+		md := metadata.MD{}
+		if err := addHeadIntoMD(md, ohead); err != nil {
+			xlog.Warnf(ctx, "addHeadIntoMD error, head: %+v, err: %v", head, err)
+			return invoker(ctx, method, req, resp, cc, opts...)
+		}
+
+		if err := grpc.SetHeader(ctx, md); err != nil {
+			xlog.Warnf(ctx, "grpc.SetHeader error, head: %+v, err: %v", head, err)
+		}
+		return invoker(ctx, method, req, resp, cc, opts...)
+	}
+}
+
 func extractHeadFromMD(md metadata.MD) (*thriftutil.Head, error) {
 	if md == nil {
 		return nil, fmt.Errorf("nil metadata")
