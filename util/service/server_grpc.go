@@ -37,8 +37,20 @@ func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
 	recoveryOpts := []grpc_recovery.Option{
 		grpc_recovery.WithRecoveryHandler(recoveryFunc),
 	}
-	unaryInterceptors = append(unaryInterceptors, rateLimitInterceptor(), otgrpc.OpenTracingServerInterceptor(tracer), monitorServerInterceptor(), grpc_recovery.UnaryServerInterceptor(recoveryOpts...))
-	streamInterceptors = append(streamInterceptors, rateLimitStreamServerInterceptor(), otgrpc.OpenTracingStreamServerInterceptor(tracer), monitorStreamServerInterceptor(), grpc_recovery.StreamServerInterceptor(recoveryOpts...))
+	unaryInterceptors = append(
+		unaryInterceptors,
+		rateLimitInterceptor(),
+		otgrpc.OpenTracingServerInterceptor(tracer),
+		monitorServerInterceptor(),
+		grpc_recovery.UnaryServerInterceptor(recoveryOpts...),
+	)
+	streamInterceptors = append(
+		streamInterceptors,
+		rateLimitStreamServerInterceptor(),
+		otgrpc.OpenTracingStreamServerInterceptor(tracer),
+		monitorStreamServerInterceptor(),
+		grpc_recovery.StreamServerInterceptor(recoveryOpts...),
+	)
 
 	var opts []grpc.ServerOption
 	opts = append(opts, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaryInterceptors...)))
