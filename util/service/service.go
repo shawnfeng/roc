@@ -498,7 +498,7 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 		return nil, err
 	}
 
-	xlog.Infof(ctx, "%s path:%s sid:%d skey:%s, envGroup", fun, path, sid, skey, envGroup)
+	xlog.Infof(ctx, "%s path: %s, sid: %d, skey: %s, envGroup: %s", fun, path, sid, skey, envGroup)
 
 	dbloc := fmt.Sprintf("%s/%s", confEtcd.useBaseloc, BASE_LOC_DB)
 
