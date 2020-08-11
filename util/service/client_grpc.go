@@ -297,6 +297,7 @@ func (m *ClientGrpc) newConn(addr string) (rpcClientConn, error) {
 		grpc.WithUnaryInterceptor(reqInfoInjectClientInterceptor()),
 		grpc.WithStreamInterceptor(
 			otgrpc.OpenTracingStreamClientInterceptor(tracer)),
+		grpc.WithStreamInterceptor(reqInfoInjectStreamClientInterceptor()),
 	}
 	conn, err := grpc.Dial(addr, opts...)
 	if err != nil {
