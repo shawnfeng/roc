@@ -32,7 +32,7 @@ func reqInfoInjectServerInterceptor() grpc.UnaryServerInterceptor {
 			return handler(ctx, req)
 		}
 
-		ctx = context.WithValue(ctx, ContextKeyHead, head)
+		ctx = context.WithValue(ctx, ContextKeyHead, &head)
 		return handler(ctx, req)
 	}
 }
@@ -58,7 +58,7 @@ func reqInfoInjectStreamServerInterceptor() grpc.StreamServerInterceptor {
 			return handler(ctx, ss)
 		}
 
-		ctx = context.WithValue(ctx, ContextKeyHead, head)
+		ctx = context.WithValue(ctx, ContextKeyHead, &head)
 		return handler(ctx, ss)
 	}
 }
