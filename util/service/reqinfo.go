@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
-	"gitlab.pri.ibanyu.com/middleware/util/idl/gen-go/util/thriftutil"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtransport/gen-go/util/thriftutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
