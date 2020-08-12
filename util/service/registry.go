@@ -368,6 +368,7 @@ func (m *ClientEtcdV2) parseResponseV1(r *etcd.Response) {
 
 		servCopy[i] = &servCopyData{
 			servId: i,
+			// WARNING: v1版本不支持新版泳道元信息获取
 			reg: &RegData{
 				Servs: servs,
 			},
