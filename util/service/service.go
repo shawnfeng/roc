@@ -163,10 +163,7 @@ func (m *ServBaseV2) clearRegisterInfos() {
 }
 
 func (m *ServBaseV2) RegisterBackDoor(servs map[string]*ServInfo) error {
-	rd := &RegData{
-		Servs: servs,
-	}
-
+	rd := NewRegData(servs, m.envGroup)
 	js, err := json.Marshal(rd)
 	if err != nil {
 		return err
@@ -177,10 +174,7 @@ func (m *ServBaseV2) RegisterBackDoor(servs map[string]*ServInfo) error {
 }
 
 func (m *ServBaseV2) RegisterMetrics(servs map[string]*ServInfo) error {
-	rd := &RegData{
-		Servs: servs,
-	}
-
+	rd := NewRegData(servs, m.envGroup)
 	js, err := json.Marshal(rd)
 	if err != nil {
 		return err
@@ -226,10 +220,7 @@ func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) error {
 }
 
 func (m *ServBaseV2) RegisterServiceV2(servs map[string]*ServInfo, dir string, crossDC bool) error {
-	rd := &RegData{
-		Servs: servs,
-	}
-
+	rd := NewRegData(servs, m.envGroup)
 	js, err := json.Marshal(rd)
 	if err != nil {
 		return err
