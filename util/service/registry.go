@@ -9,12 +9,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
 
@@ -407,26 +408,40 @@ func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 			continue
 		}
 
-		var groups []string
-		var weight int
-		var disable bool
-		if c.manual != nil && c.manual.Ctrl != nil {
-			weight = c.manual.Ctrl.Weight
-			groups = c.manual.Ctrl.Groups
-			disable = c.manual.Ctrl.Disable
+		if c.manual == nil || c.manual.Ctrl == nil {
+			continue
 		}
 
-		if weight == 0 {
-			weight = 100
-		}
-
-		if disable {
+		if c.manual.Ctrl.Disable {
 			xlog.Infof(ctx, "%s disable path:%s sid:%d", fun, m.servPath, sid)
 			continue
 		}
 
+		var weight = c.manual.Ctrl.Weight
+		if weight == 0 {
+			weight = 100
+		}
+
+		// 设置泳道实例列表, 兼容新老版本
+		lane, ok := c.reg.GetLane()
+		if ok {
+			// 如果lane不为nil, 说明服务端已注册新版本lane元数据, 使用新版本更新泳道实例路由表
+			xlog.Debugf(ctx, "%v use v2 lane metadata, lane: %v", fun, lane)
+			var tmpList []string
+			if _, ok2 := slist[lane]; ok2 {
+				tmpList = slist[lane]
+			}
+			for i := 0; i < weight; i++ {
+				tmpList = append(tmpList, fmt.Sprintf("%d-%d", sid, i))
+			}
+			slist[lane] = tmpList
+			continue
+		}
+
+		// 否则, 说明服务端还是老版本lane元数据 (在manual中), 退回老版本更新泳道路由表
 		var tmpList []string
-		for _, g := range groups {
+		for _, g := range c.manual.Ctrl.Groups {
+			xlog.Debugf(ctx, "%v use v1 lane metadata, lane: %v", fun, g)
 			if _, ok := slist[g]; ok {
 				tmpList = slist[g]
 			}
