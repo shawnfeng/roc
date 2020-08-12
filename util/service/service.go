@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
@@ -63,6 +64,8 @@ const (
 	// RPCConfNamespace RPC Apollo Conf Namespace
 	RPCConfNamespace     = "rpc.client"
 	ApplicationNamespace = "application"
+
+	serverStatusStop = 1
 )
 
 type configEtcd struct {
@@ -101,8 +104,7 @@ type ServBaseV2 struct {
 	muHearts ssync.Mutex
 	hearts   map[string]*distLockHeart
 
-	muStop     sync.Mutex
-	stop       bool
+	stop       int32
 	onShutdown func()
 
 	muReg    sync.Mutex
@@ -110,10 +112,8 @@ type ServBaseV2 struct {
 }
 
 func (m *ServBaseV2) isStop() bool {
-	m.muStop.Lock()
-	defer m.muStop.Unlock()
-
-	return m.stop
+	stopStatus := atomic.LoadInt32(&m.stop)
+	return stopStatus == serverStatusStop
 }
 
 // Stop server stop
@@ -130,10 +130,7 @@ func (m *ServBaseV2) SetOnShutdown(onShutdown func()) {
 }
 
 func (m *ServBaseV2) setStatusToStop() {
-	m.muStop.Lock()
-	defer m.muStop.Unlock()
-
-	m.stop = true
+	atomic.StoreInt32(&m.stop, serverStatusStop)
 }
 
 func (m *ServBaseV2) addRegisterInfo(path, regInfo string) {
