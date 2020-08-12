@@ -312,10 +312,6 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 			manual.Ctrl = &ServCtrl{}
 		}
 
-		if len(manual.Ctrl.Groups) == 0 {
-			manual.Ctrl.Groups = append(manual.Ctrl.Groups, "")
-		}
-
 		servCopy[i] = &servCopyData{
 			servId: i,
 			reg:    &regd,
@@ -376,7 +372,6 @@ func (m *ClientEtcdV2) parseResponseV1(r *etcd.Response) {
 				Ctrl: &ServCtrl{
 					Weight:  0,
 					Disable: false,
-					Groups:  []string{""},
 				},
 			},
 		}

@@ -256,6 +256,7 @@ func (m *ServBaseV2) RegisterServiceV1(servs map[string]*ServInfo, crossDC bool)
 	return m.doCrossDCRegister(path, string(js), true)
 }
 
+// TODO: 泳道信息已经不保存在manual中了, 不需要在这里设置了
 func (m *ServBaseV2) SetGroupAndDisable(group string, disable bool) error {
 	fun := "ServBaseV2.SetGroupAndDisable -->"
 	ctx := context.Background()
@@ -277,17 +278,6 @@ func (m *ServBaseV2) SetGroupAndDisable(group string, disable bool) error {
 		manual.Ctrl = &ServCtrl{}
 	}
 
-	isFind := false
-	for _, g := range manual.Ctrl.Groups {
-		if g == group {
-			isFind = true
-			break
-		}
-	}
-
-	if isFind == false {
-		manual.Ctrl.Groups = append(manual.Ctrl.Groups, group)
-	}
 	if manual.Ctrl.Weight == 0 {
 		manual.Ctrl.Weight = 100
 	}
