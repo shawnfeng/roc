@@ -567,16 +567,7 @@ func (m *ClientEtcdV2) GetAllServAddrWithGroup(group, processor string) []*ServI
 				continue
 			}
 
-			isFind := false
-			groups := c.manual.Ctrl.Groups
-			for _, g := range groups {
-				if g == group {
-					isFind = true
-					break
-				}
-			}
-
-			if isFind == false {
+			if !c.containsLane(group) {
 				continue
 			}
 
@@ -599,4 +590,24 @@ func (m *ClientEtcdV2) ServPath() string {
 
 func (m *ClientEtcdV2) String() string {
 	return fmt.Sprintf("service_key: %s, service_path: %s", m.servKey, m.servPath)
+}
+
+// 兼容新旧版本的lane metadata
+func (s *servCopyData) containsLane(lane string) bool {
+	if s.reg != nil {
+		if l, ok := s.reg.GetLane(); ok {
+			if l == lane {
+				return true
+			}
+		}
+	}
+	if s.manual == nil || s.manual.Ctrl == nil {
+		return false
+	}
+	for _, l := range s.manual.Ctrl.Groups {
+		if l == lane {
+			return true
+		}
+	}
+	return false
 }
