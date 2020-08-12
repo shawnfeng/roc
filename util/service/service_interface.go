@@ -27,7 +27,7 @@ func (m *ServInfo) String() string {
 
 type RegData struct {
 	Servs map[string]*ServInfo `json:"servs"`
-	Lane  string               `json:"lane"`
+	Lane  *string               `json:"lane"`
 }
 
 type ServCtrl struct {
@@ -43,8 +43,15 @@ type ManualData struct {
 func NewRegData(servs map[string]*ServInfo, lane string) *RegData {
 	return &RegData{
 		Servs: servs,
-		Lane:  lane,
+		Lane:  &lane,
 	}
+}
+
+func (r *RegData) GetLane() (string, bool) {
+	if r.Lane == nil {
+		return "", false
+	}
+	return *r.Lane, true
 }
 
 func getValue(client etcd.KeysAPI, path string) ([]byte, error) {
