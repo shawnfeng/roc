@@ -351,35 +351,39 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 
 	go func() {
 		for i := 0; ; i++ {
-			var err error
-			if !isCreated {
-				xlog.Warnf(ctx, "%s create node, round: %d server_info: %s", fun, i, js)
-				_, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
-					TTL: time.Second * 60,
-				})
-			} else {
-				if refresh {
-					// 在刷新ttl时候，不允许变更value
-					_, err = m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions{
-						PrevExist: etcd.PrevExist,
-						TTL:       time.Second * 60,
-						Refresh:   true,
-					})
-				} else {
+			updateEtcd := func() {
+				var err error
+				if !isCreated {
+					xlog.Warnf(ctx, "%s create node, round: %d server_info: %s", fun, i, js)
 					_, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
 						TTL: time.Second * 60,
 					})
+				} else {
+					if refresh {
+						// 在刷新ttl时候，不允许变更value
+						_, err = m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions{
+							PrevExist: etcd.PrevExist,
+							TTL:       time.Second * 60,
+							Refresh:   true,
+						})
+					} else {
+						_, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
+							TTL: time.Second * 60,
+						})
+					}
+
 				}
 
+				if err != nil {
+					isCreated = false
+					xlog.Warnf(ctx, "%s register need create node, round: %d, err: %v", fun, i, err)
+
+				} else {
+					isCreated = true
+				}
 			}
 
-			if err != nil {
-				isCreated = false
-				xlog.Warnf(ctx, "%s register need create node, round: %d, err: %v", fun, i, err)
-
-			} else {
-				isCreated = true
-			}
+			withRegLockRunClosureBeforeStop(m, ctx, fun, updateEtcd)
 
 			time.Sleep(time.Second * 20)
 
@@ -571,3 +575,21 @@ func (m *ServBaseV2) isPreEnvGroup() bool {
 }
 
 // mutex
+
+func withRegLockRunClosureBeforeStop(m *ServBaseV2, ctx context.Context, funcName string, f func()) {
+	startTime := time.Now()
+	m.muReg.Lock()
+	xlog.Infof(ctx, "%s lock muReg for update", funcName)
+	defer func() {
+		m.muReg.Unlock()
+		duration := time.Since(startTime)
+		xlog.Infof(ctx, "%s unlock muReq for update, duration: %v", funcName, duration)
+	}()
+
+	if m.isStop() {
+		xlog.Infof(ctx, "%s server stop, do not run function", funcName)
+		return
+	}
+
+	f()
+}
