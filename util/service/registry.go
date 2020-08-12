@@ -36,30 +36,6 @@ type servCopyData struct {
 
 type servCopyCollect map[int]*servCopyData
 
-func (m servCopyCollect) String() string {
-	var copys []string
-	for idx, v := range m {
-		if v == nil {
-			copys = append(copys, fmt.Sprintf("%d[nil]", idx))
-			continue
-		}
-
-		reg := "nil"
-		manual := "nil"
-
-		if v.reg != nil {
-			reg = v.reg.String()
-		}
-		if v.manual != nil {
-			manual = v.manual.String()
-		}
-
-		copys = append(copys, fmt.Sprintf("%d[%s]%s", idx, reg, manual))
-	}
-
-	return strings.Join(copys, ";")
-}
-
 type ClientEtcdV2 struct {
 	confEtcd configEtcd
 	servKey  string // 形如 {servGroup}/{servName}
