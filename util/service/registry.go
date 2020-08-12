@@ -9,13 +9,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
 
 	etcd "github.com/coreos/etcd/client"
@@ -407,12 +407,10 @@ func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 			continue
 		}
 
-		var groups []string
 		var weight int
 		var disable bool
 		if c.manual != nil && c.manual.Ctrl != nil {
 			weight = c.manual.Ctrl.Weight
-			groups = c.manual.Ctrl.Groups
 			disable = c.manual.Ctrl.Disable
 		}
 
@@ -426,16 +424,16 @@ func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 		}
 
 		var tmpList []string
-		for _, g := range groups {
-			if _, ok := slist[g]; ok {
-				tmpList = slist[g]
-			}
-			for i := 0; i < weight; i++ {
-				tmpList = append(tmpList, fmt.Sprintf("%d-%d", sid, i))
-			}
 
-			slist[g] = tmpList
+		// set group
+		g := c.reg.Lane
+		if _, ok := slist[g]; ok {
+			tmpList = slist[g]
 		}
+		for i := 0; i < weight; i++ {
+			tmpList = append(tmpList, fmt.Sprintf("%d-%d", sid, i))
+		}
+		slist[g] = tmpList
 	}
 
 	shash := make(map[string]*consistent.Consistent)
@@ -548,20 +546,11 @@ func (m *ClientEtcdV2) GetAllServAddrWithGroup(group, processor string) []*ServI
 	servs := make([]*ServInfo, 0)
 	for _, c := range m.servCopy {
 		if c.reg != nil {
-			if c.manual != nil && c.manual.Ctrl != nil && c.manual.Ctrl.Disable {
+			if c.reg.Lane != group {
 				continue
 			}
 
-			isFind := false
-			groups := c.manual.Ctrl.Groups
-			for _, g := range groups {
-				if g == group {
-					isFind = true
-					break
-				}
-			}
-
-			if isFind == false {
+			if c.manual != nil && c.manual.Ctrl != nil && c.manual.Ctrl.Disable {
 				continue
 			}
 
