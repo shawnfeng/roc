@@ -102,7 +102,7 @@ func (m *Concurrent) Route(ctx context.Context, processor, key string) *ServInfo
 	}
 
 	s = m.route("", processor, key)
-	xlog.Errorf(ctx, "%s route to group error and back to default, group: %s, processor: %s, key: %s, router: %v", fun, group, processor, key, s)
+	xlog.Warnf(ctx, "%s route to group error and back to default, group: %s, processor: %s, key: %s, router: %v", fun, group, processor, key, s)
 	return s
 }
 
