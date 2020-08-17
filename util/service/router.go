@@ -97,16 +97,17 @@ func (m *Concurrent) Route(ctx context.Context, processor, key string) *ServInfo
 	group := xcontext.GetControlRouteGroupWithDefault(ctx, xcontext.DefaultGroup)
 	s := m.route(group, processor, key)
 	if s != nil {
-		xlog.Infof(ctx, "%s group: %s, processor: %s, key: %s, router: %v", fun, group, processor, key, s)
+		xlog.Debugf(ctx, "%s group: %s, processor: %s, key: %s, router: %v", fun, group, processor, key, s)
 		return s
 	}
 
 	s = m.route("", processor, key)
+	xlog.Errorf(ctx, "%s route to group error and back to default, group: %s, processor: %s, key: %s, router: %v", fun, group, processor, key, s)
 	return s
 }
 
 func (m *Concurrent) route(group, processor, key string) *ServInfo {
-	fun := "route -->"
+	fun := "Concurrent.route -->"
 
 	list := m.cb.GetAllServAddrWithGroup(group, processor)
 	if list == nil {
@@ -167,6 +168,8 @@ func (m *Addr) Route(ctx context.Context, processor, addr string) (si *ServInfo)
 	servList := m.cb.GetAllServAddrWithGroup(group, processor)
 
 	if servList == nil {
+		xlog.Infof(context.Background(), "%s processor: %s, group: %s, servKey: %s, servPath: %s, server info list is nil",
+			fun, processor, group, m.cb.ServKey(), m.cb.ServPath())
 		return
 	}
 
