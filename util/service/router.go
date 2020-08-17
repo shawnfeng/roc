@@ -110,6 +110,8 @@ func (m *Concurrent) route(group, processor, key string) *ServInfo {
 
 	list := m.cb.GetAllServAddrWithGroup(group, processor)
 	if list == nil {
+		xlog.Infof(context.Background(), "%s processor: %s, key: %s, group: %s, servKey: %s, servPath: %s, server info list is nil",
+			fun, processor, key, group, m.cb.ServKey(), m.cb.ServPath())
 		return nil
 	}
 
@@ -134,7 +136,8 @@ func (m *Concurrent) route(group, processor, key string) *ServInfo {
 	}
 	if s != nil {
 	} else {
-		xlog.Errorf(context.Background(), "%s processor:%s, route fail", fun, processor)
+		xlog.Errorf(context.Background(), "%s processor: %s, key: %s, group: %s, servKey: %s, servPath: %s, route fail",
+			fun, processor, key, group, m.cb.ServKey(), m.cb.ServPath())
 	}
 
 	return s
@@ -177,7 +180,8 @@ func (m *Addr) Route(ctx context.Context, processor, addr string) (si *ServInfo)
 	if si != nil {
 		xlog.Infof(ctx, "%s processor:%s, addr:%s", fun, processor, addr)
 	} else {
-		xlog.Errorf(ctx, "%s processor:%s, route failed", fun, processor)
+		xlog.Errorf(ctx, "%s processor: %s, addr: %s, group: %s, servKey: %s, servPath: %s, route failed",
+			fun, processor, addr, group, m.cb.ServKey(), m.cb.ServPath())
 	}
 
 	return
