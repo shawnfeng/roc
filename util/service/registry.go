@@ -568,7 +568,7 @@ func (m *ClientEtcdV2) GetAllServAddrWithGroup(group, processor string) []*ServI
 	m.muServlist.Lock()
 	defer m.muServlist.Unlock()
 
-	servs := make([]*ServInfo, 0)
+	var servs []*ServInfo
 	for _, c := range m.servCopy {
 		if c.reg != nil {
 			if c.manual != nil && c.manual.Ctrl != nil && c.manual.Ctrl.Disable {
