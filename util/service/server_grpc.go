@@ -63,7 +63,7 @@ func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
 	return &GrpcServer{Server: server}
 }
 
-func NewGrpcServerWithInterceptors(interceptors ...UnaryServerInterceptor) *GrpcServer {
+func NewGrpcServerWithUnaryInterceptors(interceptors ...UnaryServerInterceptor) *GrpcServer {
 	var unaryInterceptors []grpc.UnaryServerInterceptor
 	var streamInterceptors []grpc.StreamServerInterceptor
 
@@ -73,7 +73,7 @@ func NewGrpcServerWithInterceptors(interceptors ...UnaryServerInterceptor) *Grpc
 		grpc_recovery.WithRecoveryHandler(recoveryFunc),
 	}
 	unaryInterceptors = append(unaryInterceptors, rateLimitInterceptor(), otgrpc.OpenTracingServerInterceptor(tracer), monitorServerInterceptor(), grpc_recovery.UnaryServerInterceptor(recoveryOpts...))
-	userUnaryInterceptors := convertInterceptors(interceptors...)
+	userUnaryInterceptors := convertUnaryInterceptors(interceptors...)
 	unaryInterceptors = append(unaryInterceptors, userUnaryInterceptors...)
 
 	streamInterceptors = append(streamInterceptors, rateLimitStreamServerInterceptor(), otgrpc.OpenTracingStreamServerInterceptor(tracer), monitorStreamServerInterceptor(), grpc_recovery.StreamServerInterceptor(recoveryOpts...))
@@ -87,15 +87,15 @@ func NewGrpcServerWithInterceptors(interceptors ...UnaryServerInterceptor) *Grpc
 	return &GrpcServer{Server: server}
 }
 
-func convertInterceptors(interceptors ...UnaryServerInterceptor) []grpc.UnaryServerInterceptor {
+func convertUnaryInterceptors(interceptors ...UnaryServerInterceptor) []grpc.UnaryServerInterceptor {
 	var ret []grpc.UnaryServerInterceptor
 	for _, interceptor := range interceptors {
-		ret = append(ret, convertInterceptor(interceptor))
+		ret = append(ret, convertUnaryInterceptor(interceptor))
 	}
 	return ret
 }
 
-func convertInterceptor(interceptor UnaryServerInterceptor) grpc.UnaryServerInterceptor {
+func convertUnaryInterceptor(interceptor UnaryServerInterceptor) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 		return interceptor(ctx, req, convertUnaryServerInfo(info), convertUnaryHandler(handler))
 	}
