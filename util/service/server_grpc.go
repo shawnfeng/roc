@@ -26,6 +26,20 @@ type GrpcServer struct {
 
 type FunInterceptor func(ctx context.Context, req interface{}, fun string) error
 
+// UnaryHandler是grpc UnaryHandler的别名, 便于统一管理grpc升级
+type UnaryHandler func(ctx context.Context, req interface{}) (interface{}, error)
+
+// UnaryServerInterceptor是grpc UnaryServerInterceptor的别名, 便于统一管理grpc升级
+type UnaryServerInterceptor func(ctx context.Context, req interface{}, info *UnaryServerInfo, handler UnaryHandler) (interface{}, error)
+
+// UnaryServerInfo是grpc UnaryServerInfo的别名,
+type UnaryServerInfo struct {
+	// Server is the service implementation the user provides. This is read-only.
+	Server interface{}
+	// FullMethod is the full RPC method string, i.e., /package.service/method.
+	FullMethod string
+}
+
 // NewGrpcServer create grpc server with interceptors before handler
 func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
 
@@ -47,6 +61,55 @@ func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
 	// 实例化grpc Server
 	server := grpc.NewServer(opts...)
 	return &GrpcServer{Server: server}
+}
+
+func NewGrpcServerWithInterceptors(interceptors ...UnaryServerInterceptor) *GrpcServer {
+	var unaryInterceptors []grpc.UnaryServerInterceptor
+	var streamInterceptors []grpc.StreamServerInterceptor
+
+	// add tracer、monitor、recovery interceptor
+	tracer := xtrace.GlobalTracer()
+	recoveryOpts := []grpc_recovery.Option{
+		grpc_recovery.WithRecoveryHandler(recoveryFunc),
+	}
+	unaryInterceptors = append(unaryInterceptors, rateLimitInterceptor(), otgrpc.OpenTracingServerInterceptor(tracer), monitorServerInterceptor(), grpc_recovery.UnaryServerInterceptor(recoveryOpts...))
+	userUnaryInterceptors := convertInterceptors(interceptors...)
+	unaryInterceptors = append(unaryInterceptors, userUnaryInterceptors...)
+
+	streamInterceptors = append(streamInterceptors, rateLimitStreamServerInterceptor(), otgrpc.OpenTracingStreamServerInterceptor(tracer), monitorStreamServerInterceptor(), grpc_recovery.StreamServerInterceptor(recoveryOpts...))
+
+	var opts []grpc.ServerOption
+	opts = append(opts, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaryInterceptors...)))
+	opts = append(opts, grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)))
+
+	// 实例化grpc Server
+	server := grpc.NewServer(opts...)
+	return &GrpcServer{Server: server}
+}
+
+func convertInterceptors(interceptors ...UnaryServerInterceptor) []grpc.UnaryServerInterceptor {
+	var ret []grpc.UnaryServerInterceptor
+	for _, interceptor := range interceptors {
+		ret = append(ret, convertInterceptor(interceptor))
+	}
+	return ret
+}
+
+func convertInterceptor(interceptor UnaryServerInterceptor) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+		return interceptor(ctx, req, convertUnaryServerInfo(info), convertUnaryHandler(handler))
+	}
+}
+
+func convertUnaryHandler(handler grpc.UnaryHandler) UnaryHandler {
+	return UnaryHandler(handler)
+}
+
+func convertUnaryServerInfo(info *grpc.UnaryServerInfo) *UnaryServerInfo {
+	return &UnaryServerInfo{
+		Server:     info.Server,
+		FullMethod: info.FullMethod,
+	}
 }
 
 // rate limiter interceptor, should be before OpenTracingServerInterceptor and monitorServerInterceptor
