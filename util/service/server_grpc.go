@@ -32,7 +32,7 @@ type UnaryHandler func(ctx context.Context, req interface{}) (interface{}, error
 // UnaryServerInterceptor是grpc UnaryServerInterceptor的别名, 便于统一管理grpc升级
 type UnaryServerInterceptor func(ctx context.Context, req interface{}, info *UnaryServerInfo, handler UnaryHandler) (interface{}, error)
 
-// UnaryServerInfo是grpc UnaryServerInfo的别名,
+// UnaryServerInfo是grpc UnaryServerInfo的别名, 便于统一管理grpc升级
 type UnaryServerInfo struct {
 	// Server is the service implementation the user provides. This is read-only.
 	Server interface{}
