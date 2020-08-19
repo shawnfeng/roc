@@ -63,6 +63,38 @@ func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
 	return &GrpcServer{Server: server}
 }
 
+// NewGrpcServerWithUnaryInterceptors 创建GrpcServer并添加自定义Unary拦截器
+// 拦截器的调用顺序与添加顺序前向相同, 后向相反. 即如果添加顺序为: a, b.
+// 则调用链顺序为: pre-a -> pre-b -> grpc_func() -> post-b -> post-a
+// 这里添加的是用户自定义拦截器, 会添加在系统内置拦截器之后 (如tracing, 熔断等).
+// 示例 (对应于你的service项目中的processor/proc_grpc.go文件)
+//func (m *ProcGrpc) Driver() (string, interface{}) {
+//	monitorInterceptor := func(ctx context.Context, req interface{}, info *rocserv.UnaryServerInfo, handler rocserv.UnaryHandler) (interface{}, error) {
+//
+//		// 这里添加接口调用前的拦截器处理逻辑
+//		// e.g. 统计接口请求耗时
+//		st := xtime.NewTimeStat()
+//		defer func() {
+//			dur := st.Duration()
+//			xlog.Infof(ctx, "monitor example, func: %s, req: %v, ctx: %v, duration: %v", info.FullMethod, req, ctx, dur)
+//		}()
+//
+//		// gRPC接口调用 (固定写法)
+//		ret, err := handler(ctx, req)
+//
+//		// 这里添加接口调用后的拦截器处理逻辑
+//		// e.g. 接口调用出错时打error日志
+//		if err != nil {
+//			xlog.Warnf(ctx, "call grpc error, func: %s, req: %v, err: %v", info.FullMethod, req, err)
+//		}
+//
+//		return ret, err
+//	}
+//	serv := rocserv.NewGrpcServerWithInterceptors(monitorInterceptor)
+//	RegisterChangeBoardServiceServer(serv.Server, new(GrpcChangeBoardServiceImpl))
+//	// 使用随机端口
+//	return "", serv
+//}
 func NewGrpcServerWithUnaryInterceptors(interceptors ...UnaryServerInterceptor) *GrpcServer {
 	var unaryInterceptors []grpc.UnaryServerInterceptor
 	var streamInterceptors []grpc.StreamServerInterceptor
