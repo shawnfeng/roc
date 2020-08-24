@@ -426,7 +426,7 @@ func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 		lane, ok := c.reg.GetLane()
 		if ok {
 			// 如果lane不为nil, 说明服务端已注册新版本lane元数据, 使用新版本更新泳道实例路由表
-			xlog.Debugf(ctx, "%v use v2 lane metadata, lane: %v", fun, lane)
+			xlog.Debugf(ctx, "%v use v2 lane metadata, lane: %v, servKey: %s, servPath: %s, sid: %d", fun, lane, m.servKey, m.servPath, c.servId)
 			var tmpList []string
 			if _, ok2 := slist[lane]; ok2 {
 				tmpList = slist[lane]
@@ -441,7 +441,7 @@ func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 		// 否则, 说明服务端还是老版本lane元数据 (在manual中), 退回老版本更新泳道路由表
 		var tmpList []string
 		for _, g := range c.manual.Ctrl.Groups {
-			xlog.Debugf(ctx, "%v use v1 lane metadata, lane: %v", fun, g)
+			xlog.Debugf(ctx, "%v use v1 lane metadata, lane: %v, servKey: %s, servPath: %s, sid: %d", fun, g, m.servKey, m.servPath, c.servId)
 			if _, ok := slist[g]; ok {
 				tmpList = slist[g]
 			}
@@ -595,15 +595,16 @@ func (m *ClientEtcdV2) String() string {
 // 兼容新旧版本的lane metadata
 func (s *servCopyData) containsLane(lane string) bool {
 	if s.reg != nil {
-		if l, ok := s.reg.GetLane(); ok {
-			xlog.Debugf(context.Background(), "containsLane get v2 lane metadata, regInfo: %v, expect: %s, actual: %s", s.reg.Servs, lane, l)
+		l, ok := s.reg.GetLane()
+		xlog.Debugf(context.Background(), "containsLane get v2 lane metadata, ok: %v, regInfo: %v, expect: %s, actual: %s", ok, s.reg.Servs, lane, l)
+		if ok {
 			if l == lane {
 				return true
 			}
 		}
 	}
 
-	xlog.Debugf(context.Background(), "containsLane get v1 lane metadata, expect: %s", lane)
+	xlog.Debugf(context.Background(), "containsLane get v1 lane metadata, servId: %d, expect: %s", s.servId, lane)
 	if s.manual == nil || s.manual.Ctrl == nil {
 		return false
 	}
