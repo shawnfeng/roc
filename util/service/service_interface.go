@@ -6,9 +6,7 @@ package rocserv
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"strings"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 
@@ -29,14 +27,7 @@ func (m *ServInfo) String() string {
 
 type RegData struct {
 	Servs map[string]*ServInfo `json:"servs"`
-}
-
-func (m *RegData) String() string {
-	var procs []string
-	for k, v := range m.Servs {
-		procs = append(procs, fmt.Sprintf("%s@%s", v, k))
-	}
-	return strings.Join(procs, "|")
+	Lane  *string               `json:"lane"`
 }
 
 type ServCtrl struct {
@@ -49,9 +40,18 @@ type ManualData struct {
 	Ctrl *ServCtrl `json:"ctrl"`
 }
 
-func (m *ManualData) String() string {
-	s, _ := json.Marshal(m)
-	return string(s)
+func NewRegData(servs map[string]*ServInfo, lane string) *RegData {
+	return &RegData{
+		Servs: servs,
+		Lane:  &lane,
+	}
+}
+
+func (r *RegData) GetLane() (string, bool) {
+	if r.Lane == nil {
+		return "", false
+	}
+	return *r.Lane, true
 }
 
 func getValue(client etcd.KeysAPI, path string) ([]byte, error) {
