@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
@@ -63,6 +64,8 @@ const (
 	// RPCConfNamespace RPC Apollo Conf Namespace
 	RPCConfNamespace     = "rpc.client"
 	ApplicationNamespace = "application"
+
+	serverStatusStop = 1
 )
 
 type configEtcd struct {
@@ -101,8 +104,7 @@ type ServBaseV2 struct {
 	muHearts ssync.Mutex
 	hearts   map[string]*distLockHeart
 
-	muStop     sync.Mutex
-	stop       bool
+	stop       int32
 	onShutdown func()
 
 	muReg    sync.Mutex
@@ -110,10 +112,8 @@ type ServBaseV2 struct {
 }
 
 func (m *ServBaseV2) isStop() bool {
-	m.muStop.Lock()
-	defer m.muStop.Unlock()
-
-	return m.stop
+	stopStatus := atomic.LoadInt32(&m.stop)
+	return stopStatus == serverStatusStop
 }
 
 // Stop server stop
@@ -130,10 +130,7 @@ func (m *ServBaseV2) SetOnShutdown(onShutdown func()) {
 }
 
 func (m *ServBaseV2) setStatusToStop() {
-	m.muStop.Lock()
-	defer m.muStop.Unlock()
-
-	m.stop = true
+	atomic.StoreInt32(&m.stop, serverStatusStop)
 }
 
 func (m *ServBaseV2) addRegisterInfo(path, regInfo string) {
@@ -345,35 +342,39 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 
 	go func() {
 		for i := 0; ; i++ {
-			var err error
-			if !isCreated {
-				xlog.Warnf(ctx, "%s create node, round: %d server_info: %s", fun, i, js)
-				_, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
-					TTL: time.Second * 60,
-				})
-			} else {
-				if refresh {
-					// 在刷新ttl时候，不允许变更value
-					_, err = m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions{
-						PrevExist: etcd.PrevExist,
-						TTL:       time.Second * 60,
-						Refresh:   true,
-					})
-				} else {
+			updateEtcd := func() {
+				var err error
+				if !isCreated {
+					xlog.Warnf(ctx, "%s create node, round: %d server_info: %s", fun, i, js)
 					_, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
 						TTL: time.Second * 60,
 					})
+				} else {
+					if refresh {
+						// 在刷新ttl时候，不允许变更value
+						_, err = m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions{
+							PrevExist: etcd.PrevExist,
+							TTL:       time.Second * 60,
+							Refresh:   true,
+						})
+					} else {
+						_, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
+							TTL: time.Second * 60,
+						})
+					}
+
 				}
 
+				if err != nil {
+					isCreated = false
+					xlog.Warnf(ctx, "%s register need create node, round: %d, err: %v", fun, i, err)
+
+				} else {
+					isCreated = true
+				}
 			}
 
-			if err != nil {
-				isCreated = false
-				xlog.Warnf(ctx, "%s register need create node, round: %d, err: %v", fun, i, err)
-
-			} else {
-				isCreated = true
-			}
+			withRegLockRunClosureBeforeStop(m, ctx, fun, updateEtcd)
 
 			time.Sleep(time.Second * 20)
 
@@ -565,3 +566,21 @@ func (m *ServBaseV2) isPreEnvGroup() bool {
 }
 
 // mutex
+
+func withRegLockRunClosureBeforeStop(m *ServBaseV2, ctx context.Context, funcName string, f func()) {
+	startTime := time.Now()
+	m.muReg.Lock()
+	xlog.Infof(ctx, "%s lock muReg for update", funcName)
+	defer func() {
+		m.muReg.Unlock()
+		duration := time.Since(startTime)
+		xlog.Infof(ctx, "%s unlock muReq for update, duration: %v", funcName, duration)
+	}()
+
+	if m.isStop() {
+		xlog.Infof(ctx, "%s server stop, do not run function", funcName)
+		return
+	}
+
+	f()
+}

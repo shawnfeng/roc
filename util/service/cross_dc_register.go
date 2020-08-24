@@ -41,36 +41,40 @@ func (m *ServBaseV2) doCrossDCRegister(path, js string, refresh bool) error {
 		go func() {
 
 			for j := 0; ; j++ {
-				var err error
-				var r *etcd.Response
-				if !isCreated {
-					xlog.Warnf(ctx, "%s create idx:%d server_info: %s", fun, j, js)
-					r, err = m.crossRegisterClients[addr].Set(context.Background(), path, js, &etcd.SetOptions{
-						TTL: time.Second * 60,
-					})
-				} else {
-					if refresh {
-						// 在刷新ttl时候，不允许变更value
-						r, err = m.crossRegisterClients[addr].Set(context.Background(), path, "", &etcd.SetOptions{
-							PrevExist: etcd.PrevExist,
-							TTL:       time.Second * 60,
-							Refresh:   true,
-						})
-					} else {
+				updateEtcd := func() {
+					var err error
+					var r *etcd.Response
+					if !isCreated {
+						xlog.Warnf(ctx, "%s create idx:%d server_info: %s", fun, j, js)
 						r, err = m.crossRegisterClients[addr].Set(context.Background(), path, js, &etcd.SetOptions{
 							TTL: time.Second * 60,
 						})
+					} else {
+						if refresh {
+							// 在刷新ttl时候，不允许变更value
+							r, err = m.crossRegisterClients[addr].Set(context.Background(), path, "", &etcd.SetOptions{
+								PrevExist: etcd.PrevExist,
+								TTL:       time.Second * 60,
+								Refresh:   true,
+							})
+						} else {
+							r, err = m.crossRegisterClients[addr].Set(context.Background(), path, js, &etcd.SetOptions{
+								TTL: time.Second * 60,
+							})
+						}
+
 					}
 
+					if err != nil {
+						isCreated = false
+						xlog.Errorf(ctx, "%s reg idx: %d, resp: %v, err: %v", fun, j, r, err)
+
+					} else {
+						isCreated = true
+					}
 				}
 
-				if err != nil {
-					isCreated = false
-					xlog.Errorf(ctx, "%s reg idx: %d, resp: %v, err: %v", fun, j, r, err)
-
-				} else {
-					isCreated = true
-				}
+				withRegLockRunClosureBeforeStop(m, ctx, fun, updateEtcd)
 
 				time.Sleep(time.Second * 20)
 
