@@ -596,11 +596,14 @@ func (m *ClientEtcdV2) String() string {
 func (s *servCopyData) containsLane(lane string) bool {
 	if s.reg != nil {
 		if l, ok := s.reg.GetLane(); ok {
+			xlog.Debugf(context.Background(), "containsLane get v2 lane metadata, regInfo: %v, expect: %s, actual: %s", s.reg.Servs, lane, l)
 			if l == lane {
 				return true
 			}
 		}
 	}
+
+	xlog.Debugf(context.Background(), "containsLane get v1 lane metadata, expect: %s", lane)
 	if s.manual == nil || s.manual.Ctrl == nil {
 		return false
 	}
