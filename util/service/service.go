@@ -565,6 +565,10 @@ func (m *ServBaseV2) isPreEnvGroup() bool {
 	return false
 }
 
+func (m *ServBaseV2) GetLane() string {
+	return m.envGroup
+}
+
 // mutex
 
 func withRegLockRunClosureBeforeStop(m *ServBaseV2, ctx context.Context, funcName string, f func()) {

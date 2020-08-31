@@ -131,4 +131,7 @@ type ServBase interface {
 
 	// set app shutdown hook
 	SetOnShutdown(func())
+
+	// get lane info
+	GetLane() string
 }
