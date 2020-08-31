@@ -569,12 +569,17 @@ func (m *ServBaseV2) isPreEnvGroup() bool {
 
 func (m *ServBaseV2) WithControlLaneInfo(ctx context.Context) context.Context {
 	value := ctx.Value(xcontext.ContextKeyControl)
-	if value != nil {
-		return ctx
+	if value == nil {
+		control := m.createControlWithLaneInfo()
+		return context.WithValue(ctx, xcontext.ContextKeyControl, control)
 	}
 
-	control := m.createControlWithLaneInfo()
-	return context.WithValue(ctx, xcontext.ContextKeyControl, control)
+	v := value.(xcontext.ContextControlRouter)
+	if _, ok := v.GetControlRouteGroup(); !ok {
+		v.SetControlRouteGroup(m.envGroup)
+	}
+
+	return ctx
 }
 
 func (m *ServBaseV2) createControlWithLaneInfo() *thriftutil.Control {
