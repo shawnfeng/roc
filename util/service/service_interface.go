@@ -131,4 +131,7 @@ type ServBase interface {
 
 	// set app shutdown hook
 	SetOnShutdown(func())
+
+	// wrap context with service context info, such as lane
+	WithControlLaneInfo(ctx context.Context) context.Context
 }

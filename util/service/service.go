@@ -15,9 +15,11 @@ import (
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig/apollo"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	xmgo "gitlab.pri.ibanyu.com/middleware/seaweed/xmgo/manager"
 	xsql "gitlab.pri.ibanyu.com/middleware/seaweed/xsql/manager"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtransport/gen-go/util/thriftutil"
 
 	etcd "github.com/coreos/etcd/client"
 	"github.com/shawnfeng/sutil/dbrouter"
@@ -563,6 +565,24 @@ func (m *ServBaseV2) isPreEnvGroup() bool {
 	}
 
 	return false
+}
+
+func (m *ServBaseV2) WithControlLaneInfo(ctx context.Context) context.Context {
+	value := ctx.Value(xcontext.ContextKeyControl)
+	if value != nil {
+		return ctx
+	}
+
+	control := m.createControlWithLaneInfo()
+	return context.WithValue(ctx, xcontext.ContextKeyControl, control)
+}
+
+func (m *ServBaseV2) createControlWithLaneInfo() *thriftutil.Control {
+	route := thriftutil.NewRoute()
+	route.Group = m.envGroup
+	control := thriftutil.NewControl()
+	control.Route = route
+	return control
 }
 
 // mutex
