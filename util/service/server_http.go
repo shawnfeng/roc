@@ -163,11 +163,18 @@ func Metric() gin.HandlerFunc {
 // Trace returns a trace middleware
 func Trace() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if span := xtrace.SpanFromContext(c.Request.Context()); span != nil {
-			if sc, ok := span.Context().(jaeger.SpanContext); ok {
-				c.Writer.Header()[HttpHeaderKeyTraceID] = []string{fmt.Sprint(sc.TraceID())}
-			}
+		span := xtrace.SpanFromContext(c.Request.Context())
+		if span == nil {
+			newSpan, ctx := xtrace.StartSpanFromContext(c.Request.Context(), c.Request.RequestURI)
+			c.Request.WithContext(ctx)
+			span = newSpan
 		}
+		defer span.Finish()
+
+		if sc, ok := span.Context().(jaeger.SpanContext); ok {
+			c.Writer.Header()[HttpHeaderKeyTraceID] = []string{fmt.Sprint(sc.TraceID())}
+		}
+
 		c.Next()
 	}
 }
