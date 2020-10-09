@@ -355,7 +355,7 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 
 func parseCrossRegionIdList(idListStr string) ([]int, error) {
 	if idListStr == "" {
-		return []int{}, nil
+		return nil, nil
 	}
 
 	idStrList := strings.Split(idListStr, ",")
