@@ -3,9 +3,11 @@ package rocserv
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
+	"gitlab.pri.ibanyu.com/middleware/util/servbase"
 
 	etcd "github.com/coreos/etcd/client"
 )
@@ -113,7 +115,11 @@ func (m *ServBaseV2) clearCrossDCRegisterInfos() {
 
 // 初始化跨机房etcd客户端
 func initCrossRegisterCenter(sb *ServBaseV2) error {
-	return initCrossRegisterCenterOrigin(sb)
+	if len(sb.crossRegisterRegionIds) == 0 {
+		return initCrossRegisterCenterOrigin(sb)
+	}
+
+	return initCrossRegisterCenterNew(sb)
 }
 
 // 旧版本初始化跨机房注册etcd客户端, 使用服务内静态配置
@@ -137,6 +143,29 @@ func initCrossRegisterCenterOrigin(sb *ServBaseV2) error {
 			return fmt.Errorf("create etchd api error")
 		}
 		sb.crossRegisterClients[addr] = baseKeysAPI
+	}
+	return nil
+}
+
+// 新版本使用字符串格式的regionId代替addr作为client key
+func initCrossRegisterCenterNew(sb *ServBaseV2) error {
+	for _, regionId := range sb.crossRegisterRegionIds {
+		endpoints, ok := servbase.GetCrossRegisterEndpoints(regionId)
+		if !ok {
+			return fmt.Errorf("region has no endpoints, id: %d", regionId)
+		}
+		baseCfg := etcd.Config{
+			Endpoints: endpoints,
+			Transport: etcd.DefaultTransport,
+		}
+		baseClient, err := etcd.New(baseCfg)
+		if err != nil {
+			return fmt.Errorf("create etcd client failed, regionId: %v, config: %v", regionId, baseCfg)
+		}
+		baseKeysAPI := etcd.NewKeysAPI(baseClient)
+
+		regionIdStr := strconv.Itoa(regionId)
+		sb.crossRegisterClients[regionIdStr] = baseKeysAPI
 	}
 	return nil
 }
