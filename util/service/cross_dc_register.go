@@ -113,6 +113,11 @@ func (m *ServBaseV2) clearCrossDCRegisterInfos() {
 
 // 初始化跨机房etcd客户端
 func initCrossRegisterCenter(sb *ServBaseV2) error {
+	return initCrossRegisterCenterOrigin(sb)
+}
+
+// 旧版本初始化跨机房注册etcd客户端, 使用服务内静态配置
+func initCrossRegisterCenterOrigin(sb *ServBaseV2) error {
 	var baseConfig BaseConfig
 	err := sb.ServConfig(&baseConfig)
 	if err != nil {
