@@ -280,12 +280,14 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 	servLoc := args.servLoc
 	sessKey := args.sessKey
 
+	xlog.Infof(ctx, "%s new ServBaseV2 start", fun)
 	sb, err := NewServBaseV2(confEtcd, servLoc, sessKey, args.group, args.sidOffset)
 	if err != nil {
 		xlog.Panicf(ctx, "%s init servbase loc: %s key: %s err: %v", fun, servLoc, sessKey, err)
 		return err
 	}
 	m.sbase = sb
+	xlog.Infof(ctx, "%s new ServBaseV2 end", fun)
 
 	//将ip存储
 	if err := sb.setIp(); err != nil {
@@ -293,47 +295,68 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 	}
 
 	// 初始化日志
+	xlog.Infof(ctx, "%s initLog start", fun)
 	m.initLog(sb, args)
+	xlog.Infof(ctx, "%s initLog end", fun)
 
 	// 初始化服务进程打点
+	xlog.Infof(ctx, "%s init stat start", fun)
 	stat.Init(sb.servGroup, sb.servName, "")
+	xlog.Infof(ctx, "%s init stat end", fun)
 
 	defer xlog.AppLogSync()
 	defer xlog.StatLogSync()
 
 	// NOTE: initBackdoor会启动http服务，但由于health check的http请求不需要追踪，且它是判断服务启动与否的关键，所以initTracer可以放在它之后进行
+	xlog.Infof(ctx, "%s init backdoor start", fun)
 	m.initBackdoor(sb)
+	xlog.Infof(ctx, "%s init backdoor end", fun)
 
+	xlog.Infof(ctx, "%s init handleModel start", fun)
 	err = m.handleModel(sb, servLoc, args.model)
 	if err != nil {
 		xlog.Panicf(ctx, "%s handleModel err: %v", fun, err)
 		return err
 	}
+	xlog.Infof(ctx, "%s init handleModel end", fun)
 
+	xlog.Infof(ctx, "%s init dolphin start", fun)
 	err = m.initDolphin(sb)
 	if err != nil {
 		xlog.Errorf(ctx, "%s initDolphin() failed, error: %v", fun, err)
 		return err
 	}
+	xlog.Infof(ctx, "%s init dolphin end", fun)
 
 	// App层初始化
+	xlog.Infof(ctx, "%s init initfn start", fun)
 	err = initfn(sb)
 	if err != nil {
 		xlog.Panicf(ctx, "%s callInitFunc err: %v", fun, err)
 		return err
 	}
+	xlog.Infof(ctx, "%s init initfn end", fun)
 
 	// NOTE: processor 在初始化 trace middleware 前需要保证 xtrace.GlobalTracer() 初始化完毕
+	xlog.Infof(ctx, "%s init tracer start", fun)
 	m.initTracer(servLoc)
+	xlog.Infof(ctx, "%s init tracer end", fun)
 
+	xlog.Infof(ctx, "%s init processor start", fun)
 	err = m.initProcessor(sb, procs, args.startType)
 	if err != nil {
 		xlog.Panicf(ctx, "%s initProcessor err: %v", fun, err)
 		return err
 	}
+	xlog.Infof(ctx, "%s init processor end", fun)
 
+	xlog.Infof(ctx, "%s init SetGroupAndDisable start", fun)
 	sb.SetGroupAndDisable(args.group, args.disable)
+	xlog.Infof(ctx, "%s init SetGroupAndDisable end", fun)
+
+	xlog.Infof(ctx, "%s init metric start", fun)
 	m.initMetric(sb)
+	xlog.Infof(ctx, "%s init metric end", fun)
 
 	xlog.Infof(ctx, "server start success, grpc: [%s], thrift: [%s]", GetProcessorAddress(PROCESSOR_GRPC_PROPERTY_NAME), GetProcessorAddress(PROCESSOR_THRIFT_PROPERTY_NAME))
 
