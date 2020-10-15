@@ -7,11 +7,13 @@ package rocserv
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"os/signal"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -63,16 +65,17 @@ func NewServer() *Server {
 }
 
 type cmdArgs struct {
-	logMaxSize    int
-	logMaxBackups int
-	servLoc       string
-	logDir        string
-	sessKey       string
-	sidOffset     int
-	group         string
-	disable       bool
-	model         int
-	startType     string // 启动方式：local - 不注册至etcd
+	logMaxSize        int
+	logMaxBackups     int
+	servLoc           string
+	logDir            string
+	sessKey           string
+	sidOffset         int
+	group             string
+	disable           bool
+	model             int
+	startType         string // 启动方式：local - 不注册至etcd
+	crossRegionIdList string
 }
 
 func (m *Server) parseFlag() (*cmdArgs, error) {
@@ -98,15 +101,18 @@ func (m *Server) parseFlag() (*cmdArgs, error) {
 		return nil, fmt.Errorf("skey args need!")
 	}
 
+	crossRegionIdList := os.Getenv("CROSSREGIONIDLIST")
+
 	return &cmdArgs{
-		logMaxSize:    logMaxSize,
-		logMaxBackups: logMaxBackups,
-		servLoc:       serv,
-		logDir:        logDir,
-		sessKey:       skey,
-		sidOffset:     sidOffset,
-		group:         group,
-		startType:     startType,
+		logMaxSize:        logMaxSize,
+		logMaxBackups:     logMaxBackups,
+		servLoc:           serv,
+		logDir:            logDir,
+		sessKey:           skey,
+		sidOffset:         sidOffset,
+		group:             group,
+		startType:         startType,
+		crossRegionIdList: crossRegionIdList,
 	}, nil
 
 }
@@ -280,8 +286,13 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 	servLoc := args.servLoc
 	sessKey := args.sessKey
 
+	crossRegionIdList, err := parseCrossRegionIdList(args.crossRegionIdList)
+	if err != nil {
+		xlog.Panicf(ctx, "%s parse cross region id list error, arg: %v, err: %v", fun, args.crossRegionIdList, err)
+		return err
+	}
 	xlog.Infof(ctx, "%s new ServBaseV2 start", fun)
-	sb, err := NewServBaseV2(confEtcd, servLoc, sessKey, args.group, args.sidOffset)
+	sb, err := NewServBaseV2(confEtcd, servLoc, sessKey, args.group, args.sidOffset, crossRegionIdList)
 	if err != nil {
 		xlog.Panicf(ctx, "%s init servbase loc: %s key: %s err: %v", fun, servLoc, sessKey, err)
 		return err
@@ -363,6 +374,28 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 	m.awaitSignal(sb)
 
 	return nil
+}
+
+func parseCrossRegionIdList(idListStr string) ([]int, error) {
+	if idListStr == "" {
+		return nil, nil
+	}
+
+	idStrList := strings.Split(idListStr, ",")
+	if len(idStrList) == 0 {
+		return nil, errors.New("invalid id list string arg")
+	}
+
+	var ret []int
+	for _, idStr := range idStrList {
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, id)
+	}
+
+	return ret, nil
 }
 
 func (m *Server) awaitSignal(sb *ServBaseV2) {

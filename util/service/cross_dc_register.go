@@ -3,9 +3,11 @@ package rocserv
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
+	"gitlab.pri.ibanyu.com/middleware/util/servbase"
 
 	etcd "github.com/coreos/etcd/client"
 )
@@ -113,6 +115,19 @@ func (m *ServBaseV2) clearCrossDCRegisterInfos() {
 
 // 初始化跨机房etcd客户端
 func initCrossRegisterCenter(sb *ServBaseV2) error {
+	if len(sb.crossRegisterRegionIds) == 0 {
+		return initCrossRegisterCenterOrigin(sb)
+	}
+
+	return initCrossRegisterCenterNew(sb)
+}
+
+// 旧版本初始化跨机房注册etcd客户端, 使用服务内静态配置
+func initCrossRegisterCenterOrigin(sb *ServBaseV2) error {
+	fun := "initCrossRegisterCenterOrigin --> "
+	ctx := context.Background()
+	xlog.Infof(ctx, "%s start", fun)
+
 	var baseConfig BaseConfig
 	err := sb.ServConfig(&baseConfig)
 	if err != nil {
@@ -125,13 +140,43 @@ func initCrossRegisterCenter(sb *ServBaseV2) error {
 		}
 		baseClient, err := etcd.New(baseCfg)
 		if err != nil {
-			return fmt.Errorf("create etcd client failed, config: %v", baseCfg)
+			return fmt.Errorf("create etcd client failed, config: %v, err: %v", baseCfg, err)
 		}
-		baseKeysAPI := etcd.NewKeysAPI(baseClient)
-		if baseClient == nil {
-			return fmt.Errorf("create etchd api error")
-		}
+		baseKeysAPI := etcd.NewKeysAPI(baseClient) // not nil
 		sb.crossRegisterClients[addr] = baseKeysAPI
 	}
+
+	xlog.Infof(ctx, "%s success", fun)
+	return nil
+}
+
+// 新版本使用字符串格式的regionId代替addr作为client key
+func initCrossRegisterCenterNew(sb *ServBaseV2) error {
+	fun := "initCrossRegisterCenterNew --> "
+	ctx := context.Background()
+	xlog.Infof(ctx, "%s start", fun)
+
+	for _, regionId := range sb.crossRegisterRegionIds {
+		endpoints, ok := servbase.GetCrossRegisterEndpoints(regionId)
+		if !ok {
+			xlog.Errorf(ctx, "%s region has no endpoints, id: %d", fun, regionId)
+			return fmt.Errorf("region has no endpoints, id: %d", regionId)
+		}
+		baseCfg := etcd.Config{
+			Endpoints: endpoints,
+			Transport: etcd.DefaultTransport,
+		}
+		baseClient, err := etcd.New(baseCfg)
+		if err != nil {
+			xlog.Errorf(ctx, "%s create etcd client failed, regionId: %v, config: %v, err: %v", fun, regionId, baseCfg, err)
+			return fmt.Errorf("create etcd client failed, regionId: %v, config: %v, err: %v", regionId, baseCfg, err)
+		}
+		baseKeysAPI := etcd.NewKeysAPI(baseClient)
+
+		regionIdStr := strconv.Itoa(regionId)
+		sb.crossRegisterClients[regionIdStr] = baseKeysAPI
+	}
+
+	xlog.Infof(ctx, "%s success", fun)
 	return nil
 }

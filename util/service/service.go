@@ -94,7 +94,8 @@ type ServBaseV2 struct {
 	etcdClient etcd.KeysAPI
 
 	// 跨机房服务注册
-	crossRegisterClients map[string]etcd.KeysAPI
+	crossRegisterClients   map[string]etcd.KeysAPI
+	crossRegisterRegionIds []int
 
 	servId int
 
@@ -466,7 +467,7 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 }
 
 // etcd v2 接口
-func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sidOffset int) (*ServBaseV2, error) {
+func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sidOffset int, crossRegionIdList []int) (*ServBaseV2, error) {
 	fun := "NewServBaseV2 -->"
 	ctx := context.Background()
 
@@ -520,16 +521,17 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 	xlog.Infof(ctx, " %s init configcenter end", fun)
 
 	reg := &ServBaseV2{
-		confEtcd:             confEtcd,
-		dbLocation:           dbloc,
-		servLocation:         servLocation,
-		sessKey:              skey,
-		etcdClient:           client,
-		crossRegisterClients: make(map[string]etcd.KeysAPI, 2),
-		servId:               sid,
-		locks:                make(map[string]*ssync.Mutex),
-		hearts:               make(map[string]*distLockHeart),
-		regInfos:             make(map[string]string),
+		confEtcd:               confEtcd,
+		dbLocation:             dbloc,
+		servLocation:           servLocation,
+		sessKey:                skey,
+		etcdClient:             client,
+		crossRegisterRegionIds: crossRegionIdList,
+		crossRegisterClients:   make(map[string]etcd.KeysAPI, 2),
+		servId:                 sid,
+		locks:                  make(map[string]*ssync.Mutex),
+		hearts:                 make(map[string]*distLockHeart),
+		regInfos:               make(map[string]string),
 
 		dbRouter:     dr,
 		configCenter: configCenter,
