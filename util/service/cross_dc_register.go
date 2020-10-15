@@ -124,6 +124,10 @@ func initCrossRegisterCenter(sb *ServBaseV2) error {
 
 // 旧版本初始化跨机房注册etcd客户端, 使用服务内静态配置
 func initCrossRegisterCenterOrigin(sb *ServBaseV2) error {
+	fun := "initCrossRegisterCenterOrigin --> "
+	ctx := context.Background()
+	xlog.Infof(ctx, "%s start", fun)
+
 	var baseConfig BaseConfig
 	err := sb.ServConfig(&baseConfig)
 	if err != nil {
@@ -136,22 +140,26 @@ func initCrossRegisterCenterOrigin(sb *ServBaseV2) error {
 		}
 		baseClient, err := etcd.New(baseCfg)
 		if err != nil {
-			return fmt.Errorf("create etcd client failed, config: %v", baseCfg)
+			return fmt.Errorf("create etcd client failed, config: %v, err: %v", baseCfg, err)
 		}
-		baseKeysAPI := etcd.NewKeysAPI(baseClient)
-		if baseClient == nil {
-			return fmt.Errorf("create etchd api error")
-		}
+		baseKeysAPI := etcd.NewKeysAPI(baseClient) // not nil
 		sb.crossRegisterClients[addr] = baseKeysAPI
 	}
+
+	xlog.Infof(ctx, "%s success", fun)
 	return nil
 }
 
 // 新版本使用字符串格式的regionId代替addr作为client key
 func initCrossRegisterCenterNew(sb *ServBaseV2) error {
+	fun := "initCrossRegisterCenterNew --> "
+	ctx := context.Background()
+	xlog.Infof(ctx, "%s start", fun)
+
 	for _, regionId := range sb.crossRegisterRegionIds {
 		endpoints, ok := servbase.GetCrossRegisterEndpoints(regionId)
 		if !ok {
+			xlog.Errorf(ctx, "%s region has no endpoints, id: %d", fun, regionId)
 			return fmt.Errorf("region has no endpoints, id: %d", regionId)
 		}
 		baseCfg := etcd.Config{
@@ -160,12 +168,15 @@ func initCrossRegisterCenterNew(sb *ServBaseV2) error {
 		}
 		baseClient, err := etcd.New(baseCfg)
 		if err != nil {
-			return fmt.Errorf("create etcd client failed, regionId: %v, config: %v", regionId, baseCfg)
+			xlog.Errorf(ctx, "%s create etcd client failed, regionId: %v, config: %v, err: %v", fun, regionId, baseCfg, err)
+			return fmt.Errorf("create etcd client failed, regionId: %v, config: %v, err: %v", regionId, baseCfg, err)
 		}
 		baseKeysAPI := etcd.NewKeysAPI(baseClient)
 
 		regionIdStr := strconv.Itoa(regionId)
 		sb.crossRegisterClients[regionIdStr] = baseKeysAPI
 	}
+
+	xlog.Infof(ctx, "%s success", fun)
 	return nil
 }
