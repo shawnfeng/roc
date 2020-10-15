@@ -476,6 +476,7 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 		Transport: etcd.DefaultTransport,
 	}
 
+	xlog.Infof(ctx, "%s create etcd client start, cfg: %v", fun, cfg)
 	c, err := etcd.New(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("create etchd client cfg error")
@@ -488,15 +489,17 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 
 	path := fmt.Sprintf("%s/%s/%s", confEtcd.useBaseloc, BASE_LOC_SKEY, servLocation)
 
+	xlog.Infof(ctx, "%s retryGenSid start", fun)
 	sid, err := retryGenSid(client, path, skey, 3)
 	if err != nil {
 		return nil, err
 	}
 
-	xlog.Infof(ctx, "%s path:%s sid:%d skey:%s, envGroup", fun, path, sid, skey, envGroup)
+	xlog.Infof(ctx, "%s retryGenSid end, path: %s, sid: %d, skey: %s, envGroup: %s", fun, path, sid, skey, envGroup)
 
 	dbloc := fmt.Sprintf("%s/%s", confEtcd.useBaseloc, BASE_LOC_DB)
 
+	xlog.Infof(ctx, "%s init dbrouter start", fun)
 	var dr *dbrouter.Router
 	jscfg, err := getValue(client, dbloc)
 	if err != nil {
@@ -507,12 +510,15 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 			return nil, err
 		}
 	}
+	xlog.Infof(ctx, "%s init dbrouter end", fun)
 
 	// init global config center
+	xlog.Infof(ctx, " %s init configcenter start", fun)
 	configCenter, err := xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, servLocation, []string{ApplicationNamespace, RPCConfNamespace, xsql.MysqlConfNamespace, xmgo.MongoConfNamespace})
 	if err != nil {
 		return nil, err
 	}
+	xlog.Infof(ctx, " %s init configcenter end", fun)
 
 	reg := &ServBaseV2{
 		confEtcd:               confEtcd,
@@ -542,20 +548,24 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 		xlog.Warnf(ctx, "%s servLocation:%s do not match group/service format", fun, servLocation)
 	}
 
+	xlog.Infof(ctx, " %s init origin snowflake start", fun)
 	sf, err := initSnowflake(sid + sidOffset)
 	if err != nil {
 		return nil, err
 	}
+	xlog.Infof(ctx, " %s init origin snowflake end", fun)
 
 	reg.IdGenerator.snow = sf
 	reg.IdGenerator.slow = make(map[string]*slowid.Slowid)
 	reg.IdGenerator.workerID = sid + sidOffset
 
 	// init cross register clients
+	xlog.Infof(ctx, " %s init CrossRegisterCenter start", fun)
 	err = initCrossRegisterCenter(reg)
 	if err != nil {
 		return nil, err
 	}
+	xlog.Infof(ctx, " %s init CrossRegisterCenter end", fun)
 
 	return reg, nil
 
