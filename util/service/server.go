@@ -79,7 +79,7 @@ type cmdArgs struct {
 }
 
 func (m *Server) parseFlag() (*cmdArgs, error) {
-	var serv, logDir, skey, group, startType, crossRegionIdList string
+	var serv, logDir, skey, group, startType string
 	var logMaxSize, logMaxBackups, sidOffset int
 	flag.IntVar(&logMaxSize, "logmaxsize", 0, "logMaxSize is the maximum size in megabytes of the log file")
 	flag.IntVar(&logMaxBackups, "logmaxbackups", 0, "logmaxbackups is the maximum number of old log files to retain")
@@ -90,7 +90,6 @@ func (m *Server) parseFlag() (*cmdArgs, error) {
 	flag.StringVar(&group, "group", "", "service group")
 	// 启动方式：local - 不注册至etcd
 	flag.StringVar(&startType, "stype", "", "start up type, local is not register to etcd")
-	flag.StringVar(&crossRegionIdList, "cross_region_id_list", "", "cross register region id list")
 
 	flag.Parse()
 
@@ -101,6 +100,8 @@ func (m *Server) parseFlag() (*cmdArgs, error) {
 	if len(skey) == 0 {
 		return nil, fmt.Errorf("skey args need!")
 	}
+
+	crossRegionIdList := os.Getenv("CROSSREGIONIDLIST")
 
 	return &cmdArgs{
 		logMaxSize:        logMaxSize,
