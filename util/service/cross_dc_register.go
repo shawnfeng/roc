@@ -40,7 +40,7 @@ func (m *ServBaseV2) doCrossDCRegister(path, js string, refresh bool) error {
 		// 创建完成标志
 		var isCreated bool
 
-		go func() {
+		go func(etcdAddr string) {
 
 			for j := 0; ; j++ {
 				updateEtcd := func() {
@@ -48,19 +48,19 @@ func (m *ServBaseV2) doCrossDCRegister(path, js string, refresh bool) error {
 					var r *etcd.Response
 					if !isCreated {
 						xlog.Warnf(ctx, "%s create idx:%d server_info: %s", fun, j, js)
-						r, err = m.crossRegisterClients[addr].Set(context.Background(), path, js, &etcd.SetOptions{
+						r, err = m.crossRegisterClients[etcdAddr].Set(context.Background(), path, js, &etcd.SetOptions{
 							TTL: time.Second * 60,
 						})
 					} else {
 						if refresh {
 							// 在刷新ttl时候，不允许变更value
-							r, err = m.crossRegisterClients[addr].Set(context.Background(), path, "", &etcd.SetOptions{
+							r, err = m.crossRegisterClients[etcdAddr].Set(context.Background(), path, "", &etcd.SetOptions{
 								PrevExist: etcd.PrevExist,
 								TTL:       time.Second * 60,
 								Refresh:   true,
 							})
 						} else {
-							r, err = m.crossRegisterClients[addr].Set(context.Background(), path, js, &etcd.SetOptions{
+							r, err = m.crossRegisterClients[etcdAddr].Set(context.Background(), path, js, &etcd.SetOptions{
 								TTL: time.Second * 60,
 							})
 						}
@@ -69,10 +69,11 @@ func (m *ServBaseV2) doCrossDCRegister(path, js string, refresh bool) error {
 
 					if err != nil {
 						isCreated = false
-						xlog.Errorf(ctx, "%s reg idx: %d, resp: %v, err: %v", fun, j, r, err)
+						xlog.Errorf(ctx, "%s reg error, round: %d, addr: %s, resp: %v, err: %v", fun, j, etcdAddr, r, err)
 
 					} else {
 						isCreated = true
+						xlog.Infof(ctx, " %s reg success, round: %d, addr: %s", fun, j, etcdAddr)
 					}
 				}
 
@@ -86,7 +87,7 @@ func (m *ServBaseV2) doCrossDCRegister(path, js string, refresh bool) error {
 				}
 			}
 
-		}()
+		}(addr)
 	}
 
 	return nil
