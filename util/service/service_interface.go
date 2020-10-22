@@ -11,7 +11,6 @@ import (
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 
 	etcd "github.com/coreos/etcd/client"
-	"github.com/shawnfeng/sutil/dbrouter"
 )
 
 type ServInfo struct {
@@ -116,9 +115,6 @@ type ServBase interface {
 	LockGlobal(name string) error
 	UnlockGlobal(name string) error
 	TrylockGlobal(name string) (bool, error)
-
-	// db router
-	Dbrouter() *dbrouter.Router
 
 	// conf center
 	ConfigCenter() xconfig.ConfigCenter
