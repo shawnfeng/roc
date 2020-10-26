@@ -335,8 +335,8 @@ func reloadRouter(processor string, server interface{}, driver interface{}) erro
 
 func disableContextCancelMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.WithContext(xcontext.NewValueContext(r.Context()))
-		next.ServeHTTP(w, r)
+		newR := r.WithContext(xcontext.NewValueContext(r.Context()))
+		next.ServeHTTP(w, newR)
 	})
 }
 
