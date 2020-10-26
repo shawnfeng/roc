@@ -181,7 +181,7 @@ func (m *Server) powerProcessorDriver(ctx context.Context, n string, p Processor
 		return servInfo, nil
 
 	case *gin.Engine:
-		sa, _, err := powerGin(addr, d)
+		sa, err := powerGin(addr, d)
 		if err != nil {
 			return nil, err
 		}
@@ -192,7 +192,7 @@ func (m *Server) powerProcessorDriver(ctx context.Context, n string, p Processor
 		return servInfo, nil
 
 	case *HttpServer:
-		sa, _, err := powerGin(addr, d.Engine)
+		sa, err := powerGin(addr, d.Engine)
 		if err != nil {
 			return nil, err
 		}

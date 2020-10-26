@@ -147,31 +147,31 @@ func powerGrpc(addr string, server *GrpcServer) (string, error) {
 	return laddr, nil
 }
 
-func powerGin(addr string, router *gin.Engine) (string, *http.Server, error) {
+func powerGin(addr string, router *gin.Engine) (string, error) {
 	fun := "powerGin -->"
 	ctx := context.Background()
 
 	paddr, err := snetutil.GetListenAddr(addr)
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 
 	xlog.Infof(ctx, "%s config addr[%s]", fun, paddr)
 
 	tcpAddr, err := net.ResolveTCPAddr("tcp", paddr)
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 
 	netListen, err := net.Listen(tcpAddr.Network(), tcpAddr.String())
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 
 	laddr, err := snetutil.GetServAddr(netListen.Addr())
 	if err != nil {
 		netListen.Close()
-		return "", nil, err
+		return "", err
 	}
 
 	xlog.Infof(ctx, "%s listen addr[%s]", fun, laddr)
@@ -193,7 +193,7 @@ func powerGin(addr string, router *gin.Engine) (string, *http.Server, error) {
 		}
 	}()
 
-	return laddr, serv, nil
+	return laddr, nil
 }
 
 func reloadRouter(processor string, server interface{}, driver interface{}) error {
