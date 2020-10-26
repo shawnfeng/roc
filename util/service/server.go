@@ -15,7 +15,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 
 	"gitlab.pri.ibanyu.com/middleware/dolphin/circuit_breaker"
@@ -52,16 +51,11 @@ var server = NewServer()
 // Server ...
 type Server struct {
 	sbase ServBase
-
-	mutex   sync.Mutex
-	servers map[string]interface{}
 }
 
 // NewServer create new server
 func NewServer() *Server {
-	return &Server{
-		servers: make(map[string]interface{}),
-	}
+	return &Server{}
 }
 
 type cmdArgs struct {
@@ -187,13 +181,10 @@ func (m *Server) powerProcessorDriver(ctx context.Context, n string, p Processor
 		return servInfo, nil
 
 	case *gin.Engine:
-		sa, serv, err := powerGin(addr, d)
+		sa, _, err := powerGin(addr, d)
 		if err != nil {
 			return nil, err
 		}
-		// gin Engine支持reload, 需要addServer保存下来
-		m.addServer(n, serv)
-
 		servInfo := &ServInfo{
 			Type: PROCESSOR_GIN,
 			Addr: sa,
@@ -201,13 +192,10 @@ func (m *Server) powerProcessorDriver(ctx context.Context, n string, p Processor
 		return servInfo, nil
 
 	case *HttpServer:
-		sa, serv, err := powerGin(addr, d.Engine)
+		sa, _, err := powerGin(addr, d.Engine)
 		if err != nil {
 			return nil, err
 		}
-		// gin Engine支持reload, 需要addServer保存下来
-		m.addServer(n, serv)
-
 		servInfo := &ServInfo{
 			Type: PROCESSOR_GIN,
 			Addr: sa,
@@ -217,26 +205,6 @@ func (m *Server) powerProcessorDriver(ctx context.Context, n string, p Processor
 	default:
 		return nil, fmt.Errorf("processor: %s driver not recognition", n)
 	}
-}
-
-func (m *Server) addServer(processor string, server interface{}) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	m.servers[processor] = server
-}
-
-func (m *Server) reloadRouter(processor string, driver interface{}) error {
-	//fun := "Server.reloadRouter -->"
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	server, ok := m.servers[processor]
-	if !ok {
-		return fmt.Errorf("processor:%s driver not recognition", processor)
-	}
-
-	return reloadRouter(processor, server, driver)
 }
 
 // Serve handle request and return response
@@ -593,10 +561,6 @@ func (m *Server) initDolphin(sb *ServBaseV2) error {
 		etcdInterfaceRateLimitRegistry.Watch()
 	}()
 	return nil
-}
-
-func ReloadRouter(processor string, driver interface{}) error {
-	return server.reloadRouter(processor, driver)
 }
 
 // Serve app call Serve to start server, initLogic is the init func in app, logic.InitLogic,
