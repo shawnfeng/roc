@@ -16,6 +16,7 @@ import (
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
+	"google.golang.org/grpc"
 
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
@@ -94,6 +95,10 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 		return servInfo, nil
 
 	case *GrpcServer:
+		if dr.isDisableContextCancel(ctx) {
+			contextCancelInterceptor := newDisableContextCancelGrpcUnaryInterceptor()
+			d.internalAddExtraInterceptors(contextCancelInterceptor)
+		}
 		sa, err := powerGrpc(addr, d)
 		if err != nil {
 			return nil, err
@@ -340,4 +345,11 @@ func disableContextCancelMiddleware(next http.Handler) http.Handler {
 		r.WithContext(xcontext.NewValueContext(r.Context()))
 		next.ServeHTTP(w, r)
 	})
+}
+
+func newDisableContextCancelGrpcUnaryInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+		valueCtx := xcontext.NewValueContext(ctx)
+		return handler(valueCtx, req)
+	}
 }

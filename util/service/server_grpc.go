@@ -21,7 +21,8 @@ import (
 )
 
 type GrpcServer struct {
-	userUnaryInterceptors []grpc.UnaryServerInterceptor
+	userUnaryInterceptors  []grpc.UnaryServerInterceptor
+	extraUnaryInterceptors []grpc.UnaryServerInterceptor // 服务启动之前, 内部添加的拦截器, 在所有拦截器之后添加
 }
 
 type FunInterceptor func(ctx context.Context, req interface{}, fun string) error
@@ -87,6 +88,10 @@ func NewGrpcServerWithUnaryInterceptors(interceptors ...UnaryServerInterceptor) 
 	}
 }
 
+func (g *GrpcServer) internalAddExtraInterceptors(extraInterceptors ...grpc.UnaryServerInterceptor) {
+	g.extraUnaryInterceptors = append(g.extraUnaryInterceptors, extraInterceptors...)
+}
+
 func (g *GrpcServer) buildServer() (*grpc.Server, error) {
 	var unaryInterceptors []grpc.UnaryServerInterceptor
 	var streamInterceptors []grpc.StreamServerInterceptor
@@ -99,6 +104,7 @@ func (g *GrpcServer) buildServer() (*grpc.Server, error) {
 	unaryInterceptors = append(unaryInterceptors, rateLimitInterceptor(), otgrpc.OpenTracingServerInterceptor(tracer), monitorServerInterceptor(), grpc_recovery.UnaryServerInterceptor(recoveryOpts...))
 	userUnaryInterceptors := g.userUnaryInterceptors
 	unaryInterceptors = append(unaryInterceptors, userUnaryInterceptors...)
+	unaryInterceptors = append(unaryInterceptors, g.extraUnaryInterceptors...)
 
 	streamInterceptors = append(streamInterceptors, rateLimitStreamServerInterceptor(), otgrpc.OpenTracingStreamServerInterceptor(tracer), monitorStreamServerInterceptor(), grpc_recovery.StreamServerInterceptor(recoveryOpts...))
 
