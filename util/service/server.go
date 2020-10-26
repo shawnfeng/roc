@@ -117,89 +117,106 @@ func (m *Server) parseFlag() (*cmdArgs, error) {
 
 }
 
+var errNilDriver = errors.New("nil driver")
+
 func (m *Server) loadDriver(procs map[string]Processor) (map[string]*ServInfo, error) {
 	fun := "Server.loadDriver -->"
 	ctx := context.Background()
 
 	infos := make(map[string]*ServInfo)
 
-	for n, p := range procs {
-		addr, driver := p.Driver()
-		if driver == nil {
-			xlog.Infof(ctx, "%s processor:%s no driver", fun, n)
+	for name, processor := range procs {
+		servInfo, err := m.powerProcessorDriver(ctx, name, processor)
+		if err == errNilDriver {
+			xlog.Infof(ctx, "%s processor: %s no driver, skip", fun, name)
 			continue
 		}
-
-		xlog.Infof(ctx, "%s processor:%s type:%s addr:%s", fun, n, reflect.TypeOf(driver), addr)
-
-		switch d := driver.(type) {
-		case *httprouter.Router:
-			sa, err := powerHttp(addr, d)
-			if err != nil {
-				return nil, err
-			}
-
-			xlog.Infof(ctx, "%s load ok processor:%s serv addr:%s", fun, n, sa)
-			infos[n] = &ServInfo{
-				Type: PROCESSOR_HTTP,
-				Addr: sa,
-			}
-
-		case thrift.TProcessor:
-			sa, err := powerThrift(addr, d)
-			if err != nil {
-				return nil, err
-			}
-
-			xlog.Infof(ctx, "%s load ok processor:%s serv addr:%s", fun, n, sa)
-			infos[n] = &ServInfo{
-				Type: PROCESSOR_THRIFT,
-				Addr: sa,
-			}
-		case *GrpcServer:
-			sa, err := powerGrpc(addr, d)
-			if err != nil {
-				return nil, err
-			}
-
-			xlog.Infof(ctx, "%s load ok processor:%s serv addr:%s", fun, n, sa)
-			infos[n] = &ServInfo{
-				Type: PROCESSOR_GRPC,
-				Addr: sa,
-			}
-		case *gin.Engine:
-			sa, serv, err := powerGin(addr, d)
-			if err != nil {
-				return nil, err
-			}
-
-			m.addServer(n, serv)
-
-			xlog.Infof(ctx, "%s load ok processor:%s serv addr:%s", fun, n, sa)
-			infos[n] = &ServInfo{
-				Type: PROCESSOR_GIN,
-				Addr: sa,
-			}
-		case *HttpServer:
-			sa, serv, err := powerGin(addr, d.Engine)
-			if err != nil {
-				return nil, err
-			}
-
-			m.addServer(n, serv)
-
-			xlog.Infof(ctx, "%s load ok processor:%s serv addr:%s", fun, n, sa)
-			infos[n] = &ServInfo{
-				Type: PROCESSOR_GIN,
-				Addr: sa,
-			}
-		default:
-			return nil, fmt.Errorf("processor:%s driver not recognition", n)
-
+		if err != nil {
+			xlog.Errorf(ctx, "%s load error, processor: %s, err: %v", fun, name, err)
+			return nil, err
 		}
+
+		infos[name] = servInfo
+		xlog.Infof(ctx, "%s load ok, processor: %s, serv addr: %s", fun, name, servInfo.Addr)
 	}
 
 	return infos, nil
+}
+
+func (m *Server) powerProcessorDriver(ctx context.Context, n string, p Processor) (*ServInfo, error) {
+	fun := "Server.powerProcessorDriver -> "
+	addr, driver := p.Driver()
+	if driver == nil {
+		return nil, errNilDriver
+	}
+
+	xlog.Infof(ctx, "%s processor: %s type: %s addr: %s", fun, reflect.TypeOf(driver), addr)
+
+	switch d := driver.(type) {
+	case *httprouter.Router:
+		sa, err := powerHttp(addr, d)
+		if err != nil {
+			return nil, err
+		}
+		servInfo := &ServInfo{
+			Type: PROCESSOR_HTTP,
+			Addr: sa,
+		}
+		return servInfo, nil
+
+	case thrift.TProcessor:
+		sa, err := powerThrift(addr, d)
+		if err != nil {
+			return nil, err
+		}
+		servInfo := &ServInfo{
+			Type: PROCESSOR_THRIFT,
+			Addr: sa,
+		}
+		return servInfo, nil
+
+	case *GrpcServer:
+		sa, err := powerGrpc(addr, d)
+		if err != nil {
+			return nil, err
+		}
+		servInfo := &ServInfo{
+			Type: PROCESSOR_GRPC,
+			Addr: sa,
+		}
+		return servInfo, nil
+
+	case *gin.Engine:
+		sa, serv, err := powerGin(addr, d)
+		if err != nil {
+			return nil, err
+		}
+		// gin Engine支持reload, 需要addServer保存下来
+		m.addServer(n, serv)
+
+		servInfo := &ServInfo{
+			Type: PROCESSOR_GIN,
+			Addr: sa,
+		}
+		return servInfo, nil
+
+	case *HttpServer:
+		sa, serv, err := powerGin(addr, d.Engine)
+		if err != nil {
+			return nil, err
+		}
+		// gin Engine支持reload, 需要addServer保存下来
+		m.addServer(n, serv)
+
+		servInfo := &ServInfo{
+			Type: PROCESSOR_GIN,
+			Addr: sa,
+		}
+		return servInfo, nil
+
+	default:
+		return nil, fmt.Errorf("processor: %s driver not recognition", n)
+	}
 }
 
 func (m *Server) addServer(processor string, server interface{}) {
