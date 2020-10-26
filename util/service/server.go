@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"reflect"
 	"strconv"
 	"strings"
 	"syscall"
@@ -25,18 +24,7 @@ import (
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/util/servbase"
 
-	"git.apache.org/thrift.git/lib/go/thrift"
-	"github.com/gin-gonic/gin"
-	"github.com/julienschmidt/httprouter"
 	"github.com/shawnfeng/sutil/trace"
-)
-
-// rpc protocol
-const (
-	PROCESSOR_HTTP   = "http"
-	PROCESSOR_THRIFT = "thrift"
-	PROCESSOR_GRPC   = "grpc"
-	PROCESSOR_GIN    = "gin"
 )
 
 // server model
@@ -111,8 +99,6 @@ func (m *Server) parseFlag() (*cmdArgs, error) {
 
 }
 
-var errNilDriver = errors.New("nil driver")
-
 func (m *Server) loadDriver(procs map[string]Processor) (map[string]*ServInfo, error) {
 	fun := "Server.loadDriver -->"
 	ctx := context.Background()
@@ -120,7 +106,8 @@ func (m *Server) loadDriver(procs map[string]Processor) (map[string]*ServInfo, e
 	infos := make(map[string]*ServInfo)
 
 	for name, processor := range procs {
-		servInfo, err := m.powerProcessorDriver(ctx, name, processor)
+		driverBuilder := newDriverBuilder(m.sbase.ConfigCenter())
+		servInfo, err := driverBuilder.powerProcessorDriver(ctx, name, processor)
 		if err == errNilDriver {
 			xlog.Infof(ctx, "%s processor: %s no driver, skip", fun, name)
 			continue
@@ -135,76 +122,6 @@ func (m *Server) loadDriver(procs map[string]Processor) (map[string]*ServInfo, e
 	}
 
 	return infos, nil
-}
-
-func (m *Server) powerProcessorDriver(ctx context.Context, n string, p Processor) (*ServInfo, error) {
-	fun := "Server.powerProcessorDriver -> "
-	addr, driver := p.Driver()
-	if driver == nil {
-		return nil, errNilDriver
-	}
-
-	xlog.Infof(ctx, "%s processor: %s type: %s addr: %s", fun, reflect.TypeOf(driver), addr)
-
-	switch d := driver.(type) {
-	case *httprouter.Router:
-		sa, err := powerHttp(addr, d)
-		if err != nil {
-			return nil, err
-		}
-		servInfo := &ServInfo{
-			Type: PROCESSOR_HTTP,
-			Addr: sa,
-		}
-		return servInfo, nil
-
-	case thrift.TProcessor:
-		sa, err := powerThrift(addr, d)
-		if err != nil {
-			return nil, err
-		}
-		servInfo := &ServInfo{
-			Type: PROCESSOR_THRIFT,
-			Addr: sa,
-		}
-		return servInfo, nil
-
-	case *GrpcServer:
-		sa, err := powerGrpc(addr, d)
-		if err != nil {
-			return nil, err
-		}
-		servInfo := &ServInfo{
-			Type: PROCESSOR_GRPC,
-			Addr: sa,
-		}
-		return servInfo, nil
-
-	case *gin.Engine:
-		sa, err := powerGin(addr, d)
-		if err != nil {
-			return nil, err
-		}
-		servInfo := &ServInfo{
-			Type: PROCESSOR_GIN,
-			Addr: sa,
-		}
-		return servInfo, nil
-
-	case *HttpServer:
-		sa, err := powerGin(addr, d.Engine)
-		if err != nil {
-			return nil, err
-		}
-		servInfo := &ServInfo{
-			Type: PROCESSOR_GIN,
-			Addr: sa,
-		}
-		return servInfo, nil
-
-	default:
-		return nil, fmt.Errorf("processor: %s driver not recognition", n)
-	}
 }
 
 // Serve handle request and return response
