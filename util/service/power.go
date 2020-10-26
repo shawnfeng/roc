@@ -25,31 +25,56 @@ func powerHttp(addr string, router *httprouter.Router) (string, error) {
 	fun := "powerHttp -->"
 	ctx := context.Background()
 
-	paddr, err := snetutil.GetListenAddr(addr)
+	netListen, laddr, err := listenServAddr(ctx, addr)
 	if err != nil {
 		return "", err
+	}
+
+	// tracing
+	mw := decorateHttpMiddleware(router)
+
+	go func() {
+		err := http.Serve(netListen, mw)
+		if err != nil {
+			xlog.Panicf(ctx, "%s laddr[%s]", fun, laddr)
+		}
+	}()
+
+	return laddr, nil
+}
+
+// 打开端口监听, 并返回服务地址
+func listenServAddr(ctx context.Context, addr string) (net.Listener, string, error) {
+	fun := "listenServAddr --> "
+	paddr, err := snetutil.GetListenAddr(addr)
+	if err != nil {
+		return nil, "", err
 	}
 
 	xlog.Infof(ctx, "%s config addr[%s]", fun, paddr)
 
 	tcpAddr, err := net.ResolveTCPAddr("tcp", paddr)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 
 	netListen, err := net.Listen(tcpAddr.Network(), tcpAddr.String())
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 
 	laddr, err := snetutil.GetServAddr(netListen.Addr())
 	if err != nil {
 		netListen.Close()
-		return "", err
+		return nil, "", err
 	}
 
 	xlog.Infof(ctx, "%s listen addr[%s]", fun, laddr)
+	return netListen, laddr, nil
+}
 
+// 添加http middleware
+func decorateHttpMiddleware(router http.Handler) http.Handler {
 	// tracing
 	mw := nethttp.Middleware(
 		xtrace.GlobalTracer(),
@@ -60,14 +85,7 @@ func powerHttp(addr string, router *httprouter.Router) (string, error) {
 		}),
 		nethttp.MWSpanFilter(trace.UrlSpanFilter))
 
-	go func() {
-		err := http.Serve(netListen, mw)
-		if err != nil {
-			xlog.Panicf(ctx, "%s laddr[%s]", fun, laddr)
-		}
-	}()
-
-	return laddr, nil
+	return mw
 }
 
 func powerThrift(addr string, processor thrift.TProcessor) (string, error) {
@@ -151,39 +169,13 @@ func powerGin(addr string, router *gin.Engine) (string, error) {
 	fun := "powerGin -->"
 	ctx := context.Background()
 
-	paddr, err := snetutil.GetListenAddr(addr)
+	netListen, laddr, err := listenServAddr(ctx, addr)
 	if err != nil {
 		return "", err
 	}
-
-	xlog.Infof(ctx, "%s config addr[%s]", fun, paddr)
-
-	tcpAddr, err := net.ResolveTCPAddr("tcp", paddr)
-	if err != nil {
-		return "", err
-	}
-
-	netListen, err := net.Listen(tcpAddr.Network(), tcpAddr.String())
-	if err != nil {
-		return "", err
-	}
-
-	laddr, err := snetutil.GetServAddr(netListen.Addr())
-	if err != nil {
-		netListen.Close()
-		return "", err
-	}
-
-	xlog.Infof(ctx, "%s listen addr[%s]", fun, laddr)
 
 	// tracing
-	mw := nethttp.Middleware(
-		xtrace.GlobalTracer(),
-		httpTrafficLogMiddleware(router),
-		nethttp.OperationNameFunc(func(r *http.Request) string {
-			return "HTTP " + r.Method + ": " + r.URL.Path
-		}),
-		nethttp.MWSpanFilter(trace.UrlSpanFilter))
+	mw := decorateHttpMiddleware(router)
 
 	serv := &http.Server{Handler: mw}
 	go func() {
