@@ -117,7 +117,7 @@ func (m *Server) parseFlag() (*cmdArgs, error) {
 
 }
 
-func (m *Server) loadDriver(sb ServBase, procs map[string]Processor) (map[string]*ServInfo, error) {
+func (m *Server) loadDriver(procs map[string]Processor) (map[string]*ServInfo, error) {
 	fun := "Server.loadDriver -->"
 	ctx := context.Background()
 
@@ -464,7 +464,7 @@ func (m *Server) initProcessor(sb *ServBaseV2, procs map[string]Processor, start
 		}
 	}
 
-	infos, err := m.loadDriver(sb, procs)
+	infos, err := m.loadDriver(procs)
 	if err != nil {
 		xlog.Errorf(ctx, "%s load driver err: %v", fun, err)
 		return err
@@ -519,7 +519,7 @@ func (m *Server) initBackdoor(sb *ServBaseV2) error {
 		return err
 	}
 
-	binfos, err := m.loadDriver(sb, map[string]Processor{"_PROC_BACKDOOR": backdoor})
+	binfos, err := m.loadDriver(map[string]Processor{"_PROC_BACKDOOR": backdoor})
 	if err == nil {
 		err = sb.RegisterBackDoor(binfos)
 		if err != nil {
@@ -543,7 +543,7 @@ func (m *Server) initMetric(sb *ServBaseV2) error {
 		xlog.Warnf(ctx, "%s init metrics err: %v", fun, err)
 	}
 
-	metricInfo, err := m.loadDriver(sb, map[string]Processor{"_PROC_METRICS": metrics})
+	metricInfo, err := m.loadDriver(map[string]Processor{"_PROC_METRICS": metrics})
 	if err == nil {
 		err = sb.RegisterMetrics(metricInfo)
 		if err != nil {
