@@ -4,6 +4,7 @@ import (
 	"context"
 	"runtime"
 	"strings"
+	"time"
 
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"gitlab.pri.ibanyu.com/middleware/dolphin/rate_limit"
@@ -23,6 +24,7 @@ import (
 type GrpcServer struct {
 	userUnaryInterceptors  []grpc.UnaryServerInterceptor
 	extraUnaryInterceptors []grpc.UnaryServerInterceptor // 服务启动之前, 内部添加的拦截器, 在所有拦截器之后添加
+	Server                 *grpc.Server
 }
 
 type FunInterceptor func(ctx context.Context, req interface{}, fun string) error
@@ -44,9 +46,7 @@ type UnaryServerInfo struct {
 // Deprecated
 // NewGrpcServer create grpc server with interceptors before handler
 func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
-	return &GrpcServer{
-		userUnaryInterceptors: nil,
-	}
+	return NewGrpcServerWithUnaryInterceptors()
 }
 
 // NewGrpcServerWithUnaryInterceptors 创建GrpcServer并添加自定义Unary拦截器
@@ -83,8 +83,33 @@ func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
 //}
 func NewGrpcServerWithUnaryInterceptors(interceptors ...UnaryServerInterceptor) *GrpcServer {
 	userUnaryInterceptors := convertUnaryInterceptors(interceptors...)
-	return &GrpcServer{
+
+	gserv := &GrpcServer{
 		userUnaryInterceptors: userUnaryInterceptors,
+	}
+
+	// gRPC注册服务是在服务模板代码中的, 所以只能在NewServer时添加拦截器, 才能保证模板代码不需要调整
+	gserv.addExtraContextCancelInterceptor()
+
+	s, err := gserv.buildServer()
+	if err != nil {
+		panic(err)
+	}
+	gserv.Server = s
+	return gserv
+}
+
+func (g *GrpcServer) addExtraContextCancelInterceptor() {
+	f := "addExtraContextCancelInterceptor --> "
+	ctx, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelFunc()
+
+	dr := newDriverBuilder(GetConfigCenter())
+	disableContextCancel := dr.isDisableContextCancel(ctx)
+	xlog.Infof(ctx, "%s disableContextCancel: %v", f, disableContextCancel)
+	if disableContextCancel {
+		contextCancelInterceptor := newDisableContextCancelGrpcUnaryInterceptor()
+		g.internalAddExtraInterceptors(contextCancelInterceptor)
 	}
 }
 

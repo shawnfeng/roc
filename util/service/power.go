@@ -95,10 +95,7 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 		return servInfo, nil
 
 	case *GrpcServer:
-		if dr.isDisableContextCancel(ctx) {
-			contextCancelInterceptor := newDisableContextCancelGrpcUnaryInterceptor()
-			d.internalAddExtraInterceptors(contextCancelInterceptor)
-		}
+		// 添加内部拦截器的操作必须放到NewServer中, 否则无法在服务代码中完成service注册
 		sa, err := powerGrpc(addr, d)
 		if err != nil {
 			return nil, err
@@ -281,11 +278,7 @@ func powerGrpc(addr string, server *GrpcServer) (string, error) {
 	}
 	xlog.Infof(ctx, "%s listen grpc addr[%s]", fun, laddr)
 	go func() {
-		grpcServer, err := server.buildServer()
-		if err != nil {
-			xlog.Panicf(ctx, "%s server.buildServer error, addr: %s, err: %v", fun, addr, err)
-		}
-		if err := grpcServer.Serve(lis); err != nil {
+		if err := server.Server.Serve(lis); err != nil {
 			xlog.Panicf(ctx, "%s grpc laddr[%s]", fun, laddr)
 		}
 	}()
