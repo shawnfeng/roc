@@ -10,8 +10,8 @@ import (
 	"net"
 	"net/http"
 
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
@@ -136,7 +136,11 @@ func powerGrpc(addr string, server *GrpcServer) (string, error) {
 	}
 	xlog.Infof(ctx, "%s listen grpc addr[%s]", fun, laddr)
 	go func() {
-		if err := server.Server.Serve(lis); err != nil {
+		grpcServer, err := server.buildServer()
+		if err != nil {
+			xlog.Panicf(ctx, "%s server.buildServer error, addr: %s, err: %v", fun, addr, err)
+		}
+		if err := grpcServer.Serve(lis); err != nil {
 			xlog.Panicf(ctx, "%s grpc laddr[%s]", fun, laddr)
 		}
 	}()

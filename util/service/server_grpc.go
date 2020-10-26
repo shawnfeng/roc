@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"strings"
 
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"gitlab.pri.ibanyu.com/middleware/dolphin/rate_limit"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
@@ -12,7 +13,6 @@ import (
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"github.com/opentracing-contrib/go-grpc"
 
 	"google.golang.org/grpc"
@@ -21,7 +21,7 @@ import (
 )
 
 type GrpcServer struct {
-	Server *grpc.Server
+	userUnaryInterceptors []grpc.UnaryServerInterceptor
 }
 
 type FunInterceptor func(ctx context.Context, req interface{}, fun string) error
@@ -40,27 +40,12 @@ type UnaryServerInfo struct {
 	FullMethod string
 }
 
+// Deprecated
 // NewGrpcServer create grpc server with interceptors before handler
 func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
-
-	var unaryInterceptors []grpc.UnaryServerInterceptor
-	var streamInterceptors []grpc.StreamServerInterceptor
-
-	// add tracer、monitor、recovery interceptor
-	tracer := xtrace.GlobalTracer()
-	recoveryOpts := []grpc_recovery.Option{
-		grpc_recovery.WithRecoveryHandler(recoveryFunc),
+	return &GrpcServer{
+		userUnaryInterceptors: nil,
 	}
-	unaryInterceptors = append(unaryInterceptors, rateLimitInterceptor(), otgrpc.OpenTracingServerInterceptor(tracer), monitorServerInterceptor(), grpc_recovery.UnaryServerInterceptor(recoveryOpts...))
-	streamInterceptors = append(streamInterceptors, rateLimitStreamServerInterceptor(), otgrpc.OpenTracingStreamServerInterceptor(tracer), monitorStreamServerInterceptor(), grpc_recovery.StreamServerInterceptor(recoveryOpts...))
-
-	var opts []grpc.ServerOption
-	opts = append(opts, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaryInterceptors...)))
-	opts = append(opts, grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)))
-
-	// 实例化grpc Server
-	server := grpc.NewServer(opts...)
-	return &GrpcServer{Server: server}
 }
 
 // NewGrpcServerWithUnaryInterceptors 创建GrpcServer并添加自定义Unary拦截器
@@ -96,6 +81,13 @@ func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
 //	return "", serv
 //}
 func NewGrpcServerWithUnaryInterceptors(interceptors ...UnaryServerInterceptor) *GrpcServer {
+	userUnaryInterceptors := convertUnaryInterceptors(interceptors...)
+	return &GrpcServer{
+		userUnaryInterceptors: userUnaryInterceptors,
+	}
+}
+
+func (g *GrpcServer) buildServer() (*grpc.Server, error) {
 	var unaryInterceptors []grpc.UnaryServerInterceptor
 	var streamInterceptors []grpc.StreamServerInterceptor
 
@@ -105,7 +97,7 @@ func NewGrpcServerWithUnaryInterceptors(interceptors ...UnaryServerInterceptor) 
 		grpc_recovery.WithRecoveryHandler(recoveryFunc),
 	}
 	unaryInterceptors = append(unaryInterceptors, rateLimitInterceptor(), otgrpc.OpenTracingServerInterceptor(tracer), monitorServerInterceptor(), grpc_recovery.UnaryServerInterceptor(recoveryOpts...))
-	userUnaryInterceptors := convertUnaryInterceptors(interceptors...)
+	userUnaryInterceptors := g.userUnaryInterceptors
 	unaryInterceptors = append(unaryInterceptors, userUnaryInterceptors...)
 
 	streamInterceptors = append(streamInterceptors, rateLimitStreamServerInterceptor(), otgrpc.OpenTracingStreamServerInterceptor(tracer), monitorStreamServerInterceptor(), grpc_recovery.StreamServerInterceptor(recoveryOpts...))
@@ -116,7 +108,7 @@ func NewGrpcServerWithUnaryInterceptors(interceptors ...UnaryServerInterceptor) 
 
 	// 实例化grpc Server
 	server := grpc.NewServer(opts...)
-	return &GrpcServer{Server: server}
+	return server, nil
 }
 
 func convertUnaryInterceptors(interceptors ...UnaryServerInterceptor) []grpc.UnaryServerInterceptor {
