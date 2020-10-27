@@ -70,7 +70,9 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 	switch d := driver.(type) {
 	case *httprouter.Router:
 		var extraHttpMiddlewares []middleware
-		if dr.isDisableContextCancel(ctx) {
+		disableContextCancel := dr.isDisableContextCancel(ctx)
+		xlog.Infof(ctx, "%s disableContextCancel: %v, processor: %s", fun, disableContextCancel, n)
+		if disableContextCancel {
 			extraHttpMiddlewares = append(extraHttpMiddlewares, disableContextCancelMiddleware)
 		}
 		sa, err := powerHttp(addr, d, extraHttpMiddlewares...)
@@ -108,7 +110,9 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 
 	case *gin.Engine:
 		var extraHttpMiddlewares []middleware
-		if dr.isDisableContextCancel(ctx) {
+		disableContextCancel := dr.isDisableContextCancel(ctx)
+		xlog.Infof(ctx, "%s disableContextCancel: %v, processor: %s", fun, disableContextCancel, n)
+		if disableContextCancel {
 			extraHttpMiddlewares = append(extraHttpMiddlewares, disableContextCancelMiddleware)
 		}
 		sa, err := powerGin(addr, d, extraHttpMiddlewares...)
@@ -123,7 +127,9 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 
 	case *HttpServer:
 		var extraHttpMiddlewares []middleware
-		if dr.isDisableContextCancel(ctx) {
+		disableContextCancel := dr.isDisableContextCancel(ctx)
+		xlog.Infof(ctx, "%s disableContextCancel: %v, processor: %s", fun, disableContextCancel, n)
+		if disableContextCancel {
 			extraHttpMiddlewares = append(extraHttpMiddlewares, disableContextCancelMiddleware)
 		}
 		sa, err := powerGin(addr, d.Engine, extraHttpMiddlewares...)
