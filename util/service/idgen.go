@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil"
 
 	etcd "github.com/coreos/etcd/client"
 	"github.com/sdming/gosnow"
-	"github.com/shawnfeng/sutil"
 	"github.com/shawnfeng/sutil/slowid"
 )
 
@@ -75,7 +75,7 @@ func (m *IdGenerator) GetSnowFlakeIdWithStamp(stamp int64) int64 {
 }
 
 func (m *IdGenerator) GenUuid() (string, error) {
-	return sutil.GetUUID()
+	return xutil.GetUUID()
 }
 
 func (m *IdGenerator) GenUuidSha1() (string, error) {
