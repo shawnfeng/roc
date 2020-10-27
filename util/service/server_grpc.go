@@ -100,7 +100,7 @@ func NewGrpcServerWithUnaryInterceptors(interceptors ...UnaryServerInterceptor) 
 }
 
 func (g *GrpcServer) addExtraContextCancelInterceptor() {
-	f := "addExtraContextCancelInterceptor --> "
+	f := "GrpcServer.addExtraContextCancelInterceptor --> "
 	ctx, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelFunc()
 
