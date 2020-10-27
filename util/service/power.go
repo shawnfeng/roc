@@ -10,15 +10,14 @@ import (
 	"net"
 	"net/http"
 
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
 	"github.com/julienschmidt/httprouter"
 	"github.com/opentracing-contrib/go-stdlib/nethttp"
 	"github.com/shawnfeng/sutil/snetutil"
-	"github.com/shawnfeng/sutil/trace"
 )
 
 func powerHttp(addr string, router *httprouter.Router) (string, error) {
@@ -58,7 +57,7 @@ func powerHttp(addr string, router *httprouter.Router) (string, error) {
 		nethttp.OperationNameFunc(func(r *http.Request) string {
 			return "HTTP " + r.Method + ": " + r.URL.Path
 		}),
-		nethttp.MWSpanFilter(trace.UrlSpanFilter))
+		nethttp.MWSpanFilter(xtrace.UrlSpanFilter))
 
 	go func() {
 		err := http.Serve(netListen, mw)
@@ -179,7 +178,7 @@ func powerGin(addr string, router *gin.Engine) (string, *http.Server, error) {
 		nethttp.OperationNameFunc(func(r *http.Request) string {
 			return "HTTP " + r.Method + ": " + r.URL.Path
 		}),
-		nethttp.MWSpanFilter(trace.UrlSpanFilter))
+		nethttp.MWSpanFilter(xtrace.UrlSpanFilter))
 
 	serv := &http.Server{Handler: mw}
 	go func() {
