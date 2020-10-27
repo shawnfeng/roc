@@ -17,9 +17,9 @@ require (
 	github.com/uber/jaeger-client-go v2.20.1+incompatible
 	gitlab.pri.ibanyu.com/middleware/dolphin v1.0.6
 	gitlab.pri.ibanyu.com/middleware/seaweed v1.1.14
-	gitlab.pri.ibanyu.com/middleware/util v1.1.15
+	gitlab.pri.ibanyu.com/middleware/util v1.2.1
 	golang.org/x/net v0.0.0-20191002035440-2ec189313ef0
-	google.golang.org/grpc v1.20.0
+	google.golang.org/grpc v1.24.0
 )
 
 go 1.13
