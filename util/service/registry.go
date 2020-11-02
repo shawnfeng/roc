@@ -294,10 +294,10 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 		if len(is.reg) > 0 {
 			err := json.Unmarshal([]byte(is.reg), &regd)
 			if err != nil {
-				xlog.Errorf(ctx, "%s servpath: %s sid: %d json: %s error: %v", fun, m.servPath, i, is.reg, err)
+				xlog.Warnf(ctx, "%s servpath: %s sid: %d json: %s error: %v", fun, m.servPath, i, is.reg, err)
 			}
 			if len(regd.Servs) == 0 {
-				xlog.Errorf(ctx, "%s not found copy path: %s sid: %d info: %s please check deploy", fun, m.servPath, i, is.reg)
+				xlog.Warnf(ctx, "%s not found copy path: %s sid: %d info: %s please check deploy", fun, m.servPath, i, is.reg)
 			}
 		}
 
