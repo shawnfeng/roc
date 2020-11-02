@@ -10,14 +10,14 @@ import (
 	"net"
 	"net/http"
 
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xnet"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
 	"github.com/julienschmidt/httprouter"
 	"github.com/opentracing-contrib/go-stdlib/nethttp"
-	"github.com/shawnfeng/sutil/snetutil"
 	"github.com/shawnfeng/sutil/trace"
 )
 
@@ -25,7 +25,7 @@ func powerHttp(addr string, router *httprouter.Router) (string, error) {
 	fun := "powerHttp -->"
 	ctx := context.Background()
 
-	paddr, err := snetutil.GetListenAddr(addr)
+	paddr, err := xnet.GetListenAddr(addr)
 	if err != nil {
 		return "", err
 	}
@@ -42,7 +42,7 @@ func powerHttp(addr string, router *httprouter.Router) (string, error) {
 		return "", err
 	}
 
-	laddr, err := snetutil.GetServAddr(netListen.Addr())
+	laddr, err := xnet.GetServAddr(netListen.Addr())
 	if err != nil {
 		netListen.Close()
 		return "", err
@@ -74,7 +74,7 @@ func powerThrift(addr string, processor thrift.TProcessor) (string, error) {
 	fun := "powerThrift -->"
 	ctx := context.Background()
 
-	paddr, err := snetutil.GetListenAddr(addr)
+	paddr, err := xnet.GetListenAddr(addr)
 	if err != nil {
 		return "", err
 	}
@@ -99,7 +99,7 @@ func powerThrift(addr string, processor thrift.TProcessor) (string, error) {
 		return "", err
 	}
 
-	laddr, err := snetutil.GetServAddr(serverTransport.Addr())
+	laddr, err := xnet.GetServAddr(serverTransport.Addr())
 	if err != nil {
 		return "", err
 	}
@@ -121,7 +121,7 @@ func powerThrift(addr string, processor thrift.TProcessor) (string, error) {
 func powerGrpc(addr string, server *GrpcServer) (string, error) {
 	fun := "powerGrpc -->"
 	ctx := context.Background()
-	paddr, err := snetutil.GetListenAddr(addr)
+	paddr, err := xnet.GetListenAddr(addr)
 	if err != nil {
 		return "", err
 	}
@@ -130,7 +130,7 @@ func powerGrpc(addr string, server *GrpcServer) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("grpc tcp Listen err:%v", err)
 	}
-	laddr, err := snetutil.GetServAddr(lis.Addr())
+	laddr, err := xnet.GetServAddr(lis.Addr())
 	if err != nil {
 		return "", fmt.Errorf(" GetServAddr err:%v", err)
 	}
@@ -147,7 +147,7 @@ func powerGin(addr string, router *gin.Engine) (string, *http.Server, error) {
 	fun := "powerGin -->"
 	ctx := context.Background()
 
-	paddr, err := snetutil.GetListenAddr(addr)
+	paddr, err := xnet.GetListenAddr(addr)
 	if err != nil {
 		return "", nil, err
 	}
@@ -164,7 +164,7 @@ func powerGin(addr string, router *gin.Engine) (string, *http.Server, error) {
 		return "", nil, err
 	}
 
-	laddr, err := snetutil.GetServAddr(netListen.Addr())
+	laddr, err := xnet.GetServAddr(netListen.Addr())
 	if err != nil {
 		netListen.Close()
 		return "", nil, err

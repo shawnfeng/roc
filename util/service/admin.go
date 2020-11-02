@@ -13,9 +13,9 @@ import (
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xfile"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xnet/xhttp"
 
 	"github.com/julienschmidt/httprouter"
-	"github.com/shawnfeng/sutil/snetutil"
 )
 
 type backDoorHttp struct {
@@ -45,13 +45,13 @@ func (m *backDoorHttp) Driver() (string, interface{}) {
 
 	router := httprouter.New()
 	// 重启
-	router.POST("/backdoor/restart", snetutil.HttpRequestWrapper(FactoryRestart))
+	router.POST("/backdoor/restart", xhttp.HttpRequestWrapper(FactoryRestart))
 
 	// healthcheck
-	router.GET("/backdoor/health/check", snetutil.HttpRequestWrapper(FactoryHealthCheck))
+	router.GET("/backdoor/health/check", xhttp.HttpRequestWrapper(FactoryHealthCheck))
 
 	// 获取实例md5值
-	router.GET("/backdoor/md5", snetutil.HttpRequestWrapper(FactoryMD5))
+	router.GET("/backdoor/md5", xhttp.HttpRequestWrapper(FactoryMD5))
 
 	return "0.0.0.0:60000", router
 }
@@ -60,31 +60,31 @@ func (m *backDoorHttp) Driver() (string, interface{}) {
 type Restart struct {
 }
 
-func FactoryRestart() snetutil.HandleRequest {
+func FactoryRestart() xhttp.HandleRequest {
 	return new(Restart)
 }
 
-func (m *Restart) Handle(r *snetutil.HttpRequest) snetutil.HttpResponse {
+func (m *Restart) Handle(r *xhttp.HttpRequest) xhttp.HttpResponse {
 	xlog.Infof(context.Background(), "RECEIVE RESTART COMMAND")
 	server.sbase.Stop()
 	os.Exit(1)
 	// 这里的代码执行不到了，因为之前已经退出了
-	return snetutil.NewHttpRespString(200, "{}")
+	return xhttp.NewHttpRespString(200, "{}")
 }
 
 // ==============================
 type HealthCheck struct {
 }
 
-func FactoryHealthCheck() snetutil.HandleRequest {
+func FactoryHealthCheck() xhttp.HandleRequest {
 	return new(HealthCheck)
 }
 
-func (m *HealthCheck) Handle(r *snetutil.HttpRequest) snetutil.HttpResponse {
+func (m *HealthCheck) Handle(r *xhttp.HttpRequest) xhttp.HttpResponse {
 	fun := "HealthCheck -->"
 	xlog.Infof(context.Background(), "%s in", fun)
 
-	return snetutil.NewHttpRespString(200, "{}")
+	return xhttp.NewHttpRespString(200, "{}")
 }
 
 //MD5 ...
@@ -92,11 +92,11 @@ type MD5 struct {
 }
 
 //FactoryMD5 ...
-func FactoryMD5() snetutil.HandleRequest {
+func FactoryMD5() xhttp.HandleRequest {
 	return new(MD5)
 }
 
-func (m *MD5) Handle(r *snetutil.HttpRequest) snetutil.HttpResponse {
+func (m *MD5) Handle(r *xhttp.HttpRequest) xhttp.HttpResponse {
 	res := struct {
 		Md5     string `json:"md5"`
 		StartUp string `json:"start_up"`
@@ -105,5 +105,5 @@ func (m *MD5) Handle(r *snetutil.HttpRequest) snetutil.HttpResponse {
 		StartUp: startUpTime,
 	}
 	s, _ := json.Marshal(res)
-	return snetutil.NewHttpRespString(200, string(s))
+	return xhttp.NewHttpRespString(200, string(s))
 }
