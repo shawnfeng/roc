@@ -12,10 +12,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 
 	"gitlab.pri.ibanyu.com/middleware/dolphin/circuit_breaker"
@@ -27,18 +25,6 @@ import (
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace/spanfilter"
 	"gitlab.pri.ibanyu.com/middleware/util/servbase"
-
-	"git.apache.org/thrift.git/lib/go/thrift"
-	"github.com/gin-gonic/gin"
-	"github.com/julienschmidt/httprouter"
-)
-
-// rpc protocol
-const (
-	PROCESSOR_HTTP   = "http"
-	PROCESSOR_THRIFT = "thrift"
-	PROCESSOR_GRPC   = "grpc"
-	PROCESSOR_GIN    = "gin"
 )
 
 // server model
@@ -53,16 +39,11 @@ var server = NewServer()
 // Server ...
 type Server struct {
 	sbase ServBase
-
-	mutex   sync.Mutex
-	servers map[string]interface{}
 }
 
 // NewServer create new server
 func NewServer() *Server {
-	return &Server{
-		servers: make(map[string]interface{}),
-	}
+	return &Server{}
 }
 
 type cmdArgs struct {
@@ -118,109 +99,29 @@ func (m *Server) parseFlag() (*cmdArgs, error) {
 
 }
 
-func (m *Server) loadDriver(sb ServBase, procs map[string]Processor) (map[string]*ServInfo, error) {
+func (m *Server) loadDriver(procs map[string]Processor) (map[string]*ServInfo, error) {
 	fun := "Server.loadDriver -->"
 	ctx := context.Background()
 
 	infos := make(map[string]*ServInfo)
 
-	for n, p := range procs {
-		addr, driver := p.Driver()
-		if driver == nil {
-			xlog.Infof(ctx, "%s processor:%s no driver", fun, n)
+	for name, processor := range procs {
+		driverBuilder := newDriverBuilder(m.sbase.ConfigCenter())
+		servInfo, err := driverBuilder.powerProcessorDriver(ctx, name, processor)
+		if err == errNilDriver {
+			xlog.Infof(ctx, "%s processor: %s no driver, skip", fun, name)
 			continue
 		}
-
-		xlog.Infof(ctx, "%s processor:%s type:%s addr:%s", fun, n, reflect.TypeOf(driver), addr)
-
-		switch d := driver.(type) {
-		case *httprouter.Router:
-			sa, err := powerHttp(addr, d)
-			if err != nil {
-				return nil, err
-			}
-
-			xlog.Infof(ctx, "%s load ok processor:%s serv addr:%s", fun, n, sa)
-			infos[n] = &ServInfo{
-				Type: PROCESSOR_HTTP,
-				Addr: sa,
-			}
-
-		case thrift.TProcessor:
-			sa, err := powerThrift(addr, d)
-			if err != nil {
-				return nil, err
-			}
-
-			xlog.Infof(ctx, "%s load ok processor:%s serv addr:%s", fun, n, sa)
-			infos[n] = &ServInfo{
-				Type: PROCESSOR_THRIFT,
-				Addr: sa,
-			}
-		case *GrpcServer:
-			sa, err := powerGrpc(addr, d)
-			if err != nil {
-				return nil, err
-			}
-
-			xlog.Infof(ctx, "%s load ok processor:%s serv addr:%s", fun, n, sa)
-			infos[n] = &ServInfo{
-				Type: PROCESSOR_GRPC,
-				Addr: sa,
-			}
-		case *gin.Engine:
-			sa, serv, err := powerGin(addr, d)
-			if err != nil {
-				return nil, err
-			}
-
-			m.addServer(n, serv)
-
-			xlog.Infof(ctx, "%s load ok processor:%s serv addr:%s", fun, n, sa)
-			infos[n] = &ServInfo{
-				Type: PROCESSOR_GIN,
-				Addr: sa,
-			}
-		case *HttpServer:
-			sa, serv, err := powerGin(addr, d.Engine)
-			if err != nil {
-				return nil, err
-			}
-
-			m.addServer(n, serv)
-
-			xlog.Infof(ctx, "%s load ok processor:%s serv addr:%s", fun, n, sa)
-			infos[n] = &ServInfo{
-				Type: PROCESSOR_GIN,
-				Addr: sa,
-			}
-		default:
-			return nil, fmt.Errorf("processor:%s driver not recognition", n)
-
+		if err != nil {
+			xlog.Errorf(ctx, "%s load error, processor: %s, err: %v", fun, name, err)
+			return nil, err
 		}
+
+		infos[name] = servInfo
+		xlog.Infof(ctx, "%s load ok, processor: %s, serv addr: %s", fun, name, servInfo.Addr)
 	}
 
 	return infos, nil
-}
-
-func (m *Server) addServer(processor string, server interface{}) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	m.servers[processor] = server
-}
-
-func (m *Server) reloadRouter(processor string, driver interface{}) error {
-	//fun := "Server.reloadRouter -->"
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	server, ok := m.servers[processor]
-	if !ok {
-		return fmt.Errorf("processor:%s driver not recognition", processor)
-	}
-
-	return reloadRouter(processor, server, driver)
 }
 
 // Serve handle request and return response
@@ -465,7 +366,7 @@ func (m *Server) initProcessor(sb *ServBaseV2, procs map[string]Processor, start
 		}
 	}
 
-	infos, err := m.loadDriver(sb, procs)
+	infos, err := m.loadDriver(procs)
 	if err != nil {
 		xlog.Errorf(ctx, "%s load driver err: %v", fun, err)
 		return err
@@ -520,7 +421,7 @@ func (m *Server) initBackdoor(sb *ServBaseV2) error {
 		return err
 	}
 
-	binfos, err := m.loadDriver(sb, map[string]Processor{"_PROC_BACKDOOR": backdoor})
+	binfos, err := m.loadDriver(map[string]Processor{"_PROC_BACKDOOR": backdoor})
 	if err == nil {
 		err = sb.RegisterBackDoor(binfos)
 		if err != nil {
@@ -544,7 +445,7 @@ func (m *Server) initMetric(sb *ServBaseV2) error {
 		xlog.Warnf(ctx, "%s init metrics err: %v", fun, err)
 	}
 
-	metricInfo, err := m.loadDriver(sb, map[string]Processor{"_PROC_METRICS": metrics})
+	metricInfo, err := m.loadDriver(map[string]Processor{"_PROC_METRICS": metrics})
 	if err == nil {
 		err = sb.RegisterMetrics(metricInfo)
 		if err != nil {
@@ -577,10 +478,6 @@ func (m *Server) initDolphin(sb *ServBaseV2) error {
 		etcdInterfaceRateLimitRegistry.Watch()
 	}()
 	return nil
-}
-
-func ReloadRouter(processor string, driver interface{}) error {
-	return server.reloadRouter(processor, driver)
 }
 
 // Serve app call Serve to start server, initLogic is the init func in app, logic.InitLogic,
