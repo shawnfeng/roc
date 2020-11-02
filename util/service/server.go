@@ -25,11 +25,6 @@ import (
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace/spanfilter"
 	"gitlab.pri.ibanyu.com/middleware/util/servbase"
-
-	"git.apache.org/thrift.git/lib/go/thrift"
-	"github.com/gin-gonic/gin"
-	"github.com/julienschmidt/httprouter"
-	"github.com/shawnfeng/sutil/trace"
 )
 
 // server model
