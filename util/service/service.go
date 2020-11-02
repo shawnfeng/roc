@@ -18,6 +18,7 @@ import (
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	xmgo "gitlab.pri.ibanyu.com/middleware/seaweed/xmgo/manager"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xnet"
 	xsql "gitlab.pri.ibanyu.com/middleware/seaweed/xsql/manager"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtransport/gen-go/util/thriftutil"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil/sync2"
@@ -25,7 +26,6 @@ import (
 	etcd "github.com/coreos/etcd/client"
 	"github.com/shawnfeng/sutil/dbrouter"
 	"github.com/shawnfeng/sutil/slowid"
-	"github.com/shawnfeng/sutil/snetutil"
 )
 
 const (
@@ -185,7 +185,7 @@ func (m *ServBaseV2) RegisterMetrics(servs map[string]*ServInfo) error {
 }
 
 func (m *ServBaseV2) setIp() error {
-	addr, err := snetutil.GetListenAddr("")
+	addr, err := xnet.GetListenAddr("")
 	if err != nil {
 		return err
 	}
