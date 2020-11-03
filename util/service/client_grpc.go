@@ -118,7 +118,7 @@ func (m *ClientGrpc) getClient(provider *Provider) (*ServInfo, rpcClientConn, er
 	if serv == nil {
 		return nil, nil, errors.New(m.processor + " server provider is emtpy ")
 	}
-	conn, err := m.pool.Get(ctx, serv.Addr)
+	conn, err := m.pool.Get(context.Background(), serv.Addr)
 	return serv, conn, err
 }
 
