@@ -118,7 +118,7 @@ func (m *ClientGrpc) getClient(provider *Provider) (*ServInfo, rpcClientConn, er
 	if serv == nil {
 		return nil, nil, errors.New(m.processor + " server provider is emtpy ")
 	}
-	conn, err := m.pool.Get(serv.Addr)
+	conn, err := m.pool.Get(ctx, serv.Addr)
 	return serv, conn, err
 }
 
@@ -226,7 +226,7 @@ func (m *ClientGrpc) route(ctx context.Context, key string) (*ServInfo, rpcClien
 		return nil, nil
 	}
 	addr := s.Addr
-	conn, _ := m.pool.Get(addr)
+	conn, _ := m.pool.Get(ctx, addr)
 	return s, conn
 }
 
