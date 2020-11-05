@@ -10,13 +10,16 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig/apollo"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	xmgo "gitlab.pri.ibanyu.com/middleware/seaweed/xmgo/manager"
 	xsql "gitlab.pri.ibanyu.com/middleware/seaweed/xsql/manager"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtransport/gen-go/util/thriftutil"
 
 	etcd "github.com/coreos/etcd/client"
 	"github.com/shawnfeng/sutil/dbrouter"
@@ -63,6 +66,8 @@ const (
 	// RPCConfNamespace RPC Apollo Conf Namespace
 	RPCConfNamespace     = "rpc.client"
 	ApplicationNamespace = "application"
+
+	serverStatusStop = 1
 )
 
 type configEtcd struct {
@@ -89,7 +94,8 @@ type ServBaseV2 struct {
 	etcdClient etcd.KeysAPI
 
 	// 跨机房服务注册
-	crossRegisterClients map[string]etcd.KeysAPI
+	crossRegisterClients   map[string]etcd.KeysAPI
+	crossRegisterRegionIds []int
 
 	servId int
 
@@ -101,8 +107,7 @@ type ServBaseV2 struct {
 	muHearts ssync.Mutex
 	hearts   map[string]*distLockHeart
 
-	muStop     sync.Mutex
-	stop       bool
+	stop       int32
 	onShutdown func()
 
 	muReg    sync.Mutex
@@ -110,10 +115,8 @@ type ServBaseV2 struct {
 }
 
 func (m *ServBaseV2) isStop() bool {
-	m.muStop.Lock()
-	defer m.muStop.Unlock()
-
-	return m.stop
+	stopStatus := atomic.LoadInt32(&m.stop)
+	return stopStatus == serverStatusStop
 }
 
 // Stop server stop
@@ -130,10 +133,7 @@ func (m *ServBaseV2) SetOnShutdown(onShutdown func()) {
 }
 
 func (m *ServBaseV2) setStatusToStop() {
-	m.muStop.Lock()
-	defer m.muStop.Unlock()
-
-	m.stop = true
+	atomic.StoreInt32(&m.stop, serverStatusStop)
 }
 
 func (m *ServBaseV2) addRegisterInfo(path, regInfo string) {
@@ -163,10 +163,7 @@ func (m *ServBaseV2) clearRegisterInfos() {
 }
 
 func (m *ServBaseV2) RegisterBackDoor(servs map[string]*ServInfo) error {
-	rd := &RegData{
-		Servs: servs,
-	}
-
+	rd := NewRegData(servs, m.envGroup)
 	js, err := json.Marshal(rd)
 	if err != nil {
 		return err
@@ -177,10 +174,7 @@ func (m *ServBaseV2) RegisterBackDoor(servs map[string]*ServInfo) error {
 }
 
 func (m *ServBaseV2) RegisterMetrics(servs map[string]*ServInfo) error {
-	rd := &RegData{
-		Servs: servs,
-	}
-
+	rd := NewRegData(servs, m.envGroup)
 	js, err := json.Marshal(rd)
 	if err != nil {
 		return err
@@ -226,10 +220,7 @@ func (m *ServBaseV2) RegisterService(servs map[string]*ServInfo) error {
 }
 
 func (m *ServBaseV2) RegisterServiceV2(servs map[string]*ServInfo, dir string, crossDC bool) error {
-	rd := &RegData{
-		Servs: servs,
-	}
-
+	rd := NewRegData(servs, m.envGroup)
 	js, err := json.Marshal(rd)
 	if err != nil {
 		return err
@@ -354,35 +345,39 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 
 	go func() {
 		for i := 0; ; i++ {
-			var err error
-			if !isCreated {
-				xlog.Warnf(ctx, "%s create node, round: %d server_info: %s", fun, i, js)
-				_, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
-					TTL: time.Second * 60,
-				})
-			} else {
-				if refresh {
-					// 在刷新ttl时候，不允许变更value
-					_, err = m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions{
-						PrevExist: etcd.PrevExist,
-						TTL:       time.Second * 60,
-						Refresh:   true,
-					})
-				} else {
+			updateEtcd := func() {
+				var err error
+				if !isCreated {
+					xlog.Warnf(ctx, "%s create node, round: %d server_info: %s", fun, i, js)
 					_, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
 						TTL: time.Second * 60,
 					})
+				} else {
+					if refresh {
+						// 在刷新ttl时候，不允许变更value
+						_, err = m.etcdClient.Set(context.Background(), path, "", &etcd.SetOptions{
+							PrevExist: etcd.PrevExist,
+							TTL:       time.Second * 60,
+							Refresh:   true,
+						})
+					} else {
+						_, err = m.etcdClient.Set(context.Background(), path, js, &etcd.SetOptions{
+							TTL: time.Second * 60,
+						})
+					}
+
 				}
 
+				if err != nil {
+					isCreated = false
+					xlog.Warnf(ctx, "%s register need create node, round: %d, err: %v", fun, i, err)
+
+				} else {
+					isCreated = true
+				}
 			}
 
-			if err != nil {
-				isCreated = false
-				xlog.Warnf(ctx, "%s register need create node, round: %d, err: %v", fun, i, err)
-
-			} else {
-				isCreated = true
-			}
+			withRegLockRunClosureBeforeStop(m, ctx, fun, updateEtcd)
 
 			time.Sleep(time.Second * 20)
 
@@ -472,7 +467,7 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 }
 
 // etcd v2 接口
-func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sidOffset int) (*ServBaseV2, error) {
+func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sidOffset int, crossRegionIdList []int) (*ServBaseV2, error) {
 	fun := "NewServBaseV2 -->"
 	ctx := context.Background()
 
@@ -481,6 +476,7 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 		Transport: etcd.DefaultTransport,
 	}
 
+	xlog.Infof(ctx, "%s create etcd client start, cfg: %v", fun, cfg)
 	c, err := etcd.New(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("create etchd client cfg error")
@@ -493,15 +489,17 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 
 	path := fmt.Sprintf("%s/%s/%s", confEtcd.useBaseloc, BASE_LOC_SKEY, servLocation)
 
+	xlog.Infof(ctx, "%s retryGenSid start", fun)
 	sid, err := retryGenSid(client, path, skey, 3)
 	if err != nil {
 		return nil, err
 	}
 
-	xlog.Infof(ctx, "%s path:%s sid:%d skey:%s, envGroup", fun, path, sid, skey, envGroup)
+	xlog.Infof(ctx, "%s retryGenSid end, path: %s, sid: %d, skey: %s, envGroup: %s", fun, path, sid, skey, envGroup)
 
 	dbloc := fmt.Sprintf("%s/%s", confEtcd.useBaseloc, BASE_LOC_DB)
 
+	xlog.Infof(ctx, "%s init dbrouter start", fun)
 	var dr *dbrouter.Router
 	jscfg, err := getValue(client, dbloc)
 	if err != nil {
@@ -512,24 +510,28 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 			return nil, err
 		}
 	}
+	xlog.Infof(ctx, "%s init dbrouter end", fun)
 
 	// init global config center
+	xlog.Infof(ctx, " %s init configcenter start", fun)
 	configCenter, err := xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, servLocation, []string{ApplicationNamespace, RPCConfNamespace, xsql.MysqlConfNamespace, xmgo.MongoConfNamespace})
 	if err != nil {
 		return nil, err
 	}
+	xlog.Infof(ctx, " %s init configcenter end", fun)
 
 	reg := &ServBaseV2{
-		confEtcd:             confEtcd,
-		dbLocation:           dbloc,
-		servLocation:         servLocation,
-		sessKey:              skey,
-		etcdClient:           client,
-		crossRegisterClients: make(map[string]etcd.KeysAPI, 2),
-		servId:               sid,
-		locks:                make(map[string]*ssync.Mutex),
-		hearts:               make(map[string]*distLockHeart),
-		regInfos:             make(map[string]string),
+		confEtcd:               confEtcd,
+		dbLocation:             dbloc,
+		servLocation:           servLocation,
+		sessKey:                skey,
+		etcdClient:             client,
+		crossRegisterRegionIds: crossRegionIdList,
+		crossRegisterClients:   make(map[string]etcd.KeysAPI, 2),
+		servId:                 sid,
+		locks:                  make(map[string]*ssync.Mutex),
+		hearts:                 make(map[string]*distLockHeart),
+		regInfos:               make(map[string]string),
 
 		dbRouter:     dr,
 		configCenter: configCenter,
@@ -546,20 +548,24 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 		xlog.Warnf(ctx, "%s servLocation:%s do not match group/service format", fun, servLocation)
 	}
 
+	xlog.Infof(ctx, " %s init origin snowflake start", fun)
 	sf, err := initSnowflake(sid + sidOffset)
 	if err != nil {
 		return nil, err
 	}
+	xlog.Infof(ctx, " %s init origin snowflake end", fun)
 
 	reg.IdGenerator.snow = sf
 	reg.IdGenerator.slow = make(map[string]*slowid.Slowid)
 	reg.IdGenerator.workerID = sid + sidOffset
 
 	// init cross register clients
+	xlog.Infof(ctx, " %s init CrossRegisterCenter start", fun)
 	err = initCrossRegisterCenter(reg)
 	if err != nil {
 		return nil, err
 	}
+	xlog.Infof(ctx, " %s init CrossRegisterCenter end", fun)
 
 	return reg, nil
 
@@ -573,4 +579,45 @@ func (m *ServBaseV2) isPreEnvGroup() bool {
 	return false
 }
 
+func (m *ServBaseV2) WithControlLaneInfo(ctx context.Context) context.Context {
+	value := ctx.Value(xcontext.ContextKeyControl)
+	if value == nil {
+		control := m.createControlWithLaneInfo()
+		return context.WithValue(ctx, xcontext.ContextKeyControl, control)
+	}
+
+	v := value.(xcontext.ContextControlRouter)
+	if _, ok := v.GetControlRouteGroup(); !ok {
+		v.SetControlRouteGroup(m.envGroup)
+	}
+
+	return ctx
+}
+
+func (m *ServBaseV2) createControlWithLaneInfo() *thriftutil.Control {
+	route := thriftutil.NewRoute()
+	route.Group = m.envGroup
+	control := thriftutil.NewControl()
+	control.Route = route
+	return control
+}
+
 // mutex
+
+func withRegLockRunClosureBeforeStop(m *ServBaseV2, ctx context.Context, funcName string, f func()) {
+	startTime := time.Now()
+	m.muReg.Lock()
+	xlog.Infof(ctx, "%s lock muReg for update", funcName)
+	defer func() {
+		m.muReg.Unlock()
+		duration := time.Since(startTime)
+		xlog.Infof(ctx, "%s unlock muReq for update, duration: %v", funcName, duration)
+	}()
+
+	if m.isStop() {
+		xlog.Infof(ctx, "%s server stop, do not run function", funcName)
+		return
+	}
+
+	f()
+}

@@ -9,12 +9,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
 
@@ -35,30 +36,6 @@ type servCopyData struct {
 }
 
 type servCopyCollect map[int]*servCopyData
-
-func (m servCopyCollect) String() string {
-	var copys []string
-	for idx, v := range m {
-		if v == nil {
-			copys = append(copys, fmt.Sprintf("%d[nil]", idx))
-			continue
-		}
-
-		reg := "nil"
-		manual := "nil"
-
-		if v.reg != nil {
-			reg = v.reg.String()
-		}
-		if v.manual != nil {
-			manual = v.manual.String()
-		}
-
-		copys = append(copys, fmt.Sprintf("%d[%s]%s", idx, reg, manual))
-	}
-
-	return strings.Join(copys, ";")
-}
 
 type ClientEtcdV2 struct {
 	confEtcd configEtcd
@@ -317,10 +294,10 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 		if len(is.reg) > 0 {
 			err := json.Unmarshal([]byte(is.reg), &regd)
 			if err != nil {
-				xlog.Errorf(ctx, "%s servpath: %s sid: %d json: %s error: %v", fun, m.servPath, i, is.reg, err)
+				xlog.Warnf(ctx, "%s servpath: %s sid: %d json: %s error: %v", fun, m.servPath, i, is.reg, err)
 			}
 			if len(regd.Servs) == 0 {
-				xlog.Errorf(ctx, "%s not found copy path: %s sid: %d info: %s please check deploy", fun, m.servPath, i, is.reg)
+				xlog.Warnf(ctx, "%s not found copy path: %s sid: %d info: %s please check deploy", fun, m.servPath, i, is.reg)
 			}
 		}
 
@@ -392,6 +369,7 @@ func (m *ClientEtcdV2) parseResponseV1(r *etcd.Response) {
 
 		servCopy[i] = &servCopyData{
 			servId: i,
+			// WARNING: v1版本不支持新版泳道元信息获取
 			reg: &RegData{
 				Servs: servs,
 			},
@@ -430,26 +408,40 @@ func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 			continue
 		}
 
-		var groups []string
-		var weight int
-		var disable bool
-		if c.manual != nil && c.manual.Ctrl != nil {
-			weight = c.manual.Ctrl.Weight
-			groups = c.manual.Ctrl.Groups
-			disable = c.manual.Ctrl.Disable
+		if c.manual == nil || c.manual.Ctrl == nil {
+			continue
 		}
 
-		if weight == 0 {
-			weight = 100
-		}
-
-		if disable {
+		if c.manual.Ctrl.Disable {
 			xlog.Infof(ctx, "%s disable path:%s sid:%d", fun, m.servPath, sid)
 			continue
 		}
 
+		var weight = c.manual.Ctrl.Weight
+		if weight == 0 {
+			weight = 100
+		}
+
+		// 设置泳道实例列表, 兼容新老版本
+		lane, ok := c.reg.GetLane()
+		if ok {
+			// 如果lane不为nil, 说明服务端已注册新版本lane元数据, 使用新版本更新泳道实例路由表
+			xlog.Debugf(ctx, "%v use v2 lane metadata, lane: %v, servKey: %s, servPath: %s, sid: %d", fun, lane, m.servKey, m.servPath, c.servId)
+			var tmpList []string
+			if _, ok2 := slist[lane]; ok2 {
+				tmpList = slist[lane]
+			}
+			for i := 0; i < weight; i++ {
+				tmpList = append(tmpList, fmt.Sprintf("%d-%d", sid, i))
+			}
+			slist[lane] = tmpList
+			continue
+		}
+
+		// 否则, 说明服务端还是老版本lane元数据 (在manual中), 退回老版本更新泳道路由表
 		var tmpList []string
-		for _, g := range groups {
+		for _, g := range c.manual.Ctrl.Groups {
+			xlog.Debugf(ctx, "%v use v1 lane metadata, lane: %v, servKey: %s, servPath: %s, sid: %d", fun, g, m.servKey, m.servPath, c.servId)
 			if _, ok := slist[g]; ok {
 				tmpList = slist[g]
 			}
@@ -568,23 +560,14 @@ func (m *ClientEtcdV2) GetAllServAddrWithGroup(group, processor string) []*ServI
 	m.muServlist.Lock()
 	defer m.muServlist.Unlock()
 
-	servs := make([]*ServInfo, 0)
+	var servs []*ServInfo
 	for _, c := range m.servCopy {
 		if c.reg != nil {
 			if c.manual != nil && c.manual.Ctrl != nil && c.manual.Ctrl.Disable {
 				continue
 			}
 
-			isFind := false
-			groups := c.manual.Ctrl.Groups
-			for _, g := range groups {
-				if g == group {
-					isFind = true
-					break
-				}
-			}
-
-			if isFind == false {
+			if !c.containsLane(group) {
 				continue
 			}
 
@@ -607,4 +590,28 @@ func (m *ClientEtcdV2) ServPath() string {
 
 func (m *ClientEtcdV2) String() string {
 	return fmt.Sprintf("service_key: %s, service_path: %s", m.servKey, m.servPath)
+}
+
+// 兼容新旧版本的lane metadata
+func (s *servCopyData) containsLane(lane string) bool {
+	if s.reg != nil {
+		l, ok := s.reg.GetLane()
+		xlog.Debugf(context.Background(), "containsLane get v2 lane metadata, ok: %v, regInfo: %v, expect: %s, actual: %s", ok, s.reg.Servs, lane, l)
+		if ok {
+			if l == lane {
+				return true
+			}
+		}
+	}
+
+	xlog.Debugf(context.Background(), "containsLane get v1 lane metadata, servId: %d, expect: %s", s.servId, lane)
+	if s.manual == nil || s.manual.Ctrl == nil {
+		return false
+	}
+	for _, l := range s.manual.Ctrl.Groups {
+		if l == lane {
+			return true
+		}
+	}
+	return false
 }

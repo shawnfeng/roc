@@ -4,7 +4,9 @@ import (
 	"context"
 	"runtime"
 	"strings"
+	"time"
 
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"gitlab.pri.ibanyu.com/middleware/dolphin/rate_limit"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
@@ -12,7 +14,6 @@ import (
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"github.com/opentracing-contrib/go-grpc"
 
 	"google.golang.org/grpc"
@@ -21,14 +22,102 @@ import (
 )
 
 type GrpcServer struct {
-	Server *grpc.Server
+	userUnaryInterceptors  []grpc.UnaryServerInterceptor
+	extraUnaryInterceptors []grpc.UnaryServerInterceptor // 服务启动之前, 内部添加的拦截器, 在所有拦截器之后添加
+	Server                 *grpc.Server
 }
 
 type FunInterceptor func(ctx context.Context, req interface{}, fun string) error
 
+// UnaryHandler是grpc UnaryHandler的别名, 便于统一管理grpc升级
+type UnaryHandler func(ctx context.Context, req interface{}) (interface{}, error)
+
+// UnaryServerInterceptor是grpc UnaryServerInterceptor的别名, 便于统一管理grpc升级
+type UnaryServerInterceptor func(ctx context.Context, req interface{}, info *UnaryServerInfo, handler UnaryHandler) (interface{}, error)
+
+// UnaryServerInfo是grpc UnaryServerInfo的别名, 便于统一管理grpc升级
+type UnaryServerInfo struct {
+	// Server is the service implementation the user provides. This is read-only.
+	Server interface{}
+	// FullMethod is the full RPC method string, i.e., /package.service/method.
+	FullMethod string
+}
+
+// Deprecated
 // NewGrpcServer create grpc server with interceptors before handler
 func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
+	return NewGrpcServerWithUnaryInterceptors()
+}
 
+// NewGrpcServerWithUnaryInterceptors 创建GrpcServer并添加自定义Unary拦截器
+// 拦截器的调用顺序与添加顺序前向相同, 后向相反. 即如果添加顺序为: a, b.
+// 则调用链顺序为: pre-a -> pre-b -> grpc_func() -> post-b -> post-a
+// 这里添加的是用户自定义拦截器, 会添加在系统内置拦截器之后 (如tracing, 熔断等).
+// 示例 (对应于你的service项目中的processor/proc_grpc.go文件)
+//func (m *ProcGrpc) Driver() (string, interface{}) {
+//	monitorInterceptor := func(ctx context.Context, req interface{}, info *rocserv.UnaryServerInfo, handler rocserv.UnaryHandler) (interface{}, error) {
+//
+//		// 这里添加接口调用前的拦截器处理逻辑
+//		// e.g. 统计接口请求耗时
+//		st := xtime.NewTimeStat()
+//		defer func() {
+//			dur := st.Duration()
+//			xlog.Infof(ctx, "monitor example, func: %s, req: %v, ctx: %v, duration: %v", info.FullMethod, req, ctx, dur)
+//		}()
+//
+//		// gRPC接口调用 (固定写法)
+//		ret, err := handler(ctx, req)
+//
+//		// 这里添加接口调用后的拦截器处理逻辑
+//		// e.g. 接口调用出错时打error日志
+//		if err != nil {
+//			xlog.Warnf(ctx, "call grpc error, func: %s, req: %v, err: %v", info.FullMethod, req, err)
+//		}
+//
+//		return ret, err
+//	}
+//	serv := rocserv.NewGrpcServerWithInterceptors(monitorInterceptor)
+//	RegisterChangeBoardServiceServer(serv.Server, new(GrpcChangeBoardServiceImpl))
+//	// 使用随机端口
+//	return "", serv
+//}
+func NewGrpcServerWithUnaryInterceptors(interceptors ...UnaryServerInterceptor) *GrpcServer {
+	userUnaryInterceptors := convertUnaryInterceptors(interceptors...)
+
+	gserv := &GrpcServer{
+		userUnaryInterceptors: userUnaryInterceptors,
+	}
+
+	// gRPC注册服务是在服务模板代码中的, 所以只能在NewServer时添加拦截器, 才能保证模板代码不需要调整
+	gserv.addExtraContextCancelInterceptor()
+
+	s, err := gserv.buildServer()
+	if err != nil {
+		panic(err)
+	}
+	gserv.Server = s
+	return gserv
+}
+
+func (g *GrpcServer) addExtraContextCancelInterceptor() {
+	f := "GrpcServer.addExtraContextCancelInterceptor --> "
+	ctx, cancelFunc := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelFunc()
+
+	dr := newDriverBuilder(GetConfigCenter())
+	disableContextCancel := dr.isDisableContextCancel(ctx)
+	xlog.Infof(ctx, "%s disableContextCancel: %v", f, disableContextCancel)
+	if disableContextCancel {
+		contextCancelInterceptor := newDisableContextCancelGrpcUnaryInterceptor()
+		g.internalAddExtraInterceptors(contextCancelInterceptor)
+	}
+}
+
+func (g *GrpcServer) internalAddExtraInterceptors(extraInterceptors ...grpc.UnaryServerInterceptor) {
+	g.extraUnaryInterceptors = append(g.extraUnaryInterceptors, extraInterceptors...)
+}
+
+func (g *GrpcServer) buildServer() (*grpc.Server, error) {
 	var unaryInterceptors []grpc.UnaryServerInterceptor
 	var streamInterceptors []grpc.StreamServerInterceptor
 
@@ -38,6 +127,10 @@ func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
 		grpc_recovery.WithRecoveryHandler(recoveryFunc),
 	}
 	unaryInterceptors = append(unaryInterceptors, rateLimitInterceptor(), otgrpc.OpenTracingServerInterceptor(tracer), monitorServerInterceptor(), grpc_recovery.UnaryServerInterceptor(recoveryOpts...))
+	userUnaryInterceptors := g.userUnaryInterceptors
+	unaryInterceptors = append(unaryInterceptors, userUnaryInterceptors...)
+	unaryInterceptors = append(unaryInterceptors, g.extraUnaryInterceptors...)
+
 	streamInterceptors = append(streamInterceptors, rateLimitStreamServerInterceptor(), otgrpc.OpenTracingStreamServerInterceptor(tracer), monitorStreamServerInterceptor(), grpc_recovery.StreamServerInterceptor(recoveryOpts...))
 
 	var opts []grpc.ServerOption
@@ -46,7 +139,32 @@ func NewGrpcServer(fns ...FunInterceptor) *GrpcServer {
 
 	// 实例化grpc Server
 	server := grpc.NewServer(opts...)
-	return &GrpcServer{Server: server}
+	return server, nil
+}
+
+func convertUnaryInterceptors(interceptors ...UnaryServerInterceptor) []grpc.UnaryServerInterceptor {
+	var ret []grpc.UnaryServerInterceptor
+	for _, interceptor := range interceptors {
+		ret = append(ret, convertUnaryInterceptor(interceptor))
+	}
+	return ret
+}
+
+func convertUnaryInterceptor(interceptor UnaryServerInterceptor) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+		return interceptor(ctx, req, convertUnaryServerInfo(info), convertUnaryHandler(handler))
+	}
+}
+
+func convertUnaryHandler(handler grpc.UnaryHandler) UnaryHandler {
+	return UnaryHandler(handler)
+}
+
+func convertUnaryServerInfo(info *grpc.UnaryServerInfo) *UnaryServerInfo {
+	return &UnaryServerInfo{
+		Server:     info.Server,
+		FullMethod: info.FullMethod,
+	}
 }
 
 // rate limiter interceptor, should be before OpenTracingServerInterceptor and monitorServerInterceptor

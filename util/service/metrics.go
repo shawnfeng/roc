@@ -200,7 +200,7 @@ func collectAPM(ctx context.Context, calleeService, calleeEndpoint string, servI
 	if jspan, ok := span.(*jaeger.Span); ok {
 		callerEndpoint = jspan.OperationName()
 	} else {
-		xlog.Warnf(ctx, "%s unsupported span %v", fun, span)
+		xlog.Debugf(ctx, "%s unsupported span %T %v", fun, span, span)
 		return
 	}
 
