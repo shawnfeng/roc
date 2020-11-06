@@ -131,10 +131,10 @@ type ServBase interface {
 	// set app shutdown hook
 	SetOnShutdown(func())
 
+	SetStartType(string)
+
 	// wrap context with service context info, such as lane
 	WithControlLaneInfo(ctx context.Context) context.Context
 
-	SetReportLogFunc(reporter Reporter)
-
-	DoReportLog(ctx context.Context)
+	InitReportLog(reporter Reporter)
 }

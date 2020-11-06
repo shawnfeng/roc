@@ -90,6 +90,7 @@ type ServBaseV2 struct {
 	servIp       string
 	copyName     string
 	sessKey      string
+	startType    string
 
 	envGroup string
 
@@ -598,8 +599,16 @@ func (m *ServBaseV2) WithControlLaneInfo(ctx context.Context) context.Context {
 	return ctx
 }
 
-func (m *ServBaseV2) SetReportLogFunc(reporter Reporter) {
+func (m *ServBaseV2) InitReportLog(reporter Reporter) {
 	m.reporter = reporter
+	if m.startType != "local" {
+		go func() {
+			for {
+				go m.doReportLog(context.Background())
+				time.Sleep(time.Second * 60)
+			}
+		}()
+	}
 }
 
 func (m *ServBaseV2) createControlWithLaneInfo() *thriftutil.Control {
@@ -630,7 +639,11 @@ func withRegLockRunClosureBeforeStop(m *ServBaseV2, ctx context.Context, funcNam
 	f()
 }
 
-func (m *ServBaseV2) DoReportLog(ctx context.Context) {
+func (m *ServBaseV2) SetStartType(startType string) {
+	m.startType = startType
+}
+
+func (m *ServBaseV2) doReportLog(ctx context.Context) {
 	// 汇报log统计
 	st, logs := xlog.LogStat()
 	group, serviceName := GetGroupAndService()

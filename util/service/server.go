@@ -10,13 +10,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"os"
-	"os/signal"
-	"strconv"
-	"strings"
-	"syscall"
-	"time"
-
 	"gitlab.pri.ibanyu.com/middleware/dolphin/circuit_breaker"
 	"gitlab.pri.ibanyu.com/middleware/dolphin/rate_limit/registry"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
@@ -24,6 +17,11 @@ import (
 	stat "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/sys"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/util/servbase"
+	"os"
+	"os/signal"
+	"strconv"
+	"strings"
+	"syscall"
 
 	"github.com/shawnfeng/sutil/trace"
 )
@@ -188,7 +186,6 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 
 	servLoc := args.servLoc
 	sessKey := args.sessKey
-
 	crossRegionIdList, err := parseCrossRegionIdList(args.crossRegionIdList)
 	if err != nil {
 		xlog.Panicf(ctx, "%s parse cross region id list error, arg: %v, err: %v", fun, args.crossRegionIdList, err)
@@ -202,6 +199,8 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 	}
 	m.sbase = sb
 	xlog.Infof(ctx, "%s new ServBaseV2 end", fun)
+
+	m.sbase.SetStartType(args.startType)
 
 	//将ip存储
 	if err := sb.setIp(); err != nil {
@@ -250,15 +249,6 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 		return err
 	}
 	xlog.Infof(ctx, "%s init initfn end", fun)
-
-	if args.startType != "local" {
-		go func() {
-			for {
-				go m.sbase.DoReportLog(ctx)
-				time.Sleep(time.Second * 60)
-			}
-		}()
-	}
 
 	// NOTE: processor 在初始化 trace middleware 前需要保证 xtrace.GlobalTracer() 初始化完毕
 	xlog.Infof(ctx, "%s init tracer start", fun)
