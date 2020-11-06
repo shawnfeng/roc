@@ -8,10 +8,9 @@ import (
 	"context"
 	"fmt"
 
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
-
 	etcd "github.com/coreos/etcd/client"
 	"github.com/shawnfeng/sutil/dbrouter"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 )
 
 type ServInfo struct {
@@ -27,7 +26,7 @@ func (m *ServInfo) String() string {
 
 type RegData struct {
 	Servs map[string]*ServInfo `json:"servs"`
-	Lane  *string               `json:"lane"`
+	Lane  *string              `json:"lane"`
 }
 
 type ServCtrl struct {
@@ -134,4 +133,8 @@ type ServBase interface {
 
 	// wrap context with service context info, such as lane
 	WithControlLaneInfo(ctx context.Context) context.Context
+
+	SetReportLogFunc(reporter Reporter)
+
+	DoReportLog(ctx context.Context)
 }

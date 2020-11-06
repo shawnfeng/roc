@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"gitlab.pri.ibanyu.com/middleware/dolphin/circuit_breaker"
 	"gitlab.pri.ibanyu.com/middleware/dolphin/rate_limit/registry"
@@ -249,6 +250,15 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 		return err
 	}
 	xlog.Infof(ctx, "%s init initfn end", fun)
+
+	if args.startType != "local" {
+		go func() {
+			for {
+				go m.sbase.DoReportLog(ctx)
+				time.Sleep(time.Second * 60)
+			}
+		}()
+	}
 
 	// NOTE: processor 在初始化 trace middleware 前需要保证 xtrace.GlobalTracer() 初始化完毕
 	xlog.Infof(ctx, "%s init tracer start", fun)

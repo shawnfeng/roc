@@ -411,6 +411,8 @@ gitlab.pri.ibanyu.com/middleware/util v1.2.1 h1:2zmlhubKSmtGE2tTUddZTA/0ShttXXAm
 gitlab.pri.ibanyu.com/middleware/util v1.2.1/go.mod h1:41GP8uvu7ZPcKAiD5R+4FzD8VpBOqmI9v9Q4zGOIXCw=
 gitlab.pri.ibanyu.com/server/doorkeeper/pub.git v0.0.0-20200309083800-4021aec87990/go.mod h1:fdeHCCR1BeKY3iYgL8t/X8UEQV/DpxKwGEATG0hTx/k=
 gitlab.pri.ibanyu.com/server/servmonitor/pub.git v0.0.0-20201009092808-c8e422f5ab2e/go.mod h1:GDrkCgCZiACj85PUOb3GQgSItrW45BDvYKZoNW7i1wA=
+gitlab.pri.ibanyu.com/server/servmonitor/pub.git v0.0.0-20201104035512-0152ae98fa6a h1:ZakHhZUMw00G9yrIWC54gnIjCsNwC792MW+gVsmj6oY=
+gitlab.pri.ibanyu.com/server/servmonitor/pub.git v0.0.0-20201104035512-0152ae98fa6a/go.mod h1:GDrkCgCZiACj85PUOb3GQgSItrW45BDvYKZoNW7i1wA=
 gitlab.pri.ibanyu.com/server/userext/pub.git v0.0.0-20200915121947-16dc7ee4f052/go.mod h1:kIVBXW4ZAg8jsIGtN2vJoTSC/CyeHvfYRB3YBclYAbE=
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/etcd v3.3.22+incompatible/go.mod h1:yaeTdrJi5lOmYerz05bd8+V7KubZs8YSFZfzsF9A6aI=
