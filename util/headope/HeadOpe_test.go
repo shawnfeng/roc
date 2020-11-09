@@ -9,8 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shawnfeng/sutil/slog"
 	"net/http"
+
+	"github.com/shawnfeng/sutil/slog"
 )
 
 func master(w http.ResponseWriter, r *http.Request) {
