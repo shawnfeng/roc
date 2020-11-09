@@ -18,7 +18,7 @@ require (
 	gitlab.pri.ibanyu.com/middleware/dolphin v1.0.6
 	gitlab.pri.ibanyu.com/middleware/seaweed v1.1.14
 	gitlab.pri.ibanyu.com/middleware/util v1.2.1
-	gitlab.pri.ibanyu.com/server/servmonitor/pub.git v0.0.0-20201104035512-0152ae98fa6a // indirect
+	gitlab.pri.ibanyu.com/server/servmonitor/pub.git v0.0.0-20201104035512-0152ae98fa6a
 	golang.org/x/net v0.0.0-20191002035440-2ec189313ef0
 	google.golang.org/grpc v1.24.0
 )
