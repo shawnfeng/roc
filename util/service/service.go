@@ -8,6 +8,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -24,7 +26,6 @@ import (
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil/sync2"
 
 	etcd "github.com/coreos/etcd/client"
-	"github.com/shawnfeng/sutil/slowid"
 )
 
 const (
@@ -75,8 +76,6 @@ type configEtcd struct {
 }
 
 type ServBaseV2 struct {
-	IdGenerator
-
 	confEtcd     configEtcd
 	configCenter xconfig.ConfigCenter
 
@@ -524,17 +523,6 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 		xlog.Warnf(ctx, "%s servLocation:%s do not match group/service format", fun, servLocation)
 	}
 
-	xlog.Infof(ctx, " %s init origin snowflake start", fun)
-	sf, err := initSnowflake(sid + sidOffset)
-	if err != nil {
-		return nil, err
-	}
-	xlog.Infof(ctx, " %s init origin snowflake end", fun)
-
-	reg.IdGenerator.snow = sf
-	reg.IdGenerator.slow = make(map[string]*slowid.Slowid)
-	reg.IdGenerator.workerID = sid + sidOffset
-
 	// init cross register clients
 	xlog.Infof(ctx, " %s init CrossRegisterCenter start", fun)
 	err = initCrossRegisterCenter(reg)
@@ -596,4 +584,78 @@ func withRegLockRunClosureBeforeStop(m *ServBaseV2, ctx context.Context, funcNam
 	}
 
 	f()
+}
+
+func genSid(client etcd.KeysAPI, path, skey string) (int, error) {
+	fun := "genSid -->"
+	ctx := context.Background()
+	r, err := client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
+	if err != nil {
+		return -1, err
+	}
+
+	js, _ := json.Marshal(r)
+
+	xlog.Infof(ctx, "%s", js)
+
+	if r.Node == nil || !r.Node.Dir {
+		return -1, fmt.Errorf("node error location:%s", path)
+	}
+
+	xlog.Infof(ctx, "%s serv:%s len:%d", fun, r.Node.Key, r.Node.Nodes.Len())
+
+	// 获取已有的servid，按从小到大排列
+	ids := make([]int, 0)
+	for _, n := range r.Node.Nodes {
+		sid := n.Key[len(r.Node.Key)+1:]
+		id, err := strconv.Atoi(sid)
+		if err != nil || id < 0 {
+			xlog.Errorf(ctx, "%s sid error key:%s", fun, n.Key)
+		} else {
+			ids = append(ids, id)
+			if n.Value == skey {
+				// 如果已经存在的sid使用的skey和设置一致，则使用之前的sid
+				return id, nil
+			}
+		}
+	}
+
+	sort.Ints(ids)
+	sid := 0
+	for _, id := range ids {
+		// 取不重复的最小的id
+		if sid == id {
+			sid++
+		} else {
+			break
+		}
+	}
+
+	nserv := fmt.Sprintf("%s/%d", r.Node.Key, sid)
+	r, err = client.Create(context.Background(), nserv, skey)
+	if err != nil {
+		return -1, err
+	}
+
+	jr, _ := json.Marshal(r)
+	xlog.Infof(ctx, "%s newserv:%s resp:%s", fun, nserv, jr)
+
+	return sid, nil
+
+}
+
+func retryGenSid(client etcd.KeysAPI, path, skey string, try int) (int, error) {
+	fun := "retryGenSid -->"
+	ctx := context.Background()
+	for i := 0; i < try; i++ {
+		// 重试3次
+		sid, err := genSid(client, path, skey)
+		if err != nil {
+			xlog.Errorf(ctx, "%s gensid try: %d path: %s err: %v", fun, i, path, err)
+		} else {
+			return sid, nil
+		}
+	}
+
+	return -1, fmt.Errorf("gensid error try:%d", try)
 }
