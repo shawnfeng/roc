@@ -14,7 +14,7 @@ import (
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/opentracing-contrib/go-grpc"
+	otgrpc "github.com/opentracing-contrib/go-grpc"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

@@ -187,7 +187,6 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 
 	servLoc := args.servLoc
 	sessKey := args.sessKey
-
 	crossRegionIdList, err := parseCrossRegionIdList(args.crossRegionIdList)
 	if err != nil {
 		xlog.Panicf(ctx, "%s parse cross region id list error, arg: %v, err: %v", fun, args.crossRegionIdList, err)
@@ -201,6 +200,8 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 	}
 	m.sbase = sb
 	xlog.Infof(ctx, "%s new ServBaseV2 end", fun)
+
+	m.sbase.SetStartType(args.startType)
 
 	//将ip存储
 	if err := sb.setIp(); err != nil {

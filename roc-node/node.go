@@ -5,8 +5,9 @@
 package main
 
 import (
-	"github.com/shawnfeng/roc/roc-node/engine"
 	"os"
+
+	"github.com/shawnfeng/roc/roc-node/engine"
 )
 
 func main() {
