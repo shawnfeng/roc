@@ -24,7 +24,6 @@ import (
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil/sync2"
 
 	etcd "github.com/coreos/etcd/client"
-	"github.com/shawnfeng/sutil/dbrouter"
 	"github.com/shawnfeng/sutil/slowid"
 )
 
@@ -98,8 +97,6 @@ type ServBaseV2 struct {
 	crossRegisterRegionIds []int
 
 	servId int
-
-	dbRouter *dbrouter.Router
 
 	muLocks sync2.Semaphore
 	locks   map[string]*sync2.Semaphore
@@ -409,10 +406,6 @@ func (m *ServBaseV2) ServIp() string {
 	return m.servIp
 }
 
-func (m *ServBaseV2) Dbrouter() *dbrouter.Router {
-	return m.dbRouter
-}
-
 // ConfigCenter ...
 func (m *ServBaseV2) ConfigCenter() xconfig.ConfigCenter {
 	return m.configCenter
@@ -497,21 +490,6 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 
 	xlog.Infof(ctx, "%s retryGenSid end, path: %s, sid: %d, skey: %s, envGroup: %s", fun, path, sid, skey, envGroup)
 
-	dbloc := fmt.Sprintf("%s/%s", confEtcd.useBaseloc, BASE_LOC_DB)
-
-	xlog.Infof(ctx, "%s init dbrouter start", fun)
-	var dr *dbrouter.Router
-	jscfg, err := getValue(client, dbloc)
-	if err != nil {
-		xlog.Warnf(ctx, "%s db:%s config notfound", fun, dbloc)
-	} else {
-		dr, err = dbrouter.NewRouter(jscfg)
-		if err != nil {
-			return nil, err
-		}
-	}
-	xlog.Infof(ctx, "%s init dbrouter end", fun)
-
 	// init global config center
 	xlog.Infof(ctx, " %s init configcenter start", fun)
 	configCenter, err := xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, servLocation, []string{ApplicationNamespace, RPCConfNamespace, xsql.MysqlConfNamespace, xmgo.MongoConfNamespace})
@@ -522,7 +500,6 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 
 	reg := &ServBaseV2{
 		confEtcd:               confEtcd,
-		dbLocation:             dbloc,
 		servLocation:           servLocation,
 		sessKey:                skey,
 		etcdClient:             client,
@@ -533,7 +510,6 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 		hearts:                 make(map[string]*distLockHeart),
 		regInfos:               make(map[string]string),
 
-		dbRouter:     dr,
 		configCenter: configCenter,
 
 		envGroup:   envGroup,
