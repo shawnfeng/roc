@@ -8,10 +8,8 @@ import (
 	"context"
 	"fmt"
 
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
-
 	etcd "github.com/coreos/etcd/client"
-	"github.com/shawnfeng/sutil/dbrouter"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 )
 
 type ServInfo struct {
@@ -27,7 +25,7 @@ func (m *ServInfo) String() string {
 
 type RegData struct {
 	Servs map[string]*ServInfo `json:"servs"`
-	Lane  *string               `json:"lane"`
+	Lane  *string              `json:"lane"`
 }
 
 type ServCtrl struct {
@@ -85,23 +83,6 @@ type ServBase interface {
 	// 任意路径的配置信息
 	//ArbiConfig(location string) (string, error)
 
-	// 慢id生成器，适合id产生不是非常快的场景,基于毫秒时间戳，每毫秒最多产生2个id，过快会自动阻塞，直到毫秒递增
-	// id表示可以再52bit完成，用double表示不会丢失精度，javascript等弱类型语音可以直接使用
-	GenSlowId(tp string) (int64, error)
-	GetSlowIdStamp(sid int64) int64
-	GetSlowIdWithStamp(stamp int64) int64
-
-	// id生成逻辑
-	GenSnowFlakeId() (int64, error)
-	// 获取snowflakeid生成时间戳，单位ms
-	GetSnowFlakeIdStamp(sid int64) int64
-	// 按给定的时间点构造一个起始snowflakeid，一般用于区域判断
-	GetSnowFlakeIdWithStamp(stamp int64) int64
-
-	GenUuid() (string, error)
-	GenUuidSha1() (string, error)
-	GenUuidMd5() (string, error)
-
 	// 默认的锁，局部分布式锁，各个服务之间独立不共享
 
 	// 获取到lock立即返回，否则block直到获取到
@@ -117,9 +98,6 @@ type ServBase interface {
 	UnlockGlobal(name string) error
 	TrylockGlobal(name string) (bool, error)
 
-	// db router
-	Dbrouter() *dbrouter.Router
-
 	// conf center
 	ConfigCenter() xconfig.ConfigCenter
 
@@ -132,6 +110,10 @@ type ServBase interface {
 	// set app shutdown hook
 	SetOnShutdown(func())
 
+	SetStartType(string)
+
 	// wrap context with service context info, such as lane
 	WithControlLaneInfo(ctx context.Context) context.Context
+
+	InitReportLog(reporter Reporter)
 }

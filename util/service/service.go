@@ -8,6 +8,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -18,14 +20,14 @@ import (
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	xmgo "gitlab.pri.ibanyu.com/middleware/seaweed/xmgo/manager"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xnet"
 	xsql "gitlab.pri.ibanyu.com/middleware/seaweed/xsql/manager"
+	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtransport/gen-go/util/thriftutil"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil/sync2"
+	. "gitlab.pri.ibanyu.com/server/servmonitor/pub.git/idl/gen-go/base/servmonitorservice"
 
 	etcd "github.com/coreos/etcd/client"
-	"github.com/shawnfeng/sutil/dbrouter"
-	"github.com/shawnfeng/sutil/slowid"
-	"github.com/shawnfeng/sutil/snetutil"
-	"github.com/shawnfeng/sutil/ssync"
 )
 
 const (
@@ -76,8 +78,6 @@ type configEtcd struct {
 }
 
 type ServBaseV2 struct {
-	IdGenerator
-
 	confEtcd     configEtcd
 	configCenter xconfig.ConfigCenter
 
@@ -88,6 +88,7 @@ type ServBaseV2 struct {
 	servIp       string
 	copyName     string
 	sessKey      string
+	startType    string
 
 	envGroup string
 
@@ -99,16 +100,16 @@ type ServBaseV2 struct {
 
 	servId int
 
-	dbRouter *dbrouter.Router
+	muLocks sync2.Semaphore
+	locks   map[string]*sync2.Semaphore
 
-	muLocks ssync.Mutex
-	locks   map[string]*ssync.Mutex
-
-	muHearts ssync.Mutex
+	muHearts sync2.Semaphore
 	hearts   map[string]*distLockHeart
 
 	stop       int32
 	onShutdown func()
+	reporter   Reporter
+	doReport   func(context.Context, *ReportLogReq) error
 
 	muReg    sync.Mutex
 	regInfos map[string]string
@@ -185,7 +186,7 @@ func (m *ServBaseV2) RegisterMetrics(servs map[string]*ServInfo) error {
 }
 
 func (m *ServBaseV2) setIp() error {
-	addr, err := snetutil.GetListenAddr("")
+	addr, err := xnet.GetListenAddr("")
 	if err != nil {
 		return err
 	}
@@ -409,10 +410,6 @@ func (m *ServBaseV2) ServIp() string {
 	return m.servIp
 }
 
-func (m *ServBaseV2) Dbrouter() *dbrouter.Router {
-	return m.dbRouter
-}
-
 // ConfigCenter ...
 func (m *ServBaseV2) ConfigCenter() xconfig.ConfigCenter {
 	return m.configCenter
@@ -497,21 +494,6 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 
 	xlog.Infof(ctx, "%s retryGenSid end, path: %s, sid: %d, skey: %s, envGroup: %s", fun, path, sid, skey, envGroup)
 
-	dbloc := fmt.Sprintf("%s/%s", confEtcd.useBaseloc, BASE_LOC_DB)
-
-	xlog.Infof(ctx, "%s init dbrouter start", fun)
-	var dr *dbrouter.Router
-	jscfg, err := getValue(client, dbloc)
-	if err != nil {
-		xlog.Warnf(ctx, "%s db:%s config notfound", fun, dbloc)
-	} else {
-		dr, err = dbrouter.NewRouter(jscfg)
-		if err != nil {
-			return nil, err
-		}
-	}
-	xlog.Infof(ctx, "%s init dbrouter end", fun)
-
 	// init global config center
 	xlog.Infof(ctx, " %s init configcenter start", fun)
 	configCenter, err := xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, servLocation, []string{ApplicationNamespace, RPCConfNamespace, xsql.MysqlConfNamespace, xmgo.MongoConfNamespace})
@@ -522,18 +504,16 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 
 	reg := &ServBaseV2{
 		confEtcd:               confEtcd,
-		dbLocation:             dbloc,
 		servLocation:           servLocation,
 		sessKey:                skey,
 		etcdClient:             client,
 		crossRegisterRegionIds: crossRegionIdList,
 		crossRegisterClients:   make(map[string]etcd.KeysAPI, 2),
 		servId:                 sid,
-		locks:                  make(map[string]*ssync.Mutex),
+		locks:                  make(map[string]*sync2.Semaphore),
 		hearts:                 make(map[string]*distLockHeart),
 		regInfos:               make(map[string]string),
 
-		dbRouter:     dr,
 		configCenter: configCenter,
 
 		envGroup:   envGroup,
@@ -547,17 +527,6 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 	} else {
 		xlog.Warnf(ctx, "%s servLocation:%s do not match group/service format", fun, servLocation)
 	}
-
-	xlog.Infof(ctx, " %s init origin snowflake start", fun)
-	sf, err := initSnowflake(sid + sidOffset)
-	if err != nil {
-		return nil, err
-	}
-	xlog.Infof(ctx, " %s init origin snowflake end", fun)
-
-	reg.IdGenerator.snow = sf
-	reg.IdGenerator.slow = make(map[string]*slowid.Slowid)
-	reg.IdGenerator.workerID = sid + sidOffset
 
 	// init cross register clients
 	xlog.Infof(ctx, " %s init CrossRegisterCenter start", fun)
@@ -594,6 +563,18 @@ func (m *ServBaseV2) WithControlLaneInfo(ctx context.Context) context.Context {
 	return ctx
 }
 
+func (m *ServBaseV2) InitReportLog(reporter Reporter) {
+	m.reporter = reporter
+	if m.startType != "local" {
+		go func() {
+			for {
+				go m.doReportLog(context.Background())
+				time.Sleep(time.Second * 60)
+			}
+		}()
+	}
+}
+
 func (m *ServBaseV2) createControlWithLaneInfo() *thriftutil.Control {
 	route := thriftutil.NewRoute()
 	route.Group = m.envGroup
@@ -620,4 +601,119 @@ func withRegLockRunClosureBeforeStop(m *ServBaseV2, ctx context.Context, funcNam
 	}
 
 	f()
+}
+
+func genSid(client etcd.KeysAPI, path, skey string) (int, error) {
+	fun := "genSid -->"
+	ctx := context.Background()
+	r, err := client.Get(context.Background(), path, &etcd.GetOptions{Recursive: true, Sort: false})
+	if err != nil {
+		return -1, err
+	}
+
+	js, _ := json.Marshal(r)
+
+	xlog.Infof(ctx, "%s", js)
+
+	if r.Node == nil || !r.Node.Dir {
+		return -1, fmt.Errorf("node error location:%s", path)
+	}
+
+	xlog.Infof(ctx, "%s serv:%s len:%d", fun, r.Node.Key, r.Node.Nodes.Len())
+
+	// 获取已有的servid，按从小到大排列
+	ids := make([]int, 0)
+	for _, n := range r.Node.Nodes {
+		sid := n.Key[len(r.Node.Key)+1:]
+		id, err := strconv.Atoi(sid)
+		if err != nil || id < 0 {
+			xlog.Errorf(ctx, "%s sid error key:%s", fun, n.Key)
+		} else {
+			ids = append(ids, id)
+			if n.Value == skey {
+				// 如果已经存在的sid使用的skey和设置一致，则使用之前的sid
+				return id, nil
+			}
+		}
+	}
+
+	sort.Ints(ids)
+	sid := 0
+	for _, id := range ids {
+		// 取不重复的最小的id
+		if sid == id {
+			sid++
+		} else {
+			break
+		}
+	}
+
+	nserv := fmt.Sprintf("%s/%d", r.Node.Key, sid)
+	r, err = client.Create(context.Background(), nserv, skey)
+	if err != nil {
+		return -1, err
+	}
+
+	jr, _ := json.Marshal(r)
+	xlog.Infof(ctx, "%s newserv:%s resp:%s", fun, nserv, jr)
+
+	return sid, nil
+
+}
+
+func retryGenSid(client etcd.KeysAPI, path, skey string, try int) (int, error) {
+	fun := "retryGenSid -->"
+	ctx := context.Background()
+	for i := 0; i < try; i++ {
+		// 重试3次
+		sid, err := genSid(client, path, skey)
+		if err != nil {
+			xlog.Errorf(ctx, "%s gensid try: %d path: %s err: %v", fun, i, path, err)
+		} else {
+			return sid, nil
+		}
+	}
+
+	return -1, fmt.Errorf("gensid error try:%d", try)
+}
+
+func (m *ServBaseV2) SetStartType(startType string) {
+	m.startType = startType
+}
+
+func (m *ServBaseV2) doReportLog(ctx context.Context) {
+	// 汇报log统计
+	st, logs := xlog.LogStat()
+	group, serviceName := GetGroupAndService()
+	_metricLogCount := GetLogCountMetric()
+	_metricLogCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelType, "LOG_DEBUGCN").Add(float64(st["DEBUG"]))
+	_metricLogCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelType, "LOG_TRACECN").Add(float64(st["TRACE"]))
+	_metricLogCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelType, "LOG_INFOCN").Add(float64(st["INFO"]))
+	_metricLogCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelType, "LOG_WARNCN").Add(float64(st["WARN"]))
+	_metricLogCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelType, "LOG_ERRORCN").Add(float64(st["ERROR"]))
+	servname := fmt.Sprintf("%s/%s", group, serviceName)
+	req := &ReportLogReq{
+		Infos: []*ReportLogInfo{&ReportLogInfo{
+			Servname: servname,
+			Servid:   int32(m.Servid()),
+			Stamp:    st["STAMP"],
+			Cntrace:  st["TRACE"],
+			Cndebug:  st["DEBUG"],
+			Cninfo:   st["INFO"],
+			Cnwarn:   st["WARN"],
+			Cnerror:  st["ERROR"],
+			Cnfatal:  st["FATAL"],
+			Cnpanic:  st["PANIC"],
+			Logs:     logs,
+		}},
+		Ip: m.ServIp(),
+	}
+	err := m.reporter.DoReport(ctx, req)
+	if err != nil {
+		xlog.Warn(ctx, err.Error())
+	}
+}
+
+type Reporter interface {
+	DoReport(context.Context, *ReportLogReq) error
 }
