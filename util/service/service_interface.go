@@ -8,8 +8,6 @@ import (
 	"context"
 	"fmt"
 
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
-
 	etcd "github.com/coreos/etcd/client"
 )
 
@@ -111,6 +109,10 @@ type ServBase interface {
 	// set app shutdown hook
 	SetOnShutdown(func())
 
+	SetStartType(string)
+
 	// wrap context with service context info, such as lane
 	WithControlLaneInfo(ctx context.Context) context.Context
+
+	InitReportLog(reporter Reporter)
 }
