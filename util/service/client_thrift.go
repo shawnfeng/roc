@@ -59,7 +59,7 @@ func (m *ClientThrift) route(ctx context.Context, key string) (*ServInfo, rpcCli
 		return nil, nil
 	}
 	addr := s.Addr
-	conn, _ := m.pool.Get(addr)
+	conn, _ := m.pool.Get(ctx, addr)
 	return s, conn
 }
 
