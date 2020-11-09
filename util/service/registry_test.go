@@ -7,9 +7,10 @@ package rocserv
 import (
 	"context"
 	"fmt"
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"testing"
 	"time"
+
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 )
 
 func TestClient(t *testing.T) {

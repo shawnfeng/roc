@@ -5,11 +5,12 @@
 package rocserv
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/shawnfeng/sutil/paconn"
-	"roc/util/headope"
+	"github.com/shawnfeng/sutil/slog"
 )
 
 type servReginfo struct {

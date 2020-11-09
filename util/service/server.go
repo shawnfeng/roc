@@ -10,6 +10,12 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"os"
+	"os/signal"
+	"strconv"
+	"strings"
+	"syscall"
+
 	"gitlab.pri.ibanyu.com/middleware/dolphin/circuit_breaker"
 	"gitlab.pri.ibanyu.com/middleware/dolphin/rate_limit/registry"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
@@ -17,11 +23,6 @@ import (
 	stat "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/sys"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/util/servbase"
-	"os"
-	"os/signal"
-	"strconv"
-	"strings"
-	"syscall"
 
 	"github.com/shawnfeng/sutil/trace"
 )

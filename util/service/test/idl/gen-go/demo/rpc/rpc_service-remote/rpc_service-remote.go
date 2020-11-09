@@ -7,13 +7,14 @@ import (
 	"demo/rpc"
 	"flag"
 	"fmt"
-	"git.apache.org/thrift.git/lib/go/thrift"
 	"math"
 	"net"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
+
+	"git.apache.org/thrift.git/lib/go/thrift"
 )
 
 func Usage() {
