@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	etcd "github.com/coreos/etcd/client"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 )
 
 type ServInfo struct {
