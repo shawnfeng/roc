@@ -26,7 +26,7 @@ func (m *ServBaseV2) lookupLock(path string) *sync2.Semaphore {
 	if mu, ok := m.locks[path]; ok {
 		return mu
 	} else {
-		m.locks[path] = new(sync2.Semaphore)
+		m.locks[path] = sync2.NewSemaphore(1,0)
 		return m.locks[path]
 	}
 

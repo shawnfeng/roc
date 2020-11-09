@@ -520,6 +520,9 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 		onShutdown: func() { xlog.Info(context.TODO(), "app shutdown") },
 	}
 
+	reg.muLocks = *sync2.NewSemaphore(1,0)
+	reg.muHearts = *sync2.NewSemaphore(1,0)
+
 	svrInfo := strings.SplitN(servLocation, "/", 2)
 	if len(svrInfo) == 2 {
 		reg.servGroup = svrInfo[0]
