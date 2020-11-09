@@ -31,14 +31,14 @@ func NewClientPool(idle, active int, rpcFactory func(addr string) (rpcClientConn
 }
 
 // Get get connection from pool, if reach max, create new connection and return
-func (m *ClientPool) Get(addr string) (rpcClientConn, error) {
+func (m *ClientPool) Get(ctx context.Context, addr string) (rpcClientConn, error) {
 	fun := "ClientPool.Get -->"
 	cp := m.getPool(addr)
-	ctx, cancel := context.WithTimeout(context.Background(), getConnTimeout)
+	ctx, cancel := context.WithTimeout(ctx, getConnTimeout)
 	defer cancel()
 	c, err := cp.Get(ctx)
 	if err != nil {
-		xlog.Errorf(context.Background(), "%s get conn from connection pool failed, callee_service: %s, addr: %s, err: %v", fun, m.calleeServiceKey, addr, err)
+		xlog.Errorf(ctx, "%s get conn from connection pool failed, callee_service: %s, addr: %s, err: %v", fun, m.calleeServiceKey, addr, err)
 		return nil, err
 	}
 	return c.(rpcClientConn), nil
