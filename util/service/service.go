@@ -18,13 +18,13 @@ import (
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	xmgo "gitlab.pri.ibanyu.com/middleware/seaweed/xmgo/manager"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xnet"
 	xsql "gitlab.pri.ibanyu.com/middleware/seaweed/xsql/manager"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtransport/gen-go/util/thriftutil"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil/sync2"
 
 	etcd "github.com/coreos/etcd/client"
 	"github.com/shawnfeng/sutil/slowid"
-	"github.com/shawnfeng/sutil/snetutil"
-	"github.com/shawnfeng/sutil/ssync"
 )
 
 const (
@@ -98,10 +98,10 @@ type ServBaseV2 struct {
 
 	servId int
 
-	muLocks ssync.Mutex
-	locks   map[string]*ssync.Mutex
+	muLocks sync2.Semaphore
+	locks   map[string]*sync2.Semaphore
 
-	muHearts ssync.Mutex
+	muHearts sync2.Semaphore
 	hearts   map[string]*distLockHeart
 
 	stop       int32
@@ -182,7 +182,7 @@ func (m *ServBaseV2) RegisterMetrics(servs map[string]*ServInfo) error {
 }
 
 func (m *ServBaseV2) setIp() error {
-	addr, err := snetutil.GetListenAddr("")
+	addr, err := xnet.GetListenAddr("")
 	if err != nil {
 		return err
 	}
@@ -506,7 +506,7 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 		crossRegisterRegionIds: crossRegionIdList,
 		crossRegisterClients:   make(map[string]etcd.KeysAPI, 2),
 		servId:                 sid,
-		locks:                  make(map[string]*ssync.Mutex),
+		locks:                  make(map[string]*sync2.Semaphore),
 		hearts:                 make(map[string]*distLockHeart),
 		regInfos:               make(map[string]string),
 

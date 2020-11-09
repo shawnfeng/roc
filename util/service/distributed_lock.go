@@ -10,23 +10,23 @@ import (
 	"time"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil/sync2"
 
 	etcd "github.com/coreos/etcd/client"
-	"github.com/shawnfeng/sutil/ssync"
 )
 
 const (
 	TTL_LOCK = time.Second * 180
 )
 
-func (m *ServBaseV2) lookupLock(path string) *ssync.Mutex {
-	m.muLocks.Lock()
-	defer m.muLocks.Unlock()
+func (m *ServBaseV2) lookupLock(path string) *sync2.Semaphore {
+	m.muLocks.Acquire()
+	defer m.muLocks.Release()
 
 	if mu, ok := m.locks[path]; ok {
 		return mu
 	} else {
-		m.locks[path] = new(ssync.Mutex)
+		m.locks[path] = new(sync2.Semaphore)
 		return m.locks[path]
 	}
 
@@ -162,10 +162,10 @@ func (m *ServBaseV2) getDistLock(path string) error {
 // 由该服务副本优先获取到锁
 // 同一个服务副本中多次在同一个path下调用lock，后续的会阻塞
 func (m *ServBaseV2) lock(path string) error {
-	m.lookupLock(path).Lock()
+	m.lookupLock(path).Acquire()
 	err := m.getDistLock(path)
 	if err != nil {
-		m.lookupLock(path).Unlock()
+		m.lookupLock(path).Release()
 		return err
 	}
 
@@ -176,14 +176,14 @@ func (m *ServBaseV2) lock(path string) error {
 func (m *ServBaseV2) unlock(path string) error {
 	m.lookupHeart(path).stop()
 	m.delLock(path)
-	m.lookupLock(path).Unlock()
+	m.lookupLock(path).Release()
 	return nil
 }
 
 func (m *ServBaseV2) trylock(path string) (bool, error) {
 	fun := "ServBaseV2.trylock -->"
 	ctx := context.Background()
-	islock := m.lookupLock(path).Trylock()
+	islock := m.lookupLock(path).TryAcquire()
 	xlog.Infof(ctx, "%s try lock:%s r:%v", fun, path, islock)
 	if !islock {
 		return islock, nil
@@ -199,7 +199,7 @@ func (m *ServBaseV2) trylock(path string) (bool, error) {
 		return true, nil
 	}
 
-	m.lookupLock(path).Unlock()
+	m.lookupLock(path).Release()
 	return false, nil
 }
 
@@ -264,8 +264,8 @@ func (m *ServBaseV2) TrylockGlobal(name string) (bool, error) {
 }
 
 func (m *ServBaseV2) lookupHeart(path string) *distLockHeart {
-	m.muHearts.Lock()
-	defer m.muHearts.Unlock()
+	m.muHearts.Acquire()
+	defer m.muHearts.Release()
 
 	if mu, ok := m.hearts[path]; ok {
 		return mu
