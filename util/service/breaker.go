@@ -11,12 +11,9 @@ import (
 
 	"gitlab.pri.ibanyu.com/middleware/dolphin/circuit_breaker"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
-
-	"github.com/shawnfeng/hystrix-go/hystrix"
 )
 
 type ItemConf struct {
-	*hystrix.CommandConfig
 	Name   string `json:"name"`
 	Enable bool   `json:"enable"`
 	Source int32  `json:"source"`
