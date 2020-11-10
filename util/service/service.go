@@ -100,10 +100,10 @@ type ServBaseV2 struct {
 
 	servId int
 
-	muLocks sync2.Semaphore
+	muLocks sync.Mutex
 	locks   map[string]*sync2.Semaphore
 
-	muHearts sync2.Semaphore
+	muHearts sync.Mutex
 	hearts   map[string]*distLockHeart
 
 	stop       int32
@@ -519,10 +519,6 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 		envGroup:   envGroup,
 		onShutdown: func() { xlog.Info(context.TODO(), "app shutdown") },
 	}
-
-	reg.muLocks = *sync2.NewSemaphore(1,0)
-	reg.muHearts = *sync2.NewSemaphore(1,0)
-
 	svrInfo := strings.SplitN(servLocation, "/", 2)
 	if len(svrInfo) == 2 {
 		reg.servGroup = svrInfo[0]

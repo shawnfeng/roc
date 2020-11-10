@@ -20,9 +20,8 @@ const (
 )
 
 func (m *ServBaseV2) lookupLock(path string) *sync2.Semaphore {
-	m.muLocks.Acquire()
-	defer m.muLocks.Release()
-
+	m.muLocks.Lock()
+	defer m.muLocks.Unlock()
 	if mu, ok := m.locks[path]; ok {
 		return mu
 	} else {
@@ -264,8 +263,8 @@ func (m *ServBaseV2) TrylockGlobal(name string) (bool, error) {
 }
 
 func (m *ServBaseV2) lookupHeart(path string) *distLockHeart {
-	m.muHearts.Acquire()
-	defer m.muHearts.Release()
+	m.muHearts.Lock()
+	defer m.muHearts.Unlock()
 
 	if mu, ok := m.hearts[path]; ok {
 		return mu
