@@ -23,7 +23,6 @@ import (
 	stat "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/sys"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace/spanfilter"
 	"gitlab.pri.ibanyu.com/middleware/util/servbase"
 )
 
@@ -403,7 +402,7 @@ func (m *Server) initTracer(servLoc string) error {
 		xlog.Errorf(ctx, "%s init tracer err: %v", fun, err)
 	}
 
-	err = spanfilter.InitTraceSpanFilter()
+	err = xtrace.InitTraceSpanFilter()
 	if err != nil {
 		xlog.Errorf(ctx, "%s init trace span filter fail: %s", fun, err.Error())
 	}

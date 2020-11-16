@@ -17,13 +17,12 @@ import (
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xnet"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace/spanfilter"
 
-	"google.golang.org/grpc"
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
 	"github.com/julienschmidt/httprouter"
 	"github.com/opentracing-contrib/go-stdlib/nethttp"
+	"google.golang.org/grpc"
 )
 
 // rpc protocol
@@ -213,7 +212,7 @@ func decorateHttpMiddleware(router http.Handler, middlewares ...middleware) http
 		nethttp.OperationNameFunc(func(r *http.Request) string {
 			return "HTTP " + r.Method + ": " + r.URL.Path
 		}),
-		nethttp.MWSpanFilter(spanfilter.UrlSpanFilter))
+		nethttp.MWSpanFilter(xtrace.UrlSpanFilter))
 
 	return mw
 }
