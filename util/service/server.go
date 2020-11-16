@@ -22,9 +22,8 @@ import (
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	stat "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/sys"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 	"gitlab.pri.ibanyu.com/middleware/util/servbase"
-
-	"github.com/shawnfeng/sutil/trace"
 )
 
 // server model
@@ -397,12 +396,12 @@ func (m *Server) initTracer(servLoc string) error {
 	fun := "Server.initTracer -->"
 	ctx := context.Background()
 
-	err := trace.InitDefaultTracer(servLoc)
+	err := xtrace.InitDefaultTracer(servLoc)
 	if err != nil {
 		xlog.Errorf(ctx, "%s init tracer err: %v", fun, err)
 	}
 
-	err = trace.InitTraceSpanFilter()
+	err = xtrace.InitTraceSpanFilter()
 	if err != nil {
 		xlog.Errorf(ctx, "%s init trace span filter fail: %s", fun, err.Error())
 	}
