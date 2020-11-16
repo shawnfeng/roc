@@ -403,6 +403,8 @@ gitlab.pri.ibanyu.com/middleware/seaweed v1.1.14 h1:XBzf+YnAOhPg1T0Df4TypvSCrbCL
 gitlab.pri.ibanyu.com/middleware/seaweed v1.1.14/go.mod h1:/jdJeuMOKlxO0+fC18Lrv4xJEchrzyVJdXi1oc5D9oA=
 gitlab.pri.ibanyu.com/middleware/seaweed v1.2.18 h1:sC3GiCTYe4HRsGvjHflNKtFqotB5moNoXdg18b704aM=
 gitlab.pri.ibanyu.com/middleware/seaweed v1.2.18/go.mod h1:nH/CMr3bBuS0xJ2UN1NNE3Q62Zo93VemSKEWURJbwPE=
+gitlab.pri.ibanyu.com/middleware/seaweed v1.2.24-0.20201116073515-03a51804de14 h1:a81eWasVrQMk/H3TVjYxrCqAq7TLPD51nfcQwvJD9Tk=
+gitlab.pri.ibanyu.com/middleware/seaweed v1.2.24-0.20201116073515-03a51804de14/go.mod h1:RlVSgAWKhDz6dYhB7mXqD9KLiTvtyAS6fiNRTcQOPmI=
 gitlab.pri.ibanyu.com/middleware/util v1.0.19/go.mod h1:quXdc6vUclNPa1AB1z5eTdlegRmXL+tOOfkMvezxk8k=
 gitlab.pri.ibanyu.com/middleware/util v1.0.27/go.mod h1:quXdc6vUclNPa1AB1z5eTdlegRmXL+tOOfkMvezxk8k=
 gitlab.pri.ibanyu.com/middleware/util v1.1.15 h1:0YFPagGT6EZaqIwNFOhdbnayFqEwOk/80AIu4dZXZQY=
