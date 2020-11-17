@@ -205,8 +205,7 @@ func decorateHttpMiddleware(router http.Handler, middlewares ...middleware) http
 		r = m(r)
 	}
 	// tracing
-	mw := nethttp.Middleware(
-		xtrace.GlobalTracer(),
+	mw := nethttp.MiddlewareWithGlobalTracer(
 		// add logging middleware
 		httpTrafficLogMiddleware(r),
 		nethttp.OperationNameFunc(func(r *http.Request) string {
@@ -323,8 +322,7 @@ func reloadRouter(processor string, server interface{}, driver interface{}) erro
 
 	switch router := driver.(type) {
 	case *gin.Engine:
-		mw := nethttp.Middleware(
-			xtrace.GlobalTracer(),
+		mw := nethttp.MiddlewareWithGlobalTracer(
 			router,
 			nethttp.OperationNameFunc(func(r *http.Request) string {
 				return "HTTP " + r.Method + ": " + r.URL.Path
