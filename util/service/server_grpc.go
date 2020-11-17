@@ -6,15 +6,13 @@ import (
 	"strings"
 	"time"
 
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"gitlab.pri.ibanyu.com/middleware/dolphin/rate_limit"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
-
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/opentracing-contrib/go-grpc"
+	otgrpc "gitlab.pri.ibanyu.com/tracing/go-grpc"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -122,16 +120,15 @@ func (g *GrpcServer) buildServer() (*grpc.Server, error) {
 	var streamInterceptors []grpc.StreamServerInterceptor
 
 	// add tracer、monitor、recovery interceptor
-	tracer := xtrace.GlobalTracer()
 	recoveryOpts := []grpc_recovery.Option{
 		grpc_recovery.WithRecoveryHandler(recoveryFunc),
 	}
-	unaryInterceptors = append(unaryInterceptors, rateLimitInterceptor(), otgrpc.OpenTracingServerInterceptor(tracer), monitorServerInterceptor(), grpc_recovery.UnaryServerInterceptor(recoveryOpts...))
+	unaryInterceptors = append(unaryInterceptors, rateLimitInterceptor(), otgrpc.OpenTracingServerInterceptorWithGlobalTracer(), monitorServerInterceptor(), grpc_recovery.UnaryServerInterceptor(recoveryOpts...))
 	userUnaryInterceptors := g.userUnaryInterceptors
 	unaryInterceptors = append(unaryInterceptors, userUnaryInterceptors...)
 	unaryInterceptors = append(unaryInterceptors, g.extraUnaryInterceptors...)
 
-	streamInterceptors = append(streamInterceptors, rateLimitStreamServerInterceptor(), otgrpc.OpenTracingStreamServerInterceptor(tracer), monitorStreamServerInterceptor(), grpc_recovery.StreamServerInterceptor(recoveryOpts...))
+	streamInterceptors = append(streamInterceptors, rateLimitStreamServerInterceptor(), otgrpc.OpenTracingStreamServerInterceptorWithGlobalTracer(), monitorStreamServerInterceptor(), grpc_recovery.StreamServerInterceptor(recoveryOpts...))
 
 	var opts []grpc.ServerOption
 	opts = append(opts, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaryInterceptors...)))
