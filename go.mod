@@ -15,7 +15,7 @@ require (
 	gitlab.pri.ibanyu.com/middleware/util v1.2.21-0.20201112030807-67e99b989e3b
 	gitlab.pri.ibanyu.com/server/servmonitor/pub.git v0.0.0-20201104035512-0152ae98fa6a
 	gitlab.pri.ibanyu.com/tracing/go-grpc v0.0.0-20201117083632-fd2d4bfc37a7
-	gitlab.pri.ibanyu.com/tracing/go-stdlib v1.0.1-0.20201116034204-1c212862c5cb
+	gitlab.pri.ibanyu.com/tracing/go-stdlib v1.0.1-0.20201117115444-9e64d49279d6
 	google.golang.org/grpc v1.24.0
 )
 
