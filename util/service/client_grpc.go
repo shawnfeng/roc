@@ -10,8 +10,8 @@ import (
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
+	otgrpc "gitlab.pri.ibanyu.com/tracing/go-grpc"
 
-	otgrpc "github.com/opentracing-contrib/go-grpc"
 	"github.com/uber/jaeger-client-go"
 	"google.golang.org/grpc"
 )
@@ -289,13 +289,12 @@ func (m *ClientGrpc) newConn(addr string) (rpcClientConn, error) {
 	fun := "ClientGrpc.newConn-->"
 
 	// 可加入多种拦截器
-	tracer := xtrace.GlobalTracer()
 	opts := []grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithUnaryInterceptor(
-			otgrpc.OpenTracingClientInterceptor(tracer)),
+			otgrpc.OpenTracingClientInterceptorWithGlobalTracer()),
 		grpc.WithStreamInterceptor(
-			otgrpc.OpenTracingStreamClientInterceptor(tracer)),
+			otgrpc.OpenTracingStreamClientInterceptorWithGlobalTracer()),
 	}
 	conn, err := grpc.Dial(addr, opts...)
 	if err != nil {

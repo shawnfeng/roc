@@ -282,6 +282,7 @@ github.com/grpc-ecosystem/grpc-gateway v1.9.0/go.mod h1:vNeuVxBJEsws4ogUvrchl83t
 github.com/grpc-ecosystem/grpc-gateway v1.11.2/go.mod h1:vNeuVxBJEsws4ogUvrchl83t/GYV9WGTSLVdBhOQFDY=
 github.com/grpc-ecosystem/grpc-gateway v1.12.1 h1:zCy2xE9ablevUOrUZc3Dl72Dt+ya2FNAvC2yLYMHzi4=
 github.com/grpc-ecosystem/grpc-gateway v1.12.1/go.mod h1:8XEsbTttt/W+VvjtQhLACqCisSPWTxCZ7sBRjU6iH9c=
+github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645/go.mod h1:6iZfnjpejD4L/4DwD7NryNaJyCQdzwWwH2MWhCA90Kw=
 github.com/hashicorp/consul/api v1.1.0/go.mod h1:VmuI/Lkw1nC05EYQWNKwWGbkg+FbDBtguAZLlVdkD9Q=
 github.com/hashicorp/consul/sdk v0.1.1/go.mod h1:VKf9jXwCTEY1QZP2MOLRhb5i/I/ssyNV1vwHyQBF0x8=
 github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
@@ -633,8 +634,6 @@ gitlab.pri.ibanyu.com/middleware/seaweed v1.1.14 h1:XBzf+YnAOhPg1T0Df4TypvSCrbCL
 gitlab.pri.ibanyu.com/middleware/seaweed v1.1.14/go.mod h1:/jdJeuMOKlxO0+fC18Lrv4xJEchrzyVJdXi1oc5D9oA=
 gitlab.pri.ibanyu.com/middleware/seaweed v1.2.18 h1:sC3GiCTYe4HRsGvjHflNKtFqotB5moNoXdg18b704aM=
 gitlab.pri.ibanyu.com/middleware/seaweed v1.2.18/go.mod h1:nH/CMr3bBuS0xJ2UN1NNE3Q62Zo93VemSKEWURJbwPE=
-gitlab.pri.ibanyu.com/middleware/seaweed v1.2.24-0.20201116103830-57469ae7cc8a h1:sTwtgbRbLUDxQ8wOdE+z1MTjvh3TtP8x99z8GGyAUc0=
-gitlab.pri.ibanyu.com/middleware/seaweed v1.2.24-0.20201116103830-57469ae7cc8a/go.mod h1:RlVSgAWKhDz6dYhB7mXqD9KLiTvtyAS6fiNRTcQOPmI=
 gitlab.pri.ibanyu.com/middleware/seaweed v1.2.24-0.20201116122700-2cd0d0347c47 h1:gDQF12ddAd9HMGui9Wgeqy1y/z2+2rfoo2Y/BPg42SA=
 gitlab.pri.ibanyu.com/middleware/seaweed v1.2.24-0.20201116122700-2cd0d0347c47/go.mod h1:RlVSgAWKhDz6dYhB7mXqD9KLiTvtyAS6fiNRTcQOPmI=
 gitlab.pri.ibanyu.com/middleware/util v1.0.19/go.mod h1:quXdc6vUclNPa1AB1z5eTdlegRmXL+tOOfkMvezxk8k=
@@ -651,6 +650,8 @@ gitlab.pri.ibanyu.com/server/servmonitor/pub.git v0.0.0-20201009092808-c8e422f5a
 gitlab.pri.ibanyu.com/server/servmonitor/pub.git v0.0.0-20201104035512-0152ae98fa6a h1:ZakHhZUMw00G9yrIWC54gnIjCsNwC792MW+gVsmj6oY=
 gitlab.pri.ibanyu.com/server/servmonitor/pub.git v0.0.0-20201104035512-0152ae98fa6a/go.mod h1:GDrkCgCZiACj85PUOb3GQgSItrW45BDvYKZoNW7i1wA=
 gitlab.pri.ibanyu.com/server/userext/pub.git v0.0.0-20200915121947-16dc7ee4f052/go.mod h1:kIVBXW4ZAg8jsIGtN2vJoTSC/CyeHvfYRB3YBclYAbE=
+gitlab.pri.ibanyu.com/tracing/go-grpc v0.0.0-20201117083632-fd2d4bfc37a7 h1:wqHak/5ud5OEwBC2bxRgSudu/ACcW5vgn4a7Ov/KFWU=
+gitlab.pri.ibanyu.com/tracing/go-grpc v0.0.0-20201117083632-fd2d4bfc37a7/go.mod h1:xDd4JwsgKaBhwbrXuh6Khb8nVhU2tzHJb8ujZ1AHsmg=
 gitlab.pri.ibanyu.com/tracing/go-stdlib v1.0.1-0.20201116034204-1c212862c5cb h1:CIF5icZxNFKZQVDhVXqhB+K1hOBxGum3LofENr0xgZE=
 gitlab.pri.ibanyu.com/tracing/go-stdlib v1.0.1-0.20201116034204-1c212862c5cb/go.mod h1:c22Cd1TTV501GgNoTmGSCD7y192kKBhXdgrWA+QGmU0=
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
@@ -732,6 +733,7 @@ golang.org/x/net v0.0.0-20190522155817-f3200d17e092/go.mod h1:HSz+uSET+XFnRR8LxR
 golang.org/x/net v0.0.0-20190603091049-60506f45cf65/go.mod h1:HSz+uSET+XFnRR8LxR5pz3Of3rY3CfYBVs4xY44aLks=
 golang.org/x/net v0.0.0-20190613194153-d28f0bde5980/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
 golang.org/x/net v0.0.0-20190620200207-3b0461eec859/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
+golang.org/x/net v0.0.0-20190921015927-1a5e07d1ff72/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
 golang.org/x/net v0.0.0-20191002035440-2ec189313ef0 h1:2mqDk8w/o6UmeUCu5Qiq2y7iMf6anbx+YA8d1JFoFrs=
 golang.org/x/net v0.0.0-20191002035440-2ec189313ef0/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
 golang.org/x/net v0.0.0-20200226121028-0de0cce0169b/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
@@ -869,6 +871,7 @@ google.golang.org/grpc v1.20.0/go.mod h1:chYK+tFQF0nDUGJgXMSgLCQk3phJEuONr2DCgLD
 google.golang.org/grpc v1.20.1/go.mod h1:10oTOabMzJvdu6/UiuZezV6QK5dSlG84ov/aaiqXj38=
 google.golang.org/grpc v1.21.0/go.mod h1:oYelfM1adQP15Ek0mdvEgi9Df8B9CZIaU1084ijfRaM=
 google.golang.org/grpc v1.21.1/go.mod h1:oYelfM1adQP15Ek0mdvEgi9Df8B9CZIaU1084ijfRaM=
+google.golang.org/grpc v1.23.1/go.mod h1:Y5yQAOtifL1yxbo5wqy6BxZv8vAUGQwXBOALyacEbxg=
 google.golang.org/grpc v1.24.0 h1:vb/1TCsVn3DcJlQ0Gs1yB1pKI6Do2/QNwxdKqmc/b0s=
 google.golang.org/grpc v1.24.0/go.mod h1:XDChyiUovWa60DnaeDeZmSW86xtLtjtZbwvSiRnRtcA=
 google.golang.org/protobuf v0.0.0-20200109180630-ec00e32a8dfd/go.mod h1:DFci5gLYBciE7Vtevhsrf46CRTquxDuWsQurQQe4oz8=
