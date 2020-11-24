@@ -114,6 +114,4 @@ type ServBase interface {
 
 	// wrap context with service context info, such as lane
 	WithControlLaneInfo(ctx context.Context) context.Context
-
-	InitReportLog(reporter Reporter)
 }

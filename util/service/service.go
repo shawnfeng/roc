@@ -22,10 +22,8 @@ import (
 	xmgo "gitlab.pri.ibanyu.com/middleware/seaweed/xmgo/manager"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xnet"
 	xsql "gitlab.pri.ibanyu.com/middleware/seaweed/xsql/manager"
-	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtransport/gen-go/util/thriftutil"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil/sync2"
-	. "gitlab.pri.ibanyu.com/server/servmonitor/pub.git/idl/gen-go/base/servmonitorservice"
 
 	etcd "github.com/coreos/etcd/client"
 )
@@ -108,8 +106,6 @@ type ServBaseV2 struct {
 
 	stop       int32
 	onShutdown func()
-	reporter   Reporter
-	doReport   func(context.Context, *ReportLogReq) error
 
 	muReg    sync.Mutex
 	regInfos map[string]string
@@ -562,18 +558,6 @@ func (m *ServBaseV2) WithControlLaneInfo(ctx context.Context) context.Context {
 	return ctx
 }
 
-func (m *ServBaseV2) InitReportLog(reporter Reporter) {
-	m.reporter = reporter
-	if m.startType != "local" {
-		go func() {
-			for {
-				go m.doReportLog(context.Background())
-				time.Sleep(time.Second * 60)
-			}
-		}()
-	}
-}
-
 func (m *ServBaseV2) createControlWithLaneInfo() *thriftutil.Control {
 	route := thriftutil.NewRoute()
 	route.Group = m.envGroup
@@ -678,41 +662,4 @@ func retryGenSid(client etcd.KeysAPI, path, skey string, try int) (int, error) {
 
 func (m *ServBaseV2) SetStartType(startType string) {
 	m.startType = startType
-}
-
-func (m *ServBaseV2) doReportLog(ctx context.Context) {
-	// 汇报log统计
-	st, logs := xlog.LogStat()
-	group, serviceName := GetGroupAndService()
-	_metricLogCount := GetLogCountMetric()
-	_metricLogCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelType, "LOG_DEBUGCN").Add(float64(st["DEBUG"]))
-	_metricLogCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelType, "LOG_TRACECN").Add(float64(st["TRACE"]))
-	_metricLogCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelType, "LOG_INFOCN").Add(float64(st["INFO"]))
-	_metricLogCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelType, "LOG_WARNCN").Add(float64(st["WARN"]))
-	_metricLogCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelType, "LOG_ERRORCN").Add(float64(st["ERROR"]))
-	servname := fmt.Sprintf("%s/%s", group, serviceName)
-	req := &ReportLogReq{
-		Infos: []*ReportLogInfo{&ReportLogInfo{
-			Servname: servname,
-			Servid:   int32(m.Servid()),
-			Stamp:    st["STAMP"],
-			Cntrace:  st["TRACE"],
-			Cndebug:  st["DEBUG"],
-			Cninfo:   st["INFO"],
-			Cnwarn:   st["WARN"],
-			Cnerror:  st["ERROR"],
-			Cnfatal:  st["FATAL"],
-			Cnpanic:  st["PANIC"],
-			Logs:     logs,
-		}},
-		Ip: m.ServIp(),
-	}
-	err := m.reporter.DoReport(ctx, req)
-	if err != nil {
-		xlog.Warn(ctx, err.Error())
-	}
-}
-
-type Reporter interface {
-	DoReport(context.Context, *ReportLogReq) error
 }
