@@ -663,3 +663,7 @@ func retryGenSid(client etcd.KeysAPI, path, skey string, try int) (int, error) {
 func (m *ServBaseV2) SetStartType(startType string) {
 	m.startType = startType
 }
+
+func (m *ServBaseV2) GetStartType() string {
+	return m.startType
+}

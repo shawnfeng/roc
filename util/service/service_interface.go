@@ -112,6 +112,8 @@ type ServBase interface {
 
 	SetStartType(string)
 
+	GetStartType() string
+
 	// wrap context with service context info, such as lane
 	WithControlLaneInfo(ctx context.Context) context.Context
 }
