@@ -86,7 +86,8 @@ type ServBaseV2 struct {
 	servIp       string
 	copyName     string
 	sessKey      string
-	startType    string
+
+	isLocalRunning bool
 
 	envGroup string
 
@@ -532,7 +533,19 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 	xlog.Infof(ctx, " %s init CrossRegisterCenter end", fun)
 
 	return reg, nil
+}
 
+func NewServBaseV2WithCmdArgs(confEtcd configEtcd, servLocation, skey, envGroup string, sidOffset int, crossRegionIdList []int, args *cmdArgs) (*ServBaseV2, error) {
+	sb, err := NewServBaseV2(confEtcd, servLocation, skey, envGroup, sidOffset, crossRegionIdList)
+	if err != nil {
+		return nil, err
+	}
+
+	if args.startType == START_TYPE_LOCAL {
+		sb.setLocalRunning(true)
+	}
+
+	return sb, nil
 }
 
 func (m *ServBaseV2) isPreEnvGroup() bool {
@@ -660,10 +673,10 @@ func retryGenSid(client etcd.KeysAPI, path, skey string, try int) (int, error) {
 	return -1, fmt.Errorf("gensid error try:%d", try)
 }
 
-func (m *ServBaseV2) SetStartType(startType string) {
-	m.startType = startType
+func (m *ServBaseV2) setLocalRunning(b bool) {
+	m.isLocalRunning = b
 }
 
-func (m *ServBaseV2) GetStartType() string {
-	return m.startType
+func (m *ServBaseV2) IsLocalRunning() bool {
+	return m.isLocalRunning
 }

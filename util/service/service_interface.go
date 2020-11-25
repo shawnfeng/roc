@@ -110,9 +110,8 @@ type ServBase interface {
 	// set app shutdown hook
 	SetOnShutdown(func())
 
-	SetStartType(string)
-
-	GetStartType() string
+	// return true if server is local running
+	IsLocalRunning() bool
 
 	// wrap context with service context info, such as lane
 	WithControlLaneInfo(ctx context.Context) context.Context
