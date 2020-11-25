@@ -192,15 +192,13 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 		return err
 	}
 	xlog.Infof(ctx, "%s new ServBaseV2 start", fun)
-	sb, err := NewServBaseV2(confEtcd, servLoc, sessKey, args.group, args.sidOffset, crossRegionIdList)
+	sb, err := newServBaseV2WithCmdArgs(confEtcd, servLoc, sessKey, args.group, args.sidOffset, crossRegionIdList, args)
 	if err != nil {
 		xlog.Panicf(ctx, "%s init servbase loc: %s key: %s err: %v", fun, servLoc, sessKey, err)
 		return err
 	}
 	m.sbase = sb
 	xlog.Infof(ctx, "%s new ServBaseV2 end", fun)
-
-	m.sbase.SetStartType(args.startType)
 
 	//将ip存储
 	if err := sb.setIp(); err != nil {
@@ -373,7 +371,7 @@ func (m *Server) initProcessor(sb *ServBaseV2, procs map[string]Processor, start
 	}
 
 	// 本地启动不注册至etcd
-	if startType == START_TYPE_LOCAL {
+	if sb.IsLocalRunning() {
 		return nil
 	}
 
