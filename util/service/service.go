@@ -572,7 +572,7 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 	return reg, nil
 }
 
-func NewServBaseV2WithCmdArgs(confEtcd configEtcd, servLocation, skey, envGroup string, sidOffset int, crossRegionIdList []int, args *cmdArgs) (*ServBaseV2, error) {
+func newServBaseV2WithCmdArgs(confEtcd configEtcd, servLocation, skey, envGroup string, sidOffset int, crossRegionIdList []int, args *cmdArgs) (*ServBaseV2, error) {
 	sb, err := NewServBaseV2(confEtcd, servLocation, skey, envGroup, sidOffset, crossRegionIdList)
 	if err != nil {
 		return nil, err
