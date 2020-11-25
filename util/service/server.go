@@ -192,7 +192,7 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 		return err
 	}
 	xlog.Infof(ctx, "%s new ServBaseV2 start", fun)
-	sb, err := NewServBaseV2WithCmdArgs(confEtcd, servLoc, sessKey, args.group, args.sidOffset, crossRegionIdList, args)
+	sb, err := newServBaseV2WithCmdArgs(confEtcd, servLoc, sessKey, args.group, args.sidOffset, crossRegionIdList, args)
 	if err != nil {
 		xlog.Panicf(ctx, "%s init servbase loc: %s key: %s err: %v", fun, servLoc, sessKey, err)
 		return err
