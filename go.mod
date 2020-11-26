@@ -13,8 +13,8 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/uber/jaeger-client-go v2.20.1+incompatible
 	gitlab.pri.ibanyu.com/middleware/dolphin v1.0.6
-	gitlab.pri.ibanyu.com/middleware/seaweed v1.2.24
-	gitlab.pri.ibanyu.com/middleware/util v1.2.1
+	gitlab.pri.ibanyu.com/middleware/seaweed v1.2.30
+	gitlab.pri.ibanyu.com/middleware/util v1.2.21-0.20201112030807-67e99b989e3b
 	gitlab.pri.ibanyu.com/tracing/go-grpc v0.0.0-20201117083632-fd2d4bfc37a7
 	gitlab.pri.ibanyu.com/tracing/go-stdlib v1.0.1-0.20201126030004-a3785d4be9ed
 	google.golang.org/grpc v1.24.0

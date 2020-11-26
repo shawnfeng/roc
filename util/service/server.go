@@ -177,7 +177,11 @@ func (m *Server) initLog(sb *ServBaseV2, args *cmdArgs) error {
 	if ok {
 		logConfig.Log.Level = logLevel
 	}
-	xlog.InitAppLog(logdir, "serv.log", convertLevel(logConfig.Log.Level))
+	extraHeaders := map[string]interface{}{
+		"region": sb.Region(),
+		"lane":   sb.Lane(),
+	}
+	xlog.InitAppLogV2(logdir, "serv.log", convertLevel(logConfig.Log.Level), extraHeaders)
 	xlog.InitStatLog(logdir, "stat.log")
 	xlog.SetStatLogService(args.servLoc)
 	return nil
