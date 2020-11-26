@@ -86,6 +86,7 @@ type ServBaseV2 struct {
 	servIp       string
 	copyName     string
 	sessKey      string
+	region       string // 地区, 与PaaS一致
 
 	isLocalRunning bool
 
@@ -460,6 +461,7 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 	return nil
 }
 
+// Deprecated
 // etcd v2 接口
 func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sidOffset int, crossRegionIdList []int) (*ServBaseV2, error) {
 	fun := "NewServBaseV2 -->"
@@ -540,6 +542,8 @@ func newServBaseV2WithCmdArgs(confEtcd configEtcd, servLocation, skey, envGroup 
 	if err != nil {
 		return nil, err
 	}
+
+	sb.region = args.region
 
 	if args.startType == START_TYPE_LOCAL {
 		sb.setLocalRunning(true)
@@ -679,4 +683,12 @@ func (m *ServBaseV2) setLocalRunning(b bool) {
 
 func (m *ServBaseV2) IsLocalRunning() bool {
 	return m.isLocalRunning
+}
+
+func (m *ServBaseV2) Lane() string {
+	return m.envGroup
+}
+
+func (m *ServBaseV2) Region() string {
+	return m.region
 }

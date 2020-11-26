@@ -75,6 +75,9 @@ type ServBase interface {
 	Servname() string
 	ServIp() string
 	Servid() int
+	Lane() string
+	Region() string
+
 	// 服务副本名称, servename + servid
 	Copyname() string
 
