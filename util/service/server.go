@@ -57,6 +57,7 @@ type cmdArgs struct {
 	model             int
 	startType         string // 启动方式：local - 不注册至etcd
 	crossRegionIdList string
+	region            string
 }
 
 func (m *Server) parseFlag() (*cmdArgs, error) {
@@ -84,6 +85,8 @@ func (m *Server) parseFlag() (*cmdArgs, error) {
 
 	crossRegionIdList := os.Getenv("CROSSREGIONIDLIST")
 
+	region := getRegionFromEnvOrDefault()
+
 	return &cmdArgs{
 		logMaxSize:        logMaxSize,
 		logMaxBackups:     logMaxBackups,
@@ -94,8 +97,8 @@ func (m *Server) parseFlag() (*cmdArgs, error) {
 		group:             group,
 		startType:         startType,
 		crossRegionIdList: crossRegionIdList,
+		region:            region,
 	}, nil
-
 }
 
 func (m *Server) loadDriver(procs map[string]Processor) (map[string]*ServInfo, error) {
@@ -572,6 +575,15 @@ func GetProcessorAddress(processorName string) (addr string) {
 		}
 	}
 	return
+}
+
+func getRegionFromEnvOrDefault() string {
+	region := os.Getenv("REGION")
+	if region == "" {
+		region = "cn"
+	}
+
+	return strings.ToLower(region)
 }
 
 // Test 方便开发人员在本地启动服务、测试，实例信息不会注册到etcd
