@@ -180,6 +180,7 @@ func (m *Server) initLog(sb *ServBaseV2, args *cmdArgs) error {
 	extraHeaders := map[string]interface{}{
 		"region": sb.Region(),
 		"lane":   sb.Lane(),
+		"ip":     sb.ServIp(),
 	}
 	xlog.InitAppLogV2(logdir, "serv.log", convertLevel(logConfig.Log.Level), extraHeaders)
 	xlog.InitStatLog(logdir, "stat.log")
