@@ -120,9 +120,20 @@ func (m *ServBaseV2) isStop() bool {
 
 // Stop server stop
 func (m *ServBaseV2) Stop() {
+	f := "ServBaseV2.Stop -->"
+	ctx := context.Background()
 	m.setStatusToStop()
+	xlog.Infof(ctx, "%s setStatusToStop end", f)
+
+	//延迟清理注册信息,防止新实例还没有完成注册
+	time.Sleep(time.Second * 2)
+
+	xlog.Infof(ctx, "%s clearRegisterInfos start", f)
 	m.clearRegisterInfos()
+	xlog.Infof(ctx, "%s clearRegisterInfos end", f)
+	xlog.Infof(ctx, "%s clearCrossDCRegisterInfos start", f)
 	m.clearCrossDCRegisterInfos()
+	xlog.Infof(ctx, "%s clearCrossDCRegisterInfos end", f)
 	m.onShutdown()
 }
 
@@ -144,9 +155,6 @@ func (m *ServBaseV2) addRegisterInfo(path, regInfo string) {
 
 func (m *ServBaseV2) clearRegisterInfos() {
 	fun := "ServBaseV2.clearRegisterInfos -->"
-
-	//延迟清理注册信息,防止新实例还没有完成注册
-	time.Sleep(time.Second * 2)
 
 	m.muReg.Lock()
 	defer m.muReg.Unlock()
