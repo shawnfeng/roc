@@ -96,8 +96,6 @@ func (m *ServBaseV2) doCrossDCRegister(path, js string, refresh bool) error {
 func (m *ServBaseV2) clearCrossDCRegisterInfos() {
 	fun := "ServBaseV2.clearCrossDCRegisterInfos -->"
 	ctx := context.Background()
-	//延迟清理注册信息,防止新实例还没有完成注册
-	time.Sleep(time.Second * 2)
 
 	m.muReg.Lock()
 	defer m.muReg.Unlock()
