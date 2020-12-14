@@ -118,4 +118,7 @@ type ServBase interface {
 
 	// wrap context with service context info, such as lane
 	WithControlLaneInfo(ctx context.Context) context.Context
+
+	// is stopped
+	IsStopped() bool
 }

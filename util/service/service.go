@@ -700,3 +700,7 @@ func (m *ServBaseV2) Lane() string {
 func (m *ServBaseV2) Region() string {
 	return m.region
 }
+
+func (m *ServBaseV2) IsStopped() bool {
+	return m.isStop()
+}
