@@ -8,6 +8,7 @@ import (
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
+	"github.com/opentracing/opentracing-go"
 	"gitlab.pri.ibanyu.com/middleware/dolphin/rate_limit"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
@@ -123,7 +124,12 @@ func (g *GrpcServer) buildServer() (*grpc.Server, error) {
 	recoveryOpts := []grpc_recovery.Option{
 		grpc_recovery.WithRecoveryHandler(recoveryFunc),
 	}
-	unaryInterceptors = append(unaryInterceptors, rateLimitInterceptor(), otgrpc.OpenTracingServerInterceptorWithGlobalTracer(), monitorServerInterceptor(), grpc_recovery.UnaryServerInterceptor(recoveryOpts...))
+	unaryInterceptors = append(unaryInterceptors,
+		grpc_recovery.UnaryServerInterceptor(recoveryOpts...),
+		otgrpc.OpenTracingServerInterceptorWithGlobalTracer(otgrpc.SpanDecorator(apmSetSpanTagDecorator)),
+		rateLimitInterceptor(),
+		monitorServerInterceptor(),
+	)
 	userUnaryInterceptors := g.userUnaryInterceptors
 	unaryInterceptors = append(unaryInterceptors, userUnaryInterceptors...)
 	unaryInterceptors = append(unaryInterceptors, g.extraUnaryInterceptors...)
@@ -137,6 +143,28 @@ func (g *GrpcServer) buildServer() (*grpc.Server, error) {
 	// 实例化grpc Server
 	server := grpc.NewServer(opts...)
 	return server, nil
+}
+
+func apmSetSpanTagDecorator(ctx context.Context, span opentracing.Span, method string, req, resp interface{}, grpcError error) {
+	var hasError bool
+	if ctx.Err() != nil {
+		span.SetTag("error.ctx", true)
+		hasError = true
+	}
+	if grpcError != nil {
+		span.SetTag("error.grpc", true)
+		hasError = true
+	}
+	if hasError {
+		span.SetTag("error", true)
+	}
+	// set instance info tags
+	sb := GetServBase()
+	if sb != nil {
+		span.SetTag("region", sb.Region())
+		span.SetTag("ip", sb.ServIp())
+		span.SetTag("lane", sb.Lane())
+	}
 }
 
 func convertUnaryInterceptors(interceptors ...UnaryServerInterceptor) []grpc.UnaryServerInterceptor {

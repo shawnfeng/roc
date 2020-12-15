@@ -292,7 +292,7 @@ func (m *ClientGrpc) newConn(addr string) (rpcClientConn, error) {
 	opts := []grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithUnaryInterceptor(
-			otgrpc.OpenTracingClientInterceptorWithGlobalTracer()),
+			otgrpc.OpenTracingClientInterceptorWithGlobalTracer(otgrpc.SpanDecorator(apmSetSpanTagDecorator))),
 		grpc.WithStreamInterceptor(
 			otgrpc.OpenTracingStreamClientInterceptorWithGlobalTracer()),
 	}
