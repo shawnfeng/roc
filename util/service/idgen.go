@@ -27,53 +27,6 @@ type IdGenerator struct {
 	snow     *gosnow.SnowFlake
 }
 
-func (m *IdGenerator) GenSlowId(tp string) (int64, error) {
-	gslow := func(tp string) (*slowid.Slowid, error) {
-		m.mu.Lock()
-		defer m.mu.Unlock()
-
-		s := m.slow[tp]
-		if s == nil {
-			sl, err := initSlowid(m.workerID)
-			if err != nil {
-				return nil, err
-			}
-			m.slow[tp] = sl
-			s = sl
-		}
-		return s, nil
-	}
-
-	s, err := gslow(tp)
-	if err != nil {
-		return 0, err
-	}
-
-	return s.Next()
-}
-
-// GetSlowIdStamp return timestamp part of slow id, will move to idgen service
-func (m *IdGenerator) GetSlowIdStamp(id int64) int64 {
-	return slowid.Since + id>>11
-}
-
-func (m *IdGenerator) GetSlowIdWithStamp(stamp int64) int64 {
-	return (stamp - slowid.Since) << 11
-}
-
-func (m *IdGenerator) GenSnowFlakeId() (int64, error) {
-	id, err := m.snow.Next()
-	return int64(id), err
-}
-
-func (m *IdGenerator) GetSnowFlakeIdStamp(sid int64) int64 {
-	return gosnow.Since + sid>>22
-}
-
-func (m *IdGenerator) GetSnowFlakeIdWithStamp(stamp int64) int64 {
-	return (stamp - gosnow.Since) << 22
-}
-
 func (m *IdGenerator) GenUuid() (string, error) {
 	return sutil.GetUUID()
 }
