@@ -1,14 +1,20 @@
 package rocserv
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/http/httputil"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
+	"gitlab.pri.ibanyu.com/middleware/util/idl/gen-go/util/thriftutil"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
@@ -20,7 +26,13 @@ const (
 	HttpHeaderKeyTraceID = "ipalfish-trace-id"
 
 	WildCharacter = ":"
-	RoutePath     = "req-simple-path"
+
+	RoutePath = "req-simple-path"
+
+	HttpHeaderKeyGroup = "ipalfish-group"
+	HttpHeaderKeyHead  = "ipalfish-head"
+
+	CookieNameGroup = "ipalfish_group"
 )
 
 // HttpServer is the http server, Create an instance of GinServer, by using NewGinServer()
@@ -40,7 +52,7 @@ type HandlerFunc func(*Context)
 func NewHttpServer() *HttpServer {
 	// 实例化gin Server
 	router := gin.New()
-	router.Use(Recovery(), Metric(), Trace())
+	router.Use(Recovery(), InjectFromRequest(), Metric(), Trace())
 
 	return &HttpServer{router}
 }
@@ -144,6 +156,15 @@ func (c *Context) Bind(obj interface{}) error {
 	return c.MustBindWith(obj, b)
 }
 
+func InjectFromRequest() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx := c.Request.Context()
+		ctx = extractThriftUtilContextControlFromRequest(ctx, c.Request)
+		ctx = extractThriftUtilContextHeadFromRequest(ctx, c.Request)
+		c.Request = c.Request.WithContext(ctx)
+	}
+}
+
 // Metric returns a metric middleware
 func Metric() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -242,4 +263,67 @@ func WrapHttpRouter(handle httprouter.Handle) HandlerFunc {
 		}
 		handle(c.Writer, c.Request, params)
 	}
+}
+
+func extractThriftUtilContextControlFromRequest(ctx context.Context, req *http.Request) context.Context {
+	var group string
+	if group = extractRouteGroupFromHost(req); group != "" {
+		return injectRouteGroupToContext(ctx, group)
+	}
+
+	if group = extractRouteGroupFromHeader(req); group != "" {
+		return injectRouteGroupToContext(ctx, group)
+	}
+
+	if group = extractRouteGroupFromCookie(req); group != "" {
+		return injectRouteGroupToContext(ctx, group)
+	}
+
+	return injectRouteGroupToContext(ctx, xcontext.DefaultGroup)
+}
+
+func extractThriftUtilContextHeadFromRequest(ctx context.Context, req *http.Request) context.Context {
+	// NOTE: 如果已经有了就先不覆盖
+	val := ctx.Value(xcontext.ContextKeyHead)
+	if val != nil {
+		return ctx
+	}
+
+	headJsonString := req.Header.Get(HttpHeaderKeyHead)
+	var head thriftutil.Head
+	_ = json.Unmarshal([]byte(headJsonString), &head)
+	ctx = context.WithValue(ctx, xcontext.ContextKeyHead, &head)
+	return ctx
+}
+
+var domainRouteRegexp = regexp.MustCompile(`(?P<group>.+)\.group\..+`)
+
+func extractRouteGroupFromHost(r *http.Request) (group string) {
+	matches := domainRouteRegexp.FindStringSubmatch(r.Host)
+	names := domainRouteRegexp.SubexpNames()
+	for i, _ := range matches {
+		if names[i] == "group" {
+			group = matches[i]
+		}
+	}
+	return
+}
+
+func injectRouteGroupToContext(ctx context.Context, group string) context.Context {
+	control := thriftutil.NewDefaultControl()
+	control.Route.Group = group
+
+	return context.WithValue(ctx, xcontext.ContextKeyControl, control)
+}
+
+func extractRouteGroupFromHeader(r *http.Request) (group string) {
+	return r.Header.Get(HttpHeaderKeyGroup)
+}
+
+func extractRouteGroupFromCookie(r *http.Request) (group string) {
+	ck, err := r.Cookie(CookieNameGroup)
+	if err == nil {
+		group = ck.Value
+	}
+	return
 }
