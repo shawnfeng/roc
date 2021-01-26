@@ -6,6 +6,7 @@ require (
 	github.com/gin-gonic/gin v1.4.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
 	github.com/julienschmidt/httprouter v1.2.0
+	github.com/opentracing/opentracing-go v1.1.0
 	github.com/sdming/gosnow v0.0.0-20130403030620-3a05c415e886
 	github.com/shawnfeng/consistent v1.0.3
 	github.com/shawnfeng/hystrix-go v0.0.0-20190320120533-5e2bc39f173a
