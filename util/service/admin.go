@@ -44,6 +44,10 @@ func (m *backDoorHttp) Driver() (string, interface{}) {
 	//fun := "backDoorHttp.Driver -->"
 
 	router := httprouter.New()
+	backDoorPort := os.Getenv("BACKDOORPORT")
+	if backDoorPort == "" {
+		backDoorPort = "60000"
+	}
 	// 重启
 	router.POST("/backdoor/restart", xhttp.HttpRequestWrapper(FactoryRestart))
 
@@ -53,7 +57,7 @@ func (m *backDoorHttp) Driver() (string, interface{}) {
 	// 获取实例md5值
 	router.GET("/backdoor/md5", xhttp.HttpRequestWrapper(FactoryMD5))
 
-	return "0.0.0.0:60000", router
+	return fmt.Sprintf("0.0.0.0:%s", backDoorPort), router
 }
 
 // ==============================
