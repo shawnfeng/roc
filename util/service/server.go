@@ -189,8 +189,22 @@ func (m *Server) initLog(sb *ServBaseV2, args *cmdArgs) error {
 }
 
 func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) error, procs map[string]Processor) error {
-	ctx := context.Background()
 	fun := "Server.Init -->"
+	if err := m.initServer(fun, confEtcd, args, initfn, procs); err != nil {
+		return err
+	}
+
+	m.awaitSignal(m.sbase)
+	return nil
+}
+
+func (m *Server) InitWithoutAwaitSignal(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) error, procs map[string]Processor) error {
+	fun := "Server.InitWithoutAwaitSignal -->"
+	return m.initServer(fun, confEtcd, args, initfn, procs)
+}
+
+func (m *Server) initServer(fun string, confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) error, procs map[string]Processor) error {
+	ctx := context.Background()
 
 	servLoc := args.servLoc
 	sessKey := args.sessKey
@@ -278,9 +292,6 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 	xlog.Infof(ctx, "%s init metric end", fun)
 
 	xlog.Infof(ctx, "server start success, grpc: [%s], thrift: [%s]", GetProcessorAddress(PROCESSOR_GRPC_PROPERTY_NAME), GetProcessorAddress(PROCESSOR_THRIFT_PROPERTY_NAME))
-
-	m.awaitSignal(sb)
-
 	return nil
 }
 
@@ -306,7 +317,7 @@ func parseCrossRegionIdList(idListStr string) ([]int, error) {
 	return ret, nil
 }
 
-func (m *Server) awaitSignal(sb *ServBaseV2) {
+func (m *Server) awaitSignal(sb ServBase) {
 	c := make(chan os.Signal, 1)
 	ctx := context.Background()
 	signals := []os.Signal{syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGPIPE}
@@ -601,4 +612,17 @@ func Test(etcdAddrs []string, baseLoc, servLoc string, initLogic func(ServBase) 
 		disable:       true,
 	}
 	return server.Init(configEtcd{etcdAddrs, baseLoc}, args, initLogic, nil)
+}
+
+// 用于测试时启动框架, 功能同Test(), 但启动完成后不会阻塞
+func ServeForTest(etcdAddrs []string, baseLoc, servLoc string, initLogic func(ServBase) error) error {
+	args := &cmdArgs{
+		logMaxSize:    0,
+		logMaxBackups: 0,
+		servLoc:       servLoc,
+		sessKey:       "test",
+		logDir:        "console",
+		disable:       true,
+	}
+	return server.InitWithoutAwaitSignal(configEtcd{etcdAddrs, baseLoc}, args, initLogic, nil)
 }
