@@ -611,6 +611,7 @@ func Test(etcdAddrs []string, baseLoc, servLoc string, initLogic func(ServBase) 
 		sessKey:       "test",
 		logDir:        "console",
 		disable:       true,
+		startType:     START_TYPE_LOCAL,
 	}
 	return server.Init(configEtcd{etcdAddrs, baseLoc}, args, initLogic, nil)
 }
@@ -624,6 +625,7 @@ func ServeForTest(etcdAddrs []string, baseLoc, servLoc string, initLogic func(Se
 		sessKey:       "test",
 		logDir:        "console",
 		disable:       true,
+		startType:     START_TYPE_LOCAL,
 	}
 	return server.InitWithoutAwaitSignal(configEtcd{etcdAddrs, baseLoc}, args, initLogic, nil)
 }
