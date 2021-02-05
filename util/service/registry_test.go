@@ -10,6 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
+	"gitlab.pri.ibanyu.com/middleware/util/servbase"
+
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 )
 
@@ -62,4 +66,13 @@ func TestClient(t *testing.T) {
 
 	xlog.Info(ctx, "get test_thrift", s)
 
+}
+
+func TestClientEtcdV2_WatchDeleteAddr(t *testing.T) {
+	cli, err := NewClientLookup(servbase.ETCDS_CLUSTER_0, "roc", "base/bmq")
+	assert.NoError(t, err)
+	delAddr := make(chan string, 10)
+	go cli.WatchDeleteAddr(delAddr)
+	addr := <-delAddr
+	t.Log(addr)
 }

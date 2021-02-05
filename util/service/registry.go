@@ -123,7 +123,7 @@ func NewClientEtcdV2(confEtcd configEtcd, servlocation string) (*ClientEtcdV2, e
 	return cli, nil
 }
 
-func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
+func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, watchData chan *etcd.Response, path string) {
 	fun := "ClientEtcdV2.startWatch -->"
 	ctx := context.Background()
 	for i := 0; ; i++ {
@@ -165,6 +165,9 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
 			xlog.Infof(ctx, "%s next get idx: %d action: %s nodes: %d index: %d after: %d servPath: %s", fun, i, resp.Action, len(resp.Node.Nodes), resp.Index, wop.AfterIndex, path)
 			// 测试发现next获取到的返回，index，重新获取总有问题，触发两次，不确定，为什么？为什么？
 			// 所以这里每次next前使用的afterindex都重新get了
+			if watchData != nil {
+				watchData <- resp
+			}
 		}
 	}
 
@@ -186,7 +189,7 @@ func (m *ClientEtcdV2) watch(path string, handler func(*etcd.Response), d time.D
 			if chg == nil {
 				xlog.Infof(ctx, "%s loop watch new receiver:%s", fun, path)
 				chg = make(chan *etcd.Response)
-				go m.startWatch(chg, path)
+				go m.startWatch(chg, nil, path)
 			}
 
 			r, ok := <-chg
@@ -590,6 +593,41 @@ func (m *ClientEtcdV2) ServPath() string {
 
 func (m *ClientEtcdV2) String() string {
 	return fmt.Sprintf("service_key: %s, service_path: %s", m.servKey, m.servPath)
+}
+
+func (m *ClientEtcdV2) WatchDeleteAddr(delAddr chan string) {
+	fun := "ClientEtcdV2.WatchDeleteAddr -->"
+	chg := make(chan *etcd.Response)
+	watchData := make(chan *etcd.Response)
+	var resp *etcd.Response
+	var err error
+
+	go m.startWatch(chg, watchData, m.servPath)
+	for {
+		select {
+		case resp = <-chg:
+			continue
+		case resp = <-watchData:
+			if resp.Action != "expire" && resp.Action != "delete" {
+				continue
+			}
+			xlog.Infof(context.Background(), "%s watch data expire, resp: %v", fun, resp)
+			if !strings.HasSuffix(resp.Node.Key, BASE_LOC_REG_SERV) {
+				continue
+			}
+			xlog.Infof(context.Background(), "%s is serve expire", fun)
+			var regData RegData
+			err = json.Unmarshal([]byte(resp.PrevNode.Value), &regData)
+			if err != nil {
+				xlog.Warnf(context.Background(), "%s Unmarshal reg data: %s, err: %v", fun, resp.PrevNode.Value, err)
+				continue
+			}
+			for _, info := range regData.Servs {
+				delAddr <- info.Addr
+			}
+		}
+	}
+
 }
 
 // 兼容新旧版本的lane metadata

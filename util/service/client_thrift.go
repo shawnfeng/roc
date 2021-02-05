@@ -50,6 +50,7 @@ func NewClientThriftWithRouterType(cb ClientLookup, processor string, fn func(th
 	// 目前写死值，后期改为动态获取的方式
 	pool := NewClientPool(defaultMaxIdle, defaultMaxActive, ct.newConn, cb.ServKey())
 	ct.pool = pool
+	go updateConnPool(cb, pool)
 	return ct
 }
 
@@ -190,6 +191,30 @@ func (m *ClientThrift) injectServInfo(ctx context.Context, si *ServInfo) context
 	}
 
 	return ctx
+}
+
+func updateConnPool(lookup ClientLookup, pool *ClientPool) {
+	fun := "ClientThrift.updateConnPool -->"
+	changeAddr := make(chan string, 10)
+	go lookup.WatchDeleteAddr(changeAddr)
+	for {
+		select {
+		case addr := <-changeAddr:
+			xlog.Infof(context.Background(), "%s get change addr success", fun)
+			value, ok := pool.clientPool.Load(addr)
+			if !ok {
+				continue
+			}
+			clientPool, ok := value.(*ConnectionPool)
+			if !ok {
+				xlog.Warnf(context.Background(), "%s value to connection pool false, key: %s", fun, addr)
+				continue
+			}
+			pool.clientPool.Delete(addr)
+			clientPool.Close()
+			xlog.Infof(context.Background(), "%s close client pool success, addr: %s", fun, addr)
+		}
+	}
 }
 
 //func (m *ClientThrift) logTraffic(ctx context.Context, si *ServInfo) {
