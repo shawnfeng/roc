@@ -54,8 +54,14 @@ func NewClientGrpcWithRouterType(cb ClientLookup, processor string, capacity int
 	// 目前为写死值，后期改为动态配置获取的方式
 	pool := NewClientPool(defaultMaxIdle, defaultMaxActive, clientGrpc.newConn, cb.ServKey())
 	clientGrpc.pool = pool
-	go updateConnPool(cb, pool)
+	cb.RegisterDeleteAddrHandler(clientGrpc.deleteAddrHandler)
 	return clientGrpc
+}
+
+func (m *ClientGrpc) deleteAddrHandler(addrs []string) {
+	for _, addr := range addrs {
+		updateConnPool(addr, m.pool)
+	}
 }
 
 func NewClientGrpcByConcurrentRouter(cb ClientLookup, processor string, capacity int, fn func(client *grpc.ClientConn) interface{}) *ClientGrpc {

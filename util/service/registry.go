@@ -36,6 +36,7 @@ type servCopyData struct {
 }
 
 type servCopyCollect map[int]*servCopyData
+type deleteAddrHandler func([]string)
 
 type ClientEtcdV2 struct {
 	confEtcd configEtcd
@@ -53,6 +54,9 @@ type ClientEtcdV2 struct {
 	muServlist sync.Mutex
 	servCopy   servCopyCollect
 	servHash   map[string]*consistent.Consistent
+
+	muChangeEvent      sync.Mutex
+	changeEventHandler []deleteAddrHandler
 }
 
 func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string {
@@ -123,7 +127,7 @@ func NewClientEtcdV2(confEtcd configEtcd, servlocation string) (*ClientEtcdV2, e
 	return cli, nil
 }
 
-func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, watchData chan *etcd.Response, path string) {
+func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
 	fun := "ClientEtcdV2.startWatch -->"
 	ctx := context.Background()
 	for i := 0; ; i++ {
@@ -165,9 +169,6 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, watchData chan *etcd.
 			xlog.Infof(ctx, "%s next get idx: %d action: %s nodes: %d index: %d after: %d servPath: %s", fun, i, resp.Action, len(resp.Node.Nodes), resp.Index, wop.AfterIndex, path)
 			// 测试发现next获取到的返回，index，重新获取总有问题，触发两次，不确定，为什么？为什么？
 			// 所以这里每次next前使用的afterindex都重新get了
-			if watchData != nil {
-				watchData <- resp
-			}
 		}
 	}
 
@@ -189,7 +190,7 @@ func (m *ClientEtcdV2) watch(path string, handler func(*etcd.Response), d time.D
 			if chg == nil {
 				xlog.Infof(ctx, "%s loop watch new receiver:%s", fun, path)
 				chg = make(chan *etcd.Response)
-				go m.startWatch(chg, nil, path)
+				go m.startWatch(chg, path)
 			}
 
 			r, ok := <-chg
@@ -328,6 +329,7 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 
 	}
 
+	m.compareAndApplyCopyData(servCopy)
 	m.upServlist(servCopy)
 }
 
@@ -595,39 +597,24 @@ func (m *ClientEtcdV2) String() string {
 	return fmt.Sprintf("service_key: %s, service_path: %s", m.servKey, m.servPath)
 }
 
-func (m *ClientEtcdV2) WatchDeleteAddr(delAddr chan string) {
-	fun := "ClientEtcdV2.WatchDeleteAddr -->"
-	chg := make(chan *etcd.Response)
-	watchData := make(chan *etcd.Response)
-	var resp *etcd.Response
-	var err error
+func (m *ClientEtcdV2) RegisterDeleteAddrHandler(handle deleteAddrHandler) {
+	m.muChangeEvent.Lock()
+	defer m.muChangeEvent.Unlock()
 
-	go m.startWatch(chg, watchData, m.servPath)
-	for {
-		select {
-		case resp = <-chg:
-			continue
-		case resp = <-watchData:
-			if resp.Action != "expire" && resp.Action != "delete" {
-				continue
-			}
-			xlog.Infof(context.Background(), "%s watch data expire, resp: %v", fun, resp)
-			if !strings.HasSuffix(resp.Node.Key, BASE_LOC_REG_SERV) {
-				continue
-			}
-			xlog.Infof(context.Background(), "%s is serve expire", fun)
-			var regData RegData
-			err = json.Unmarshal([]byte(resp.PrevNode.Value), &regData)
-			if err != nil {
-				xlog.Warnf(context.Background(), "%s Unmarshal reg data: %s, err: %v", fun, resp.PrevNode.Value, err)
-				continue
-			}
-			for _, info := range regData.Servs {
-				delAddr <- info.Addr
-			}
-		}
+	m.changeEventHandler = append(m.changeEventHandler, handle)
+}
+
+func (m *ClientEtcdV2) applyDeleteAddr(deleteAddr []string) {
+	for _, handle := range m.getHandlers() {
+		handle(deleteAddr)
 	}
+}
 
+func (m *ClientEtcdV2) getHandlers() []deleteAddrHandler {
+	m.muChangeEvent.Lock()
+	defer m.muChangeEvent.Unlock()
+
+	return m.changeEventHandler
 }
 
 // 兼容新旧版本的lane metadata
@@ -652,4 +639,33 @@ func (s *servCopyData) containsLane(lane string) bool {
 		}
 	}
 	return false
+}
+
+func (m *ClientEtcdV2) compareAndApplyCopyData(servCopy servCopyCollect) {
+	deleteAddr := make([]string, 0)
+	for sid, data := range m.servCopy {
+		if data == nil || data.reg == nil || data.reg.Servs == nil {
+			continue
+		}
+		for procName, info := range data.reg.Servs {
+			// sid在新的servCopy中不存在，认为被删掉，加入info的addr
+			if servCopy[sid] == nil {
+				deleteAddr = append(deleteAddr, info.Addr)
+				continue
+			}
+			if servCopy[sid].reg == nil {
+				deleteAddr = append(deleteAddr, info.Addr)
+				continue
+			}
+			if servCopy[sid].reg.Servs == nil {
+				deleteAddr = append(deleteAddr, info.Addr)
+				continue
+			}
+			// 地址被修改
+			if servCopy[sid].reg.Servs[procName].Addr != info.Addr {
+				deleteAddr = append(deleteAddr, info.Addr)
+			}
+		}
+	}
+	go m.applyDeleteAddr(deleteAddr)
 }

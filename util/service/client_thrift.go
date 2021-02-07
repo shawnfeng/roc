@@ -50,8 +50,14 @@ func NewClientThriftWithRouterType(cb ClientLookup, processor string, fn func(th
 	// 目前写死值，后期改为动态获取的方式
 	pool := NewClientPool(defaultMaxIdle, defaultMaxActive, ct.newConn, cb.ServKey())
 	ct.pool = pool
-	go updateConnPool(cb, pool)
+	cb.RegisterDeleteAddrHandler(ct.deleteAddrHandler)
 	return ct
+}
+
+func (m *ClientThrift) deleteAddrHandler(addrs []string) {
+	for _, addr := range addrs {
+		updateConnPool(addr, m.pool)
+	}
 }
 
 func (m *ClientThrift) route(ctx context.Context, key string) (*ServInfo, rpcClientConn) {
@@ -193,28 +199,23 @@ func (m *ClientThrift) injectServInfo(ctx context.Context, si *ServInfo) context
 	return ctx
 }
 
-func updateConnPool(lookup ClientLookup, pool *ClientPool) {
-	fun := "ClientThrift.updateConnPool -->"
-	changeAddr := make(chan string, 10)
-	go lookup.WatchDeleteAddr(changeAddr)
-	for {
-		select {
-		case addr := <-changeAddr:
-			xlog.Infof(context.Background(), "%s get change addr success", fun)
-			value, ok := pool.clientPool.Load(addr)
-			if !ok {
-				continue
-			}
-			clientPool, ok := value.(*ConnectionPool)
-			if !ok {
-				xlog.Warnf(context.Background(), "%s value to connection pool false, key: %s", fun, addr)
-				continue
-			}
-			pool.clientPool.Delete(addr)
-			clientPool.Close()
-			xlog.Infof(context.Background(), "%s close client pool success, addr: %s", fun, addr)
-		}
+func updateConnPool(addr string, pool *ClientPool) {
+	fun := "updateConnPool -->"
+	xlog.Infof(context.Background(), "%s get change addr success", fun)
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+	value, ok := pool.clientPool.Load(addr)
+	if !ok {
+		return
 	}
+	clientPool, ok := value.(*ConnectionPool)
+	if !ok {
+		xlog.Warnf(context.Background(), "%s value to connection pool false, key: %s", fun, addr)
+		return
+	}
+	pool.clientPool.Delete(addr)
+	clientPool.Close()
+	xlog.Infof(context.Background(), "%s close client pool success, addr: %s", fun, addr)
 }
 
 //func (m *ClientThrift) logTraffic(ctx context.Context, si *ServInfo) {

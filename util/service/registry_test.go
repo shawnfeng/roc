@@ -69,10 +69,17 @@ func TestClient(t *testing.T) {
 }
 
 func TestClientEtcdV2_WatchDeleteAddr(t *testing.T) {
-	cli, err := NewClientLookup(servbase.ETCDS_CLUSTER_0, "roc", "base/bmq")
+	cli, err := NewClientLookup(servbase.ETCDS_CLUSTER_0, "roc", "base/changeboard")
 	assert.NoError(t, err)
-	delAddr := make(chan string, 10)
-	go cli.WatchDeleteAddr(delAddr)
-	addr := <-delAddr
-	t.Log(addr)
+	stop := make(chan struct{})
+	cli.RegisterDeleteAddrHandler(func(strings []string) {
+		fmt.Println(strings)
+		stop <- struct{}{}
+	})
+	<-stop
+	<-stop
+	<-stop
+	<-stop
+	<-stop
+	<-stop
 }

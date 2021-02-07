@@ -8,7 +8,7 @@ type ClientLookup interface {
 	GetAllServAddrWithGroup(group, processor string) []*ServInfo
 	ServKey() string
 	ServPath() string
-	WatchDeleteAddr(delAddr chan string)
+	RegisterDeleteAddrHandler(deleteAddrHandler)
 }
 
 func NewClientLookup(etcdaddrs []string, baseLoc string, servlocation string) (*ClientEtcdV2, error) {
