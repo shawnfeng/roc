@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"google.golang.org/grpc/metadata"
+
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
@@ -22,6 +24,8 @@ const (
 	GRPC ServProtocol = iota
 	THRIFT
 	HTTP
+
+	LaneInfoMetadataKey = "ibanyu-lane-info"
 )
 
 // ClientGrpc client of grpc in adapter
@@ -299,6 +303,7 @@ func (m *ClientGrpc) newConn(addr string) (rpcClientConn, error) {
 		grpc.WithInsecure(),
 		grpc.WithUnaryInterceptor(
 			otgrpc.OpenTracingClientInterceptorWithGlobalTracer(otgrpc.SpanDecorator(apmSetSpanTagDecorator))),
+		grpc.WithUnaryInterceptor(LaneInfoUnaryClientInterceptor()),
 		grpc.WithStreamInterceptor(
 			otgrpc.OpenTracingStreamClientInterceptorWithGlobalTracer()),
 	}
@@ -312,4 +317,22 @@ func (m *ClientGrpc) newConn(addr string) (rpcClientConn, error) {
 		serviceClient: client,
 		conn:          conn,
 	}, nil
+}
+
+func LaneInfoUnaryClientInterceptor() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string,
+		req, reply interface{},
+		cc *grpc.ClientConn,
+		invoker grpc.UnaryInvoker,
+		opts ...grpc.CallOption) error {
+		lane, _ := xcontext.GetControlRouteGroup(ctx)
+		md, ok := metadata.FromOutgoingContext(ctx)
+		if !ok {
+			md = metadata.New(nil)
+		} else {
+			md = md.Copy()
+		}
+		md.Set(LaneInfoMetadataKey, lane)
+		return invoker(metadata.NewOutgoingContext(ctx, md), method, req, reply, cc, opts...)
+	}
 }

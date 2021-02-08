@@ -6,6 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
+
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtransport/gen-go/util/thriftutil"
+
+	"google.golang.org/grpc/metadata"
+
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"github.com/opentracing/opentracing-go"
@@ -129,6 +135,7 @@ func (g *GrpcServer) buildServer() (*grpc.Server, error) {
 		otgrpc.OpenTracingServerInterceptorWithGlobalTracer(otgrpc.SpanDecorator(apmSetSpanTagDecorator)),
 		rateLimitInterceptor(),
 		monitorServerInterceptor(),
+		laneInfoServerInterceptor(),
 	)
 	userUnaryInterceptors := g.userUnaryInterceptors
 	unaryInterceptors = append(unaryInterceptors, userUnaryInterceptors...)
@@ -258,6 +265,30 @@ func monitorStreamServerInterceptor() grpc.StreamServerInterceptor {
 		xlog.Infow(ss.Context(), "", "func", fun, "req", srv, "err", err, "cost", st.Millisecond())
 		_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun).Observe(float64(st.Millisecond()))
 		return err
+	}
+}
+
+func laneInfoServerInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{},
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler) (resp interface{}, err error) {
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			md = metadata.New(nil)
+		}
+		var lane string
+		lanes := md[LaneInfoMetadataKey]
+		if len(lanes) >= 1 {
+			lane = lanes[0]
+		}
+
+		route := thriftutil.NewRoute()
+		route.Group = lane
+		control := thriftutil.NewControl()
+		control.Route = route
+
+		ctx = context.WithValue(ctx, xcontext.ContextKeyControl, control)
+		return handler(ctx, req)
 	}
 }
 
