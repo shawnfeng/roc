@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"google.golang.org/grpc/metadata"
-
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
@@ -16,6 +14,7 @@ import (
 
 	"github.com/uber/jaeger-client-go"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 type ServProtocol int
@@ -25,7 +24,7 @@ const (
 	THRIFT
 	HTTP
 
-	LaneInfoMetadataKey = "ibanyu-lane-info"
+	LaneInfoMetadataKey = "ipalfish-lane-info"
 )
 
 // ClientGrpc client of grpc in adapter
@@ -303,7 +302,8 @@ func (m *ClientGrpc) newConn(addr string) (rpcClientConn, error) {
 		grpc.WithInsecure(),
 		grpc.WithUnaryInterceptor(
 			otgrpc.OpenTracingClientInterceptorWithGlobalTracer(otgrpc.SpanDecorator(apmSetSpanTagDecorator))),
-		grpc.WithUnaryInterceptor(LaneInfoUnaryClientInterceptor()),
+		grpc.WithUnaryInterceptor(
+			LaneInfoUnaryClientInterceptor()),
 		grpc.WithStreamInterceptor(
 			otgrpc.OpenTracingStreamClientInterceptorWithGlobalTracer()),
 	}
