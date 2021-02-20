@@ -643,6 +643,8 @@ func (s *servCopyData) containsLane(lane string) bool {
 
 func (m *ClientEtcdV2) compareAndApplyCopyData(servCopy servCopyCollect) {
 	deleteAddr := make([]string, 0)
+	m.muServlist.Lock()
+	defer m.muServlist.Unlock()
 	for sid, data := range m.servCopy {
 		if data == nil || data.reg == nil || data.reg.Servs == nil {
 			continue

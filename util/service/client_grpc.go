@@ -64,7 +64,7 @@ func NewClientGrpcWithRouterType(cb ClientLookup, processor string, capacity int
 
 func (m *ClientGrpc) deleteAddrHandler(addrs []string) {
 	for _, addr := range addrs {
-		updateConnPool(addr, m.pool)
+		deleteAddrFromConnPool(addr, m.pool)
 	}
 }
 

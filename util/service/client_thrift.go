@@ -56,7 +56,7 @@ func NewClientThriftWithRouterType(cb ClientLookup, processor string, fn func(th
 
 func (m *ClientThrift) deleteAddrHandler(addrs []string) {
 	for _, addr := range addrs {
-		updateConnPool(addr, m.pool)
+		deleteAddrFromConnPool(addr, m.pool)
 	}
 }
 
@@ -199,8 +199,8 @@ func (m *ClientThrift) injectServInfo(ctx context.Context, si *ServInfo) context
 	return ctx
 }
 
-func updateConnPool(addr string, pool *ClientPool) {
-	fun := "updateConnPool -->"
+func deleteAddrFromConnPool(addr string, pool *ClientPool) {
+	fun := "deleteAddrFromConnPool -->"
 	xlog.Infof(context.Background(), "%s get change addr success", fun)
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
