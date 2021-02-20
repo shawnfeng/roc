@@ -36,6 +36,7 @@ type servCopyData struct {
 }
 
 type servCopyCollect map[int]*servCopyData
+type deleteAddrHandler func([]string)
 
 type ClientEtcdV2 struct {
 	confEtcd configEtcd
@@ -53,6 +54,9 @@ type ClientEtcdV2 struct {
 	muServlist sync.Mutex
 	servCopy   servCopyCollect
 	servHash   map[string]*consistent.Consistent
+
+	muChangeEvent      sync.Mutex
+	changeEventHandler []deleteAddrHandler
 }
 
 func checkDistVersion(client etcd.KeysAPI, prefloc, servlocation string) string {
@@ -325,6 +329,7 @@ func (m *ClientEtcdV2) parseResponseV2(r *etcd.Response) {
 
 	}
 
+	m.compareAndApplyCopyData(servCopy)
 	m.upServlist(servCopy)
 }
 
@@ -592,6 +597,26 @@ func (m *ClientEtcdV2) String() string {
 	return fmt.Sprintf("service_key: %s, service_path: %s", m.servKey, m.servPath)
 }
 
+func (m *ClientEtcdV2) RegisterDeleteAddrHandler(handle deleteAddrHandler) {
+	m.muChangeEvent.Lock()
+	defer m.muChangeEvent.Unlock()
+
+	m.changeEventHandler = append(m.changeEventHandler, handle)
+}
+
+func (m *ClientEtcdV2) applyDeleteAddr(deleteAddr []string) {
+	for _, handle := range m.getHandlers() {
+		handle(deleteAddr)
+	}
+}
+
+func (m *ClientEtcdV2) getHandlers() []deleteAddrHandler {
+	m.muChangeEvent.Lock()
+	defer m.muChangeEvent.Unlock()
+
+	return m.changeEventHandler
+}
+
 // 兼容新旧版本的lane metadata
 func (s *servCopyData) containsLane(lane string) bool {
 	if s.reg != nil {
@@ -614,4 +639,35 @@ func (s *servCopyData) containsLane(lane string) bool {
 		}
 	}
 	return false
+}
+
+func (m *ClientEtcdV2) compareAndApplyCopyData(servCopy servCopyCollect) {
+	deleteAddr := make([]string, 0)
+	m.muServlist.Lock()
+	defer m.muServlist.Unlock()
+	for sid, data := range m.servCopy {
+		if data == nil || data.reg == nil || data.reg.Servs == nil {
+			continue
+		}
+		for procName, info := range data.reg.Servs {
+			// sid在新的servCopy中不存在，认为被删掉，加入info的addr
+			if servCopy[sid] == nil {
+				deleteAddr = append(deleteAddr, info.Addr)
+				continue
+			}
+			if servCopy[sid].reg == nil {
+				deleteAddr = append(deleteAddr, info.Addr)
+				continue
+			}
+			if servCopy[sid].reg.Servs == nil {
+				deleteAddr = append(deleteAddr, info.Addr)
+				continue
+			}
+			// 地址被修改
+			if servCopy[sid].reg.Servs[procName].Addr != info.Addr {
+				deleteAddr = append(deleteAddr, info.Addr)
+			}
+		}
+	}
+	go m.applyDeleteAddr(deleteAddr)
 }
