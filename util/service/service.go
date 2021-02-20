@@ -124,6 +124,7 @@ func (m *ServBaseV2) Stop() {
 	ctx := context.Background()
 	m.setStatusToStop()
 	xlog.Infof(ctx, "%s setStatusToStop end", f)
+	go m.onShutdown()
 
 	//延迟清理注册信息,防止新实例还没有完成注册
 	time.Sleep(time.Second * 2)
@@ -134,7 +135,6 @@ func (m *ServBaseV2) Stop() {
 	xlog.Infof(ctx, "%s clearCrossDCRegisterInfos start", f)
 	m.clearCrossDCRegisterInfos()
 	xlog.Infof(ctx, "%s clearCrossDCRegisterInfos end", f)
-	m.onShutdown()
 }
 
 // SetOnShutdown add shutdown hook in app
