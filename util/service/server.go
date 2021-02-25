@@ -571,6 +571,10 @@ func GetServName() (servName string) {
 	return
 }
 
+func ReloadRouter(processor string, driver interface{}) error {
+	return server.reloadRouter(processor, driver)
+}
+
 // GetGroupAndService return group and service name of this service
 func GetGroupAndService() (group, service string) {
 	serviceKey := GetServName()
