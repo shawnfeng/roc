@@ -124,7 +124,11 @@ func (m *ServBaseV2) isStop() bool {
 
 // Stop server stop
 func (m *ServBaseV2) Stop() {
+	f := "ServBaseV2.Stop -->"
+	ctx := context.Background()
 	m.setStatusToStop()
+	xlog.Infof(ctx, "%s setStatusToStop end", f)
+	xlog.Infof(ctx, "%s clearRegisterInfos start", f)
 	m.clearRegisterInfos()
 	m.clearCrossDCRegisterInfos()
 	m.onShutdown()
