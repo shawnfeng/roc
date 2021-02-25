@@ -57,7 +57,7 @@ func (dr *driverBuilder) isDisableContextCancel(ctx context.Context) bool {
 	return use
 }
 
-func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p Processor) (*ServInfo, error) {
+func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p Processor, server *Server) (*ServInfo, error) {
 	fun := "driverBuilder.powerProcessorDriver -> "
 	addr, driver := p.Driver()
 	if driver == nil {
@@ -114,7 +114,7 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 		if disableContextCancel {
 			extraHttpMiddlewares = append(extraHttpMiddlewares, disableContextCancelMiddleware)
 		}
-		sa, err := powerGin(addr, d, extraHttpMiddlewares...)
+		sa, serv, err := powerGin(addr, d, extraHttpMiddlewares...)
 		if err != nil {
 			return nil, err
 		}
@@ -122,6 +122,7 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 			Type: PROCESSOR_GIN,
 			Addr: sa,
 		}
+		server.addServer(n, serv)
 		return servInfo, nil
 
 	case *HttpServer:
@@ -131,7 +132,7 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 		if disableContextCancel {
 			extraHttpMiddlewares = append(extraHttpMiddlewares, disableContextCancelMiddleware)
 		}
-		sa, err := powerGin(addr, d.Engine, extraHttpMiddlewares...)
+		sa, serv, err := powerGin(addr, d.Engine, extraHttpMiddlewares...)
 		if err != nil {
 			return nil, err
 		}
@@ -139,6 +140,7 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 			Type: PROCESSOR_GIN,
 			Addr: sa,
 		}
+		server.addServer(n, serv)
 		return servInfo, nil
 
 	default:
@@ -289,13 +291,13 @@ func powerGrpc(addr string, server *GrpcServer) (string, error) {
 	return laddr, nil
 }
 
-func powerGin(addr string, router *gin.Engine, middlewares ...middleware) (string, error) {
+func powerGin(addr string, router *gin.Engine, middlewares ...middleware) (string, *http.Server, error) {
 	fun := "powerGin -->"
 	ctx := context.Background()
 
 	netListen, laddr, err := listenServAddr(ctx, addr)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	// tracing
@@ -309,7 +311,7 @@ func powerGin(addr string, router *gin.Engine, middlewares ...middleware) (strin
 		}
 	}()
 
-	return laddr, nil
+	return laddr, serv, nil
 }
 
 func reloadRouter(processor string, server interface{}, driver interface{}) error {

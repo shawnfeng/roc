@@ -14,6 +14,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 
 	"gitlab.pri.ibanyu.com/middleware/dolphin/circuit_breaker"
@@ -38,11 +39,16 @@ var server = NewServer()
 // Server ...
 type Server struct {
 	sbase ServBase
+
+	mutex   sync.Mutex
+	servers map[string]interface{}
 }
 
 // NewServer create new server
 func NewServer() *Server {
-	return &Server{}
+	return &Server{
+		servers: make(map[string]interface{}),
+	}
 }
 
 type cmdArgs struct {
@@ -109,7 +115,7 @@ func (m *Server) loadDriver(procs map[string]Processor) (map[string]*ServInfo, e
 
 	for name, processor := range procs {
 		driverBuilder := newDriverBuilder(m.sbase.ConfigCenter())
-		servInfo, err := driverBuilder.powerProcessorDriver(ctx, name, processor)
+		servInfo, err := driverBuilder.powerProcessorDriver(ctx, name, processor, m)
 		if err == errNilDriver {
 			xlog.Infof(ctx, "%s processor: %s no driver, skip", fun, name)
 			continue
@@ -124,6 +130,26 @@ func (m *Server) loadDriver(procs map[string]Processor) (map[string]*ServInfo, e
 	}
 
 	return infos, nil
+}
+
+func (m *Server) addServer(processor string, server interface{}) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	m.servers[processor] = server
+}
+
+func (m *Server) reloadRouter(processor string, driver interface{}) error {
+	//fun := "Server.reloadRouter -->"
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	server, ok := m.servers[processor]
+	if !ok {
+		return fmt.Errorf("processor:%s driver not recognition", processor)
+	}
+
+	return reloadRouter(processor, server, driver)
 }
 
 // Serve handle request and return response
@@ -543,6 +569,10 @@ func GetServName() (servName string) {
 		servName = server.sbase.Servname()
 	}
 	return
+}
+
+func ReloadRouter(processor string, driver interface{}) error {
+	return server.reloadRouter(processor, driver)
 }
 
 // GetGroupAndService return group and service name of this service
