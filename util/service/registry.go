@@ -595,12 +595,9 @@ func (m *ClientEtcdV2) String() string {
 // 兼容新旧版本的lane metadata
 func (s *servCopyData) containsLane(lane string) bool {
 	if s.reg != nil {
-		l, ok := s.reg.GetLane()
-		xlog.Debugf(context.Background(), "containsLane get v2 lane metadata, ok: %v, regInfo: %v, expect: %s, actual: %s", ok, s.reg.Servs, lane, l)
-		if ok {
-			if l == lane {
-				return true
-			}
+		if l, ok := s.reg.GetLane(); ok {
+			xlog.Debugf(context.Background(), "containsLane get v2 lane metadata, ok: %v, regInfo: %v, expect: %s, actual: %s", ok, s.reg.Servs, lane, l)
+			return l == lane
 		}
 	}
 
