@@ -125,9 +125,6 @@ func (m *ServBaseV2) Stop() {
 	m.setStatusToStop()
 	xlog.Infof(ctx, "%s setStatusToStop end", f)
 
-	//延迟清理注册信息,防止新实例还没有完成注册
-	time.Sleep(time.Second * 2)
-
 	xlog.Infof(ctx, "%s clearRegisterInfos start", f)
 	m.clearRegisterInfos()
 	xlog.Infof(ctx, "%s clearRegisterInfos end", f)
