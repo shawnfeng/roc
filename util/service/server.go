@@ -58,10 +58,11 @@ type cmdArgs struct {
 	startType         string // 启动方式：local - 不注册至etcd
 	crossRegionIdList string
 	region            string
+	backdoorPort      string
 }
 
 func (m *Server) parseFlag() (*cmdArgs, error) {
-	var serv, logDir, skey, group, startType string
+	var serv, logDir, skey, group, startType, backdoorPort string
 	var logMaxSize, logMaxBackups, sidOffset int
 	flag.IntVar(&logMaxSize, "logmaxsize", 0, "logMaxSize is the maximum size in megabytes of the log file")
 	flag.IntVar(&logMaxBackups, "logmaxbackups", 0, "logmaxbackups is the maximum number of old log files to retain")
@@ -72,8 +73,13 @@ func (m *Server) parseFlag() (*cmdArgs, error) {
 	flag.StringVar(&group, "group", "", "service group")
 	// 启动方式：local - 不注册至etcd
 	flag.StringVar(&startType, "stype", "", "start up type, local is not register to etcd")
-
+	flag.StringVar(&backdoorPort, "backdoor_port", "", "service backdoor port")
 	flag.Parse()
+
+	// 优先启动参数
+	if backdoorPort == "" {
+		backdoorPort = os.Getenv("BACKDOORPORT")
+	}
 
 	if len(serv) == 0 {
 		return nil, fmt.Errorf("serv args need!")
@@ -98,6 +104,7 @@ func (m *Server) parseFlag() (*cmdArgs, error) {
 		startType:         startType,
 		crossRegionIdList: crossRegionIdList,
 		region:            region,
+		backdoorPort:      backdoorPort,
 	}, nil
 }
 
@@ -242,7 +249,7 @@ func (m *Server) initServer(fun string, confEtcd configEtcd, args *cmdArgs, init
 
 	// NOTE: initBackdoor会启动http服务，但由于health check的http请求不需要追踪，且它是判断服务启动与否的关键，所以initTracer可以放在它之后进行
 	xlog.Infof(ctx, "%s init backdoor start", fun)
-	m.initBackdoor(sb)
+	m.initBackdoor(sb, args)
 	xlog.Infof(ctx, "%s init backdoor end", fun)
 
 	xlog.Infof(ctx, "%s init handleModel start", fun)
@@ -427,11 +434,13 @@ func (m *Server) initTracer(servLoc string) error {
 	return err
 }
 
-func (m *Server) initBackdoor(sb *ServBaseV2) error {
+func (m *Server) initBackdoor(sb *ServBaseV2, args *cmdArgs) error {
 	fun := "Server.initBackdoor -->"
 	ctx := context.Background()
 
-	backdoor := &backDoorHttp{}
+	backdoor := &backDoorHttp{
+		port: args.backdoorPort,
+	}
 	err := backdoor.Init()
 	if err != nil {
 		xlog.Errorf(ctx, "%s init backdoor err: %v", fun, err)
