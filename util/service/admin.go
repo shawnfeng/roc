@@ -19,6 +19,7 @@ import (
 )
 
 type backDoorHttp struct {
+	port string
 }
 
 var (
@@ -44,9 +45,9 @@ func (m *backDoorHttp) Driver() (string, interface{}) {
 	//fun := "backDoorHttp.Driver -->"
 
 	router := httprouter.New()
-	backDoorPort := os.Getenv("BACKDOORPORT")
-	if backDoorPort == "" {
-		backDoorPort = "60000"
+	port := m.port
+	if port == "" {
+		port = "60000"
 	}
 	// 重启
 	router.POST("/backdoor/restart", snetutil.HttpRequestWrapper(FactoryRestart))
@@ -57,7 +58,7 @@ func (m *backDoorHttp) Driver() (string, interface{}) {
 	// 获取实例md5值
 	router.GET("/backdoor/md5", snetutil.HttpRequestWrapper(FactoryMD5))
 
-	return fmt.Sprintf("0.0.0.0:%s", backDoorPort), router
+	return fmt.Sprintf("0.0.0.0:%s", port), router
 }
 
 // ==============================
