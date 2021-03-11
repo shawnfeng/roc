@@ -3,10 +3,11 @@ package rocserv
 import (
 	"context"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xtransport/gen-go/util/thriftutil"
+	"gitlab.pri.ibanyu.com/middleware/util/idl/gen-go/util/thriftutil"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
@@ -134,6 +135,7 @@ func (g *GrpcServer) buildServer() (*grpc.Server, error) {
 		rateLimitInterceptor(),
 		monitorServerInterceptor(),
 		laneInfoServerInterceptor(),
+		headInfoServerInterceptor(),
 	)
 	userUnaryInterceptors := g.userUnaryInterceptors
 	unaryInterceptors = append(unaryInterceptors, userUnaryInterceptors...)
@@ -286,6 +288,36 @@ func laneInfoServerInterceptor() grpc.UnaryServerInterceptor {
 		control.Route = route
 
 		ctx = context.WithValue(ctx, xcontext.ContextKeyControl, control)
+		return handler(ctx, req)
+	}
+}
+
+func headInfoServerInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{},
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler) (resp interface{}, err error) {
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			md = metadata.New(nil)
+		}
+		var hlc, zoneName string
+		var zone int32
+		values := md[xcontext.ContextPropertiesKeyHLC]
+		if len(values) >= 1 {
+			hlc = values[0]
+		}
+		values = md[xcontext.ContextPropertiesKeyZone]
+		if len(values) >= 1 {
+			zoneInt, err := strconv.Atoi(values[0])
+			if err == nil {
+				zone = int32(zoneInt)
+			}
+		}
+		values = md[xcontext.ContextPropertiesKeyZone]
+		if len(values) >= 1 {
+			zoneName = values[0]
+		}
+		ctx = xcontext.SetHeaderPropertiesALL(ctx, hlc, zone, zoneName)
 		return handler(ctx, req)
 	}
 }

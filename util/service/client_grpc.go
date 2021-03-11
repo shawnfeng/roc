@@ -306,6 +306,7 @@ func (m *ClientGrpc) newConn(addr string) (rpcClientConn, error) {
 			LaneInfoUnaryClientInterceptor()),
 		grpc.WithStreamInterceptor(
 			otgrpc.OpenTracingStreamClientInterceptorWithGlobalTracer()),
+		grpc.WithUnaryInterceptor(ContextHeadUnaryClientInterceptor()),
 	}
 	conn, err := grpc.Dial(addr, opts...)
 	if err != nil {
@@ -333,6 +334,35 @@ func LaneInfoUnaryClientInterceptor() grpc.UnaryClientInterceptor {
 			md = md.Copy()
 		}
 		md.Set(LaneInfoMetadataKey, lane)
+		return invoker(metadata.NewOutgoingContext(ctx, md), method, req, reply, cc, opts...)
+	}
+}
+
+func ContextHeadUnaryClientInterceptor() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string,
+		req, reply interface{},
+		cc *grpc.ClientConn,
+		invoker grpc.UnaryInvoker,
+		opts ...grpc.CallOption) error {
+
+		md, ok := metadata.FromOutgoingContext(ctx)
+		if !ok {
+			md = metadata.New(nil)
+		} else {
+			md = md.Copy()
+		}
+		zoneName, ok := xcontext.GetPropertiesZoneName(ctx)
+		if ok {
+			md.Set(xcontext.ContextPropertiesKeyZoneName, zoneName)
+		}
+		hlc, ok := xcontext.GetPropertiesHLC(ctx)
+		if ok {
+			md.Set(xcontext.ContextPropertiesKeyHLC, hlc)
+		}
+		zone, ok := xcontext.GetPropertiesZone(ctx)
+		if ok {
+			md.Set(xcontext.ContextPropertiesKeyZone, fmt.Sprintf("%d", zone))
+		}
 		return invoker(metadata.NewOutgoingContext(ctx, md), method, req, reply, cc, opts...)
 	}
 }
