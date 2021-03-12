@@ -1,7 +1,5 @@
 module github.com/shawnfeng/roc
 
-replace gitlab.pri.ibanyu.com/middleware/util => /Users/yangguang/project/gitlab.pri.ibanyu.com/yangguang8131/util
-
 require (
 	git.apache.org/thrift.git v0.0.0-20150427210205-dc799ca07862
 	github.com/coreos/etcd v3.3.22+incompatible
