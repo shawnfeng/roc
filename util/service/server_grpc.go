@@ -313,7 +313,7 @@ func headInfoServerInterceptor() grpc.UnaryServerInterceptor {
 				zone = int32(zoneInt)
 			}
 		}
-		values = md[xcontext.ContextPropertiesKeyZone]
+		values = md[xcontext.ContextPropertiesKeyZoneName]
 		if len(values) >= 1 {
 			zoneName = values[0]
 		}

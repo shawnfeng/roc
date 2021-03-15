@@ -692,12 +692,16 @@ gitlab.pri.ibanyu.com/middleware/seaweed v1.2.48 h1:iuzGw33X11xD08dY5egCtiJR1+IE
 gitlab.pri.ibanyu.com/middleware/seaweed v1.2.48/go.mod h1:3i6TOrA4npfqjVTam4frWkZfR5CBiut7U8EFsUAeWMI=
 gitlab.pri.ibanyu.com/middleware/util v1.0.19/go.mod h1:quXdc6vUclNPa1AB1z5eTdlegRmXL+tOOfkMvezxk8k=
 gitlab.pri.ibanyu.com/middleware/util v1.0.27/go.mod h1:quXdc6vUclNPa1AB1z5eTdlegRmXL+tOOfkMvezxk8k=
+gitlab.pri.ibanyu.com/middleware/util v1.0.72/go.mod h1:k9JSScZXT7xHl4jHAkipvBCHGEuKwuP8ndef7hlZEQk=
 gitlab.pri.ibanyu.com/middleware/util v1.1.15 h1:0YFPagGT6EZaqIwNFOhdbnayFqEwOk/80AIu4dZXZQY=
 gitlab.pri.ibanyu.com/middleware/util v1.1.15/go.mod h1:nnOSYx2Uxp2xEX07uKk/CepQq26CiCjU20t+rvnPIA0=
 gitlab.pri.ibanyu.com/middleware/util v1.2.1 h1:2zmlhubKSmtGE2tTUddZTA/0ShttXXAmcuv8JDcOK4A=
 gitlab.pri.ibanyu.com/middleware/util v1.2.1/go.mod h1:41GP8uvu7ZPcKAiD5R+4FzD8VpBOqmI9v9Q4zGOIXCw=
+gitlab.pri.ibanyu.com/middleware/util v1.2.4/go.mod h1:TFcc2c61MxJ5khDZzm+HEjqN/PjVPKQu6vVJCwGwQzM=
 gitlab.pri.ibanyu.com/middleware/util v1.2.21-0.20201112030807-67e99b989e3b h1:mGxOptLq3CunBY53HZKsZii8df6NKmUDGXwzQXF90sE=
 gitlab.pri.ibanyu.com/middleware/util v1.2.21-0.20201112030807-67e99b989e3b/go.mod h1:SJ+tj4GmpWsRwBG8qmRVju3zi0OT3H5h6RRE8m6qtXM=
+gitlab.pri.ibanyu.com/middleware/util v1.3.93 h1:udv0t5w8oRL5KHEwGNMcEmLcyWBpSsqDlcBXWxztXm8=
+gitlab.pri.ibanyu.com/middleware/util v1.3.93/go.mod h1:pRHai9GphnHd8ZMke6HXESdaC2wE4DECI/DhYgew16Y=
 gitlab.pri.ibanyu.com/server/curriculum/pub.git v0.0.0-20210201065044-dd1251735d61/go.mod h1:dYWptM7WQAn0LCyU0jLmW9yGV9bpmTdihUthTzAJqkw=
 gitlab.pri.ibanyu.com/server/doorkeeper/pub.git v0.0.0-20200309083800-4021aec87990/go.mod h1:fdeHCCR1BeKY3iYgL8t/X8UEQV/DpxKwGEATG0hTx/k=
 gitlab.pri.ibanyu.com/server/doorkeeper/pub.git v0.0.0-20200920073415-c2f7eef16d91/go.mod h1:fdeHCCR1BeKY3iYgL8t/X8UEQV/DpxKwGEATG0hTx/k=
