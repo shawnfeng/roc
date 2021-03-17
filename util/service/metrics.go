@@ -87,8 +87,8 @@ var (
 	_metricAPIRequestCountV2 = xprom.NewCounter(&xprom.CounterVecOpts{
 		Namespace:  namespacePalfish,
 		Subsystem:  apiType,
-		Name:       "request_count",
-		Help:       "api request count",
+		Name:       "request_count2",
+		Help:       "api request count v2 with retcode",
 		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI, RetCodeType},
 	})
 
@@ -105,9 +105,9 @@ var (
 	_metricAPIRequestTimeV2 = xprom.NewHistogram(&xprom.HistogramVecOpts{
 		Namespace:  namespacePalfish,
 		Subsystem:  apiType,
-		Name:       "request_duration",
+		Name:       "request_duration2",
 		Buckets:    msBuckets,
-		Help:       "api request duration in millisecond",
+		Help:       "api request duration in millisecond v2 with retcode",
 		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI, RetCodeType},
 	})
 
