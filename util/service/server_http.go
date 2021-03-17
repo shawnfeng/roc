@@ -177,8 +177,8 @@ func Metric() gin.HandlerFunc {
 				group, serviceName := GetGroupAndService()
 				retCode := GetRocApiRetCodeOrDefaultHTTP(c)
 				retCodeStr := strconv.Itoa(retCode)
-				_metricAPIRequestCountV2.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun, retCodeStr).Inc()
-				_metricAPIRequestTimeV2.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun, retCodeStr).Observe(float64(dt / time.Millisecond))
+				_metricAPIRequestCountV2.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun, RetCodeType, retCodeStr).Inc()
+				_metricAPIRequestTimeV2.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun, RetCodeType, retCodeStr).Observe(float64(dt / time.Millisecond))
 			}
 		}
 	}
