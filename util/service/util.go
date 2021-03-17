@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil"
@@ -114,4 +115,24 @@ type Logger struct {
 
 func (m *Logger) Printf(format string, items ...interface{}) {
 	xlog.Errorf(context.Background(), format, items...)
+}
+
+const (
+	RocApiRetCode = "roc_api_ret_code"
+
+	RocApiRetCodeOK = 1
+
+	RocApiRetCodeDefault = RocApiRetCodeOK
+)
+
+func GetRocApiRetCodeOrDefaultHTTP(c *gin.Context) int {
+	code := c.GetInt(RocApiRetCode)
+	if code == 0 {
+		return RocApiRetCodeDefault
+	}
+	return code
+}
+
+func SetRocApiRetCodeHTTP(c *gin.Context, code int) {
+	c.Set(RocApiRetCode, code)
 }

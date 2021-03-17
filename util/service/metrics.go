@@ -31,6 +31,8 @@ const (
 	dbType  = "db"
 	rpcType = "rpc"
 
+	RetCodeType = "retcode"
+
 	calleeAddr             = "callee_addr"
 	connectionPoolStatType = "stat_type"
 	confActiveType         = "1" // 配置的可建立连接数
@@ -73,6 +75,7 @@ var (
 		LabelNames: []string{xprom.LabelCallerService, xprom.LabelCalleeService, xprom.LabelCallerEndpoint, xprom.LabelCalleeEndpoint, xprom.LabelCallerServiceID, xprom.LabelCallStatus},
 	})
 
+	// Deprecated, 请使用_metricAPIRequestCountV2
 	_metricAPIRequestCount = xprom.NewCounter(&xprom.CounterVecOpts{
 		Namespace:  namespacePalfish,
 		Subsystem:  apiType,
@@ -81,6 +84,15 @@ var (
 		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI},
 	})
 
+	_metricAPIRequestCountV2 = xprom.NewCounter(&xprom.CounterVecOpts{
+		Namespace:  namespacePalfish,
+		Subsystem:  apiType,
+		Name:       "request_count",
+		Help:       "api request count",
+		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI, RetCodeType},
+	})
+
+	// Deprecated, 请使用_metricAPIRequestTimeV2
 	_metricAPIRequestTime = xprom.NewHistogram(&xprom.HistogramVecOpts{
 		Namespace:  namespacePalfish,
 		Subsystem:  apiType,
@@ -88,6 +100,15 @@ var (
 		Buckets:    msBuckets,
 		Help:       "api request duration in millisecond",
 		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI},
+	})
+
+	_metricAPIRequestTimeV2 = xprom.NewHistogram(&xprom.HistogramVecOpts{
+		Namespace:  namespacePalfish,
+		Subsystem:  apiType,
+		Name:       "request_duration",
+		Buckets:    msBuckets,
+		Help:       "api request duration in millisecond",
+		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI, RetCodeType},
 	})
 
 	// warn log count

@@ -8,6 +8,7 @@ import (
 	"net/http/httputil"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -174,8 +175,10 @@ func Metric() gin.HandlerFunc {
 		if path, exist := c.Get(RoutePath); exist {
 			if fun, ok := path.(string); ok {
 				group, serviceName := GetGroupAndService()
-				_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun).Inc()
-				_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun).Observe(float64(dt / time.Millisecond))
+				retCode := GetRocApiRetCodeOrDefaultHTTP(c)
+				retCodeStr := strconv.Itoa(retCode)
+				_metricAPIRequestCountV2.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun, retCodeStr).Inc()
+				_metricAPIRequestTimeV2.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun, retCodeStr).Observe(float64(dt / time.Millisecond))
 			}
 		}
 	}
