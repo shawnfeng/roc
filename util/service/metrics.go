@@ -31,8 +31,6 @@ const (
 	dbType  = "db"
 	rpcType = "rpc"
 
-	RetCodeType = "retcode"
-
 	calleeAddr             = "callee_addr"
 	connectionPoolStatType = "stat_type"
 	confActiveType         = "1" // 配置的可建立连接数
@@ -75,7 +73,6 @@ var (
 		LabelNames: []string{xprom.LabelCallerService, xprom.LabelCalleeService, xprom.LabelCallerEndpoint, xprom.LabelCalleeEndpoint, xprom.LabelCallerServiceID, xprom.LabelCallStatus},
 	})
 
-	// Deprecated, 请使用_metricAPIRequestCountV2
 	_metricAPIRequestCount = xprom.NewCounter(&xprom.CounterVecOpts{
 		Namespace:  namespacePalfish,
 		Subsystem:  apiType,
@@ -84,15 +81,6 @@ var (
 		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI},
 	})
 
-	_metricAPIRequestCountV2 = xprom.NewCounter(&xprom.CounterVecOpts{
-		Namespace:  namespacePalfish,
-		Subsystem:  apiType,
-		Name:       "request_count2",
-		Help:       "api request count v2 with retcode",
-		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI, RetCodeType},
-	})
-
-	// Deprecated, 请使用_metricAPIRequestTimeV2
 	_metricAPIRequestTime = xprom.NewHistogram(&xprom.HistogramVecOpts{
 		Namespace:  namespacePalfish,
 		Subsystem:  apiType,
@@ -102,13 +90,21 @@ var (
 		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI},
 	})
 
+	_metricAPIRequestCountV2 = xprom.NewCounter(&xprom.CounterVecOpts{
+		Namespace:  namespacePalfish,
+		Subsystem:  apiType,
+		Name:       "request_count2",
+		Help:       "api request count v2 with errcode",
+		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI,xprom.LabelErrCode},
+	})
+
 	_metricAPIRequestTimeV2 = xprom.NewHistogram(&xprom.HistogramVecOpts{
 		Namespace:  namespacePalfish,
 		Subsystem:  apiType,
 		Name:       "request_duration2",
 		Buckets:    msBuckets,
-		Help:       "api request duration in millisecond v2 with retcode",
-		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI, RetCodeType},
+		Help:       "api request duration in millisecond v2 with errcode",
+		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI,xprom.LabelErrCode},
 	})
 
 	// warn log count
@@ -161,6 +157,16 @@ func GetAPIRequestCountMetric() xmetric.Counter {
 // GetAPIRequestTimeMetric export api request time metric
 func GetAPIRequestTimeMetric() xmetric.Histogram {
 	return _metricAPIRequestTime
+}
+
+// GetAPIRequestCountMetricV2 export api request count metricv2
+func GetAPIRequestCountMetricV2() xmetric.Counter {
+	return _metricAPIRequestCountV2
+}
+
+// GetAPIRequestTimeMetricV2 export api request time metricv2
+func GetAPIRequestTimeMetricV2() xmetric.Histogram {
+	return _metricAPIRequestTimeV2
 }
 
 // GetLogCountMetric export log request count metric
