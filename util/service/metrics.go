@@ -161,12 +161,12 @@ func GetAPIRequestTimeMetric() xmetric.Histogram {
 
 // GetAPIRequestCountMetricV2 export api request count metricv2
 func GetAPIRequestCountMetricV2() xmetric.Counter {
-	return _metricAPIRequestCount
+	return _metricAPIRequestCountV2
 }
 
 // GetAPIRequestTimeMetricV2 export api request time metricv2
 func GetAPIRequestTimeMetricV2() xmetric.Histogram {
-	return _metricAPIRequestTime
+	return _metricAPIRequestTimeV2
 }
 
 // GetLogCountMetric export log request count metric
