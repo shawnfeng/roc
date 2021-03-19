@@ -78,7 +78,7 @@ var (
 		Subsystem:  apiType,
 		Name:       "request_count",
 		Help:       "api request count",
-		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI},
+		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI,xprom.LabelErrCode},
 	})
 
 	_metricAPIRequestTime = xprom.NewHistogram(&xprom.HistogramVecOpts{
@@ -87,23 +87,6 @@ var (
 		Name:       "request_duration",
 		Buckets:    msBuckets,
 		Help:       "api request duration in millisecond",
-		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI},
-	})
-
-	_metricAPIRequestCountV2 = xprom.NewCounter(&xprom.CounterVecOpts{
-		Namespace:  namespacePalfish,
-		Subsystem:  apiType,
-		Name:       "request_count2",
-		Help:       "api request count v2 with errcode",
-		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI,xprom.LabelErrCode},
-	})
-
-	_metricAPIRequestTimeV2 = xprom.NewHistogram(&xprom.HistogramVecOpts{
-		Namespace:  namespacePalfish,
-		Subsystem:  apiType,
-		Name:       "request_duration2",
-		Buckets:    msBuckets,
-		Help:       "api request duration in millisecond v2 with errcode",
 		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI,xprom.LabelErrCode},
 	})
 
@@ -150,24 +133,15 @@ func GetSlaRequestTotalMetric() xmetric.Counter {
 }
 
 // GetAPIRequestCountMetric export api request count metric
-func GetAPIRequestCountMetric() xmetric.Counter {
+func GetAPIRequestCountMetricV2() xmetric.Counter {
 	return _metricAPIRequestCount
 }
 
 // GetAPIRequestTimeMetric export api request time metric
-func GetAPIRequestTimeMetric() xmetric.Histogram {
+func GetAPIRequestTimeMetricV2() xmetric.Histogram {
 	return _metricAPIRequestTime
 }
 
-// GetAPIRequestCountMetricV2 export api request count metricv2
-func GetAPIRequestCountMetricV2() xmetric.Counter {
-	return _metricAPIRequestCountV2
-}
-
-// GetAPIRequestTimeMetricV2 export api request time metricv2
-func GetAPIRequestTimeMetricV2() xmetric.Histogram {
-	return _metricAPIRequestTimeV2
-}
 
 // GetLogCountMetric export log request count metric
 func GetLogCountMetric() xmetric.Counter {
