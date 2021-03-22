@@ -78,7 +78,7 @@ var (
 		Subsystem:  apiType,
 		Name:       "request_count",
 		Help:       "api request count",
-		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI},
+		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI,xprom.LabelErrCode},
 	})
 
 	_metricAPIRequestTime = xprom.NewHistogram(&xprom.HistogramVecOpts{
@@ -87,7 +87,7 @@ var (
 		Name:       "request_duration",
 		Buckets:    msBuckets,
 		Help:       "api request duration in millisecond",
-		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI},
+		LabelNames: []string{xprom.LabelGroupName, xprom.LabelServiceName, xprom.LabelAPI,xprom.LabelErrCode},
 	})
 
 	// warn log count
@@ -133,14 +133,15 @@ func GetSlaRequestTotalMetric() xmetric.Counter {
 }
 
 // GetAPIRequestCountMetric export api request count metric
-func GetAPIRequestCountMetric() xmetric.Counter {
+func GetAPIRequestCountMetricV2() xmetric.Counter {
 	return _metricAPIRequestCount
 }
 
 // GetAPIRequestTimeMetric export api request time metric
-func GetAPIRequestTimeMetric() xmetric.Histogram {
+func GetAPIRequestTimeMetricV2() xmetric.Histogram {
 	return _metricAPIRequestTime
 }
+
 
 // GetLogCountMetric export log request count metric
 func GetLogCountMetric() xmetric.Counter {
