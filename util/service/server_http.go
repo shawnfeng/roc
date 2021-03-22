@@ -174,8 +174,9 @@ func Metric() gin.HandlerFunc {
 		if path, exist := c.Get(RoutePath); exist {
 			if fun, ok := path.(string); ok {
 				group, serviceName := GetGroupAndService()
-				_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun).Inc()
-				_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun).Observe(float64(dt / time.Millisecond))
+				//TODO 先做兼容，后续再补上
+				_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun, xprom.LabelErrCode, "1").Inc()
+				_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun, xprom.LabelErrCode, "1").Observe(float64(dt / time.Millisecond))
 			}
 		}
 	}
