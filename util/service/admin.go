@@ -71,9 +71,13 @@ func FactoryRestart() snetutil.HandleRequest {
 
 func (m *Restart) Handle(r *snetutil.HttpRequest) snetutil.HttpResponse {
 	xlog.Infof(context.Background(), "RECEIVE RESTART COMMAND")
-	server.sbase.Stop()
-	os.Exit(1)
-	// 这里的代码执行不到了，因为之前已经退出了
+	// 延迟退出, 保证接口正常返回
+	go func() {
+		time.Sleep(1 * time.Second)
+		server.sbase.Stop()
+		os.Exit(1)
+	}()
+
 	return snetutil.NewHttpRespString(200, "{}")
 }
 
