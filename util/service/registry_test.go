@@ -7,9 +7,12 @@ package rocserv
 import (
 	"context"
 	"fmt"
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
+	"gitlab.pri.ibanyu.com/middleware/util/servbase"
 )
 
 func TestClient(t *testing.T) {
@@ -61,4 +64,16 @@ func TestClient(t *testing.T) {
 
 	xlog.Info(ctx, "get test_thrift", s)
 
+}
+
+func TestClientEtcdV2_WatchDeleteAddr(t *testing.T) {
+	cli, err := NewClientLookup(servbase.ETCDS_CLUSTER_0, "roc", "base/changeboard")
+	assert.NoError(t, err)
+	stop := make(chan struct{})
+	cli.RegisterDeleteAddrHandler(func(strings []string) {
+		fmt.Println(strings)
+		stop <- struct{}{}
+	})
+	<-stop
+	<-stop
 }

@@ -56,6 +56,7 @@ func NewClientGrpcWithRouterType(cb ClientLookup, processor string, capacity int
 	}
 	// 目前为写死值，后期改为动态配置获取的方式
 	pool := NewClientPool(defaultMaxIdle, defaultMaxActive, clientGrpc.newConn, cb.ServKey())
+	cb.RegisterDeleteAddrHandler(clientGrpc.deleteAddrHandler)
 	clientGrpc.pool = pool
 
 	return clientGrpc
@@ -311,6 +312,12 @@ func (m *ClientGrpc) newConn(addr string) (rpcClientConn, error) {
 		serviceClient: client,
 		conn:          conn,
 	}, nil
+}
+
+func (m *ClientGrpc) deleteAddrHandler(addrs []string) {
+	for _, addr := range addrs {
+		deleteAddrFromConnPool(addr, m.pool)
+	}
 }
 
 func LaneInfoUnaryClientInterceptor() grpc.UnaryClientInterceptor {

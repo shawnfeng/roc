@@ -50,6 +50,7 @@ func NewClientThriftWithRouterType(cb ClientLookup, processor string, fn func(th
 	// 目前写死值，后期改为动态获取的方式
 	pool := NewClientPool(defaultMaxIdle, defaultMaxActive, ct.newConn, cb.ServKey())
 	ct.pool = pool
+	cb.RegisterDeleteAddrHandler(ct.deleteAddrHandler)
 	return ct
 }
 
@@ -192,6 +193,25 @@ func (m *ClientThrift) injectServInfo(ctx context.Context, si *ServInfo) context
 	return ctx
 }
 
+func deleteAddrFromConnPool(addr string, pool *ClientPool) {
+	fun := "deleteAddrFromConnPool -->"
+	xlog.Infof(context.Background(), "%s get change addr success", fun)
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+	value, ok := pool.clientPool.Load(addr)
+	if !ok {
+		return
+	}
+	clientPool, ok := value.(*ConnectionPool)
+	if !ok {
+		xlog.Warnf(context.Background(), "%s value to connection pool false, key: %s", fun, addr)
+		return
+	}
+	pool.clientPool.Delete(addr)
+	clientPool.Close()
+	xlog.Infof(context.Background(), "%s close client pool success, addr: %s", fun, addr)
+}
+
 //func (m *ClientThrift) logTraffic(ctx context.Context, si *ServInfo) {
 //	kv := make(map[string]interface{})
 //	for k, v := range trafficKVFromContext(ctx) {
@@ -255,4 +275,10 @@ func (m *ClientThrift) newConn(addr string) (rpcClientConn, error) {
 		trans:         useTransport,
 		serviceClient: m.fnFactory(useTransport, protocolFactory),
 	}, nil
+}
+
+func (m *ClientThrift) deleteAddrHandler(addrs []string) {
+	for _, addr := range addrs {
+		deleteAddrFromConnPool(addr, m.pool)
+	}
 }

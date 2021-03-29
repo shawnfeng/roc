@@ -80,6 +80,9 @@ func (cp *ConnectionPool) stat() {
 		for !cp.closed.Get() {
 			select {
 			case <-tickC:
+				if cp.closed.Get() {
+					return
+				}
 				confActive, confIdle, active, idle := cp.connections.Stat()
 				xlog.Infof(context.Background(), "caller: %s, callee: %s, callee_addr: %s, conf_active: %d, conf_idle: %d, active: %d, idle: %d", GetServName(), cp.calleeServiceKey, cp.addr, confActive, confIdle, active, idle)
 				group, service := GetGroupAndService()
