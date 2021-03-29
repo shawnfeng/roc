@@ -16,7 +16,7 @@ func TestIt(t *testing.T) {
 	//skey = "beauty"
 	var sb ServBase
 	var err error
-	sb, err = NewServBaseV2(configEtcd{etcds, "/roc"}, "niubi/fuck", skey, "", 0)
+	sb, err = NewServBaseV2(configEtcd{etcds, "/roc"}, "niubi/fuck", skey, "", 0, nil)
 
 	if err != nil {
 		t.Errorf("create err:%s", err)
@@ -24,21 +24,6 @@ func TestIt(t *testing.T) {
 	}
 
 	log.Println(sb)
-
-	sfid, err := sb.GenSnowFlakeId()
-	if err != nil {
-		t.Errorf("snow id err:%s", err)
-		return
-	}
-
-	log.Println(sfid)
-
-	log.Println(sb.GenUuid())
-	log.Println(sb.GenUuidMd5())
-	log.Println(sb.GenUuidSha1())
-
-	dr := sb.Dbrouter()
-	log.Println(dr)
 
 	type TConf2 struct {
 		Uname  string

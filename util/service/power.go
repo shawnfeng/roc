@@ -64,7 +64,7 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 		return nil, errNilDriver
 	}
 
-	xlog.Infof(ctx, "%s processor: %s type: %s addr: %s", fun, reflect.TypeOf(driver), addr)
+	xlog.Infof(ctx, "%s processor: %s type: %s addr: %s", fun, n, reflect.TypeOf(driver), addr)
 
 	switch d := driver.(type) {
 	case *httprouter.Router:
