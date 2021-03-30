@@ -162,8 +162,6 @@ func InjectFromRequest() gin.HandlerFunc {
 		ctx := c.Request.Context()
 		ctx = extractThriftUtilContextControlFromRequest(ctx, c.Request)
 		ctx = extractThriftUtilContextHeadFromRequest(ctx, c.Request)
-		ctx = contextWithErrCode(ctx,1)
-
 		c.Request = c.Request.WithContext(ctx)
 	}
 }
@@ -171,11 +169,15 @@ func InjectFromRequest() gin.HandlerFunc {
 // Metric returns a metric middleware
 func Metric() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		ctx := c.Request.Context()
+		ctx = contextWithErrCode(ctx,1)
+		c.Request = c.Request.WithContext(ctx)
+
 		now := time.Now()
 		c.Next()
 		dt := time.Since(now)
-		errCode := getErrCodeFromContext(c.Request.Context())
 
+		errCode := getErrCodeFromContext(c.Request.Context())
 		if path, exist := c.Get(RoutePath); exist {
 			if fun, ok := path.(string); ok {
 				group, serviceName := GetGroupAndService()
