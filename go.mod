@@ -9,10 +9,10 @@ require (
 	github.com/julienschmidt/httprouter v1.2.0
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/shawnfeng/consistent v1.0.3
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.7.0
 	github.com/uber/jaeger-client-go v2.20.1+incompatible
 	gitlab.pri.ibanyu.com/middleware/dolphin v1.0.6
-	gitlab.pri.ibanyu.com/middleware/seaweed v1.2.48
+	gitlab.pri.ibanyu.com/middleware/seaweed v1.2.51
 	gitlab.pri.ibanyu.com/middleware/util v1.3.93
 	gitlab.pri.ibanyu.com/server/servmonitor/pub.git v0.0.0-20201126101549-2540f6a10b42
 	gitlab.pri.ibanyu.com/tracing/go-grpc v0.0.0-20201117083632-fd2d4bfc37a7
