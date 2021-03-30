@@ -185,10 +185,14 @@ func (m *ClientGrpc) RpcWithContextV2(ctx context.Context, hashKey string, fnrpc
 }
 
 func (m *ClientGrpc) doWithContext(ctx context.Context, hashKey, funcName string, fnrpc func(context.Context, interface{}) error) error {
+	var err error
 	si, rc := m.route(ctx, hashKey)
 	if rc == nil {
 		return fmt.Errorf("not find grpc service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
 	}
+	defer func() {
+		m.pool.Put(si.Addr, rc, err)
+	}()
 
 	ctx = m.injectServInfo(ctx, si)
 
@@ -199,7 +203,6 @@ func (m *ClientGrpc) doWithContext(ctx context.Context, hashKey, funcName string
 		return m.rpcWithContext(ctx, si, rc, fnrpc)
 	}
 
-	var err error
 	st := xtime.NewTimeStat()
 	defer func() {
 		dur := st.Duration()
@@ -220,7 +223,6 @@ func (m *ClientGrpc) rpc(si *ServInfo, rc rpcClientConn, fnrpc func(interface{})
 func (m *ClientGrpc) rpcWithContext(ctx context.Context, si *ServInfo, rc rpcClientConn, fnrpc func(context.Context, interface{}) error) error {
 	c := rc.GetServiceClient()
 	err := fnrpc(ctx, c)
-	m.pool.Put(si.Addr, rc, err)
 	return err
 }
 
