@@ -127,10 +127,14 @@ func (m *ClientThrift) RpcWithContextV2(ctx context.Context, hashKey string, tim
 }
 
 func (m *ClientThrift) doWithContext(ctx context.Context, hashKey, funcName string, timeout time.Duration, fnrpc func(context.Context, interface{}) error) error {
+	var err error
 	si, rc := m.route(ctx, hashKey)
 	if rc == nil {
 		return fmt.Errorf("not find thrift service:%s processor:%s", m.clientLookup.ServPath(), m.processor)
 	}
+	defer func() {
+		m.pool.Put(si.Addr, rc, err)
+	}()
 
 	ctx = m.injectServInfo(ctx, si)
 
@@ -141,7 +145,6 @@ func (m *ClientThrift) doWithContext(ctx context.Context, hashKey, funcName stri
 		return m.rpcWithContext(ctx, si, rc, timeout, fnrpc)
 	}
 
-	var err error
 	st := xtime.NewTimeStat()
 	defer func() {
 		dur := st.Duration()
@@ -166,7 +169,6 @@ func (m *ClientThrift) rpcWithContext(ctx context.Context, si *ServInfo, rc rpcC
 	c := rc.GetServiceClient()
 
 	err := fnrpc(ctx, c)
-	m.pool.Put(si.Addr, rc, err)
 	return err
 }
 
