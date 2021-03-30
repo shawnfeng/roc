@@ -8,6 +8,7 @@ import (
 	"net/http/httputil"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -161,6 +162,8 @@ func InjectFromRequest() gin.HandlerFunc {
 		ctx := c.Request.Context()
 		ctx = extractThriftUtilContextControlFromRequest(ctx, c.Request)
 		ctx = extractThriftUtilContextHeadFromRequest(ctx, c.Request)
+		ctx = contextWithErrCode(ctx,1)
+
 		c.Request = c.Request.WithContext(ctx)
 	}
 }
@@ -171,12 +174,13 @@ func Metric() gin.HandlerFunc {
 		now := time.Now()
 		c.Next()
 		dt := time.Since(now)
+		errCode := getErrCodeFromContext(c.Request.Context())
+
 		if path, exist := c.Get(RoutePath); exist {
 			if fun, ok := path.(string); ok {
 				group, serviceName := GetGroupAndService()
-				//TODO 先做兼容，后续再补上
-				_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun, xprom.LabelErrCode, "1").Inc()
-				_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun, xprom.LabelErrCode, "1").Observe(float64(dt / time.Millisecond))
+				_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun, xprom.LabelErrCode, strconv.Itoa(errCode)).Inc()
+				_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun, xprom.LabelErrCode, strconv.Itoa(errCode)).Observe(float64(dt / time.Millisecond))
 			}
 		}
 	}
@@ -327,4 +331,36 @@ func extractRouteGroupFromCookie(r *http.Request) (group string) {
 		group = ck.Value
 	}
 	return
+}
+
+type ErrCode struct {
+	int
+}
+
+const ErrCodeKey = "ErrCode"
+
+func ContextSetErrCode(ctx context.Context, errCode int) {
+	errCodeContext, ok := ctx.Value(ErrCodeKey).(*ErrCode)
+	if !ok {
+		return
+	}
+	errCodeContext.int = errCode
+	if span := xtrace.SpanFromContext(ctx); span != nil {
+		span.SetTag("errcode", errCode)
+	}
+}
+
+func contextWithErrCode(ctx context.Context, errCode int) context.Context {
+	if span := xtrace.SpanFromContext(ctx); span != nil {
+		span.SetTag("errcode", errCode)
+	}
+	return context.WithValue(ctx, ErrCodeKey, &ErrCode{errCode})
+}
+
+func getErrCodeFromContext(ctx context.Context) int {
+	errCode, ok := ctx.Value(ErrCodeKey).(*ErrCode)
+	if !ok {
+		return 1
+	}
+	return errCode.int
 }
