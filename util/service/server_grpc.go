@@ -2,6 +2,7 @@ package rocserv
 
 import (
 	"context"
+	"errors"
 	"runtime"
 	"strings"
 	"time"
@@ -23,6 +24,13 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
+
+const logRequestKey = "log_request"
+
+type printBodyMethod struct {
+	LogRequestMethodList   []string `json:"log_request_method_list" properties:"log_request_method_list"`
+	NoLogRequestMethodList []string `json:"no_log_request_method_list" properties:"no_log_request_method_list"`
+}
 
 type GrpcServer struct {
 	userUnaryInterceptors  []grpc.UnaryServerInterceptor
@@ -226,7 +234,11 @@ func monitorServerInterceptor() grpc.UnaryServerInterceptor {
 		_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun, xprom.LabelErrCode, "1").Inc()
 		st := xtime.NewTimeStat()
 		resp, err = handler(ctx, req)
-		xlog.Infow(ctx, "", "func", fun, "req", req, "err", err, "cost", st.Millisecond())
+		if shouldLogRequest(info.FullMethod) {
+			xlog.Infow(ctx, "", "func", fun, "req", req, "err", err, "cost", st.Millisecond())
+		} else {
+			xlog.Infow(ctx, "", "func", fun, "err", err, "cost", st.Millisecond())
+		}
 		_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun, xprom.LabelErrCode, "1").Observe(float64(st.Millisecond()))
 		return resp, err
 	}
@@ -262,7 +274,11 @@ func monitorStreamServerInterceptor() grpc.StreamServerInterceptor {
 		_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun, xprom.LabelErrCode, "1").Inc()
 		st := xtime.NewTimeStat()
 		err := handler(srv, ss)
-		xlog.Infow(ss.Context(), "", "func", fun, "req", srv, "err", err, "cost", st.Millisecond())
+		if shouldLogRequest(info.FullMethod) {
+			xlog.Infow(ss.Context(), "", "func", fun, "req", srv, "err", err, "cost", st.Millisecond())
+		} else {
+			xlog.Infow(ss.Context(), "", "func", fun, "err", err, "cost", st.Millisecond())
+		}
 		_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun, xprom.LabelErrCode, "1").Observe(float64(st.Millisecond()))
 		return err
 	}
@@ -299,4 +315,52 @@ func recoveryFunc(p interface{}) (err error) {
 	buf = buf[:runtime.Stack(buf, false)]
 	xlog.Errorf(ctx, "%v catch panic, stack: %s", p, string(buf))
 	return status.Errorf(codes.Internal, "panic triggered: %v", p)
+}
+
+func shouldLogRequest(fullMethod string) bool {
+	// 默认打印
+	methodName, err := getMethodName(fullMethod)
+	if err != nil {
+		return true
+	}
+	center := GetConfigCenter()
+	printBodyMethod := printBodyMethod{}
+
+	// 方法配置
+	_ = center.Unmarshal(context.Background(), &printBodyMethod)
+	// 不打印的优先级更高
+	if methodInList(methodName, printBodyMethod.NoLogRequestMethodList) {
+		return false
+	}
+	if methodInList(methodName, printBodyMethod.LogRequestMethodList) {
+		return true
+	}
+
+	// 全局配置
+	isPrint, ok := center.GetBool(context.Background(), logRequestKey)
+	if !ok {
+		// 默认输出
+		return true
+	}
+	return isPrint
+}
+
+// FullMethod is the full RPC method string, i.e., /package.service/method
+func getMethodName(fullMethod string) (string, error) {
+	arr := strings.Split(fullMethod, "/")
+	if len(arr) < 3 {
+		return "", errors.New("full method is invalid")
+	}
+	// 根据格式/package.service/method，切割后，取method
+	return arr[2], nil
+}
+
+// 方法是否在列表中
+func methodInList(name string, list []string) bool {
+	for _, l := range list {
+		if name == l {
+			return true
+		}
+	}
+	return false
 }
