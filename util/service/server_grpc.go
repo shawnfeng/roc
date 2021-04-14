@@ -25,11 +25,11 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const printRequestBodyKey = "print_body"
+const logRequestKey = "log_request"
 
 type printBodyMethod struct {
-	PrintMethodList   []string `json:"print_method_list" properties:"print_method_list"`
-	NoPrintMethodList []string `json:"no_print_method_list" properties:"no_print_method_list"`
+	LogRequestMethodList   []string `json:"print_method_list" properties:"log_request_method_list"`
+	NoLogRequestMethodList []string `json:"no_log_request_method_list" properties:"no_log_request_method_list"`
 }
 
 type GrpcServer struct {
@@ -234,7 +234,7 @@ func monitorServerInterceptor() grpc.UnaryServerInterceptor {
 		_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun, xprom.LabelErrCode, "1").Inc()
 		st := xtime.NewTimeStat()
 		resp, err = handler(ctx, req)
-		if isPrintRequestBody(info.FullMethod) {
+		if shouldLogRequest(info.FullMethod) {
 			xlog.Infow(ctx, "", "func", fun, "req", req, "err", err, "cost", st.Millisecond())
 		} else {
 			xlog.Infow(ctx, "", "func", fun, "err", err, "cost", st.Millisecond())
@@ -274,7 +274,7 @@ func monitorStreamServerInterceptor() grpc.StreamServerInterceptor {
 		_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, service, xprom.LabelAPI, fun, xprom.LabelErrCode, "1").Inc()
 		st := xtime.NewTimeStat()
 		err := handler(srv, ss)
-		if isPrintRequestBody(info.FullMethod) {
+		if shouldLogRequest(info.FullMethod) {
 			xlog.Infow(ss.Context(), "", "func", fun, "req", srv, "err", err, "cost", st.Millisecond())
 		} else {
 			xlog.Infow(ss.Context(), "", "func", fun, "err", err, "cost", st.Millisecond())
@@ -317,7 +317,7 @@ func recoveryFunc(p interface{}) (err error) {
 	return status.Errorf(codes.Internal, "panic triggered: %v", p)
 }
 
-func isPrintRequestBody(fullMethod string) bool {
+func shouldLogRequest(fullMethod string) bool {
 	// 默认打印
 	methodName, err := getMethodName(fullMethod)
 	if err != nil {
@@ -329,15 +329,15 @@ func isPrintRequestBody(fullMethod string) bool {
 	// 方法配置
 	_ = center.Unmarshal(context.Background(), &printBodyMethod)
 	// 不打印的优先级更高
-	if methodInList(methodName, printBodyMethod.NoPrintMethodList) {
+	if methodInList(methodName, printBodyMethod.NoLogRequestMethodList) {
 		return false
 	}
-	if methodInList(methodName, printBodyMethod.PrintMethodList) {
+	if methodInList(methodName, printBodyMethod.LogRequestMethodList) {
 		return true
 	}
 
 	// 全局配置
-	isPrint, ok := center.GetBool(context.Background(), printRequestBodyKey)
+	isPrint, ok := center.GetBool(context.Background(), logRequestKey)
 	if !ok {
 		// 默认输出
 		return true
@@ -351,6 +351,7 @@ func getMethodName(fullMethod string) (string, error) {
 	if len(arr) < 3 {
 		return "", errors.New("full method is invalid")
 	}
+	// 根据格式/package.service/method，切割后，取method
 	return arr[2], nil
 }
 
