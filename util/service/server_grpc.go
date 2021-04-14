@@ -28,7 +28,7 @@ import (
 const logRequestKey = "log_request"
 
 type printBodyMethod struct {
-	LogRequestMethodList   []string `json:"print_method_list" properties:"log_request_method_list"`
+	LogRequestMethodList   []string `json:"log_request_method_list" properties:"log_request_method_list"`
 	NoLogRequestMethodList []string `json:"no_log_request_method_list" properties:"no_log_request_method_list"`
 }
 
