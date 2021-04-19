@@ -17,6 +17,7 @@ type ServInfo struct {
 	Addr   string `json:"addr"`
 	Servid int    `json:"-"`
 	//Processor string    `json:"processor"`
+	IDC string `json:"idc,omitempty"`
 }
 
 func (m *ServInfo) String() string {

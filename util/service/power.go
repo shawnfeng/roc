@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"reflect"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
@@ -27,10 +28,13 @@ import (
 
 // rpc protocol
 const (
-	PROCESSOR_HTTP   = "http"
-	PROCESSOR_THRIFT = "thrift"
-	PROCESSOR_GRPC   = "grpc"
-	PROCESSOR_GIN    = "gin"
+	PROCESSOR_HTTP    = "http"
+	PROCESSOR_THRIFT  = "thrift"
+	PROCESSOR_GRPC    = "grpc"
+	PROCESSOR_GIN     = "gin"
+	PROCESSOR_DEFAULT = "default"
+
+	idcEnvKey = "IPALFISH_ROC_IDC"
 )
 
 const disableContextCancelKey = "disable_context_cancel"
@@ -60,9 +64,9 @@ func (dr *driverBuilder) isDisableContextCancel(ctx context.Context) bool {
 func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p Processor) (*ServInfo, error) {
 	fun := "driverBuilder.powerProcessorDriver -> "
 	addr, driver := p.Driver()
-	if driver == nil {
-		return nil, errNilDriver
-	}
+	//if driver == nil {
+	//	return nil, errNilDriver
+	//}
 
 	xlog.Infof(ctx, "%s processor: %s type: %s addr: %s", fun, n, reflect.TypeOf(driver), addr)
 
@@ -142,7 +146,12 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 		return servInfo, nil
 
 	default:
-		return nil, fmt.Errorf("processor: %s driver not recognition", n)
+		servInfo := &ServInfo{
+			Type: PROCESSOR_DEFAULT,
+			Addr: addr,
+			IDC:  os.Getenv(idcEnvKey),
+		}
+		return servInfo, nil
 	}
 }
 
