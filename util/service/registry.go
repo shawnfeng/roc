@@ -553,6 +553,7 @@ func (m *ClientEtcdV2) GetAllServAddr(processor string) []*ServInfo {
 				continue
 			}
 			if p := c.reg.Servs[processor]; p != nil {
+				p.Servid = c.servId
 				servs = append(servs, p)
 			}
 		}
