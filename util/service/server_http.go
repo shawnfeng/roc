@@ -178,13 +178,12 @@ func Metric() gin.HandlerFunc {
 		dt := time.Since(now)
 
 		errCode := getErrCodeFromContext(c.Request.Context())
-		if path, exist := c.Get(RoutePath); exist {
-			if fun, ok := path.(string); ok {
-				group, serviceName := GetGroupAndService()
-				_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun, xprom.LabelErrCode, strconv.Itoa(errCode)).Inc()
-				_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun, xprom.LabelErrCode, strconv.Itoa(errCode)).Observe(float64(dt / time.Millisecond))
-			}
-		}
+
+		path := c.Request.URL.Path
+		group, serviceName := GetGroupAndService()
+		_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, path, xprom.LabelErrCode, strconv.Itoa(errCode)).Inc()
+		_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, path, xprom.LabelErrCode, strconv.Itoa(errCode)).Observe(float64(dt / time.Millisecond))
+
 	}
 }
 

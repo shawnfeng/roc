@@ -11,11 +11,14 @@ import (
 	"net"
 	"net/http"
 	"reflect"
+	"strconv"
+	"time"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xnet"
+	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 	"gitlab.pri.ibanyu.com/tracing/go-stdlib/nethttp"
 
@@ -74,6 +77,7 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 		if disableContextCancel {
 			extraHttpMiddlewares = append(extraHttpMiddlewares, disableContextCancelMiddleware)
 		}
+		extraHttpMiddlewares = append(extraHttpMiddlewares, errorCodeMetricMiddleware)
 		sa, err := powerHttp(addr, d, extraHttpMiddlewares...)
 		if err != nil {
 			return nil, err
@@ -114,6 +118,8 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 		if disableContextCancel {
 			extraHttpMiddlewares = append(extraHttpMiddlewares, disableContextCancelMiddleware)
 		}
+		extraHttpMiddlewares = append(extraHttpMiddlewares, errorCodeMetricMiddleware)
+
 		sa, err := powerGin(addr, d, extraHttpMiddlewares...)
 		if err != nil {
 			return nil, err
@@ -297,10 +303,8 @@ func powerGin(addr string, router *gin.Engine, middlewares ...middleware) (strin
 	if err != nil {
 		return "", err
 	}
-
 	// tracing
 	mw := decorateHttpMiddleware(router, middlewares...)
-
 	serv := &http.Server{Handler: mw}
 	go func() {
 		err := serv.Serve(netListen)
@@ -334,6 +338,25 @@ func reloadRouter(processor string, server interface{}, driver interface{}) erro
 	}
 
 	return nil
+}
+
+func errorCodeMetricMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		ctx = contextWithErrCode(ctx,1)
+		newR := r.WithContext(ctx)
+		path := r.URL.Path
+
+		now := time.Now()
+		next.ServeHTTP(w, newR)
+		dt := time.Since(now)
+
+		errCode := getErrCodeFromContext(ctx)
+
+		group, serviceName := GetGroupAndService()
+		_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, path, xprom.LabelErrCode, strconv.Itoa(errCode)).Inc()
+		_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, path, xprom.LabelErrCode, strconv.Itoa(errCode)).Observe(float64(dt / time.Millisecond))
+	})
 }
 
 func disableContextCancelMiddleware(next http.Handler) http.Handler {
