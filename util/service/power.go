@@ -20,7 +20,6 @@ import (
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xnet"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
-	"gitlab.pri.ibanyu.com/middleware/util/snetutil"
 	"gitlab.pri.ibanyu.com/tracing/go-stdlib/nethttp"
 
 	"git.apache.org/thrift.git/lib/go/thrift"
@@ -347,7 +346,7 @@ func errorCodeMetricMiddleware(next http.Handler) http.Handler {
 		ctx = contextWithErrCode(ctx,1)
 		newR := r.WithContext(ctx)
 		path := r.URL.Path
-		path = snetutil.ParseUriApi(path)
+		path = ParseUriApi(path)
 
 		now := time.Now()
 		next.ServeHTTP(w, newR)
@@ -374,3 +373,4 @@ func newDisableContextCancelGrpcUnaryInterceptor() grpc.UnaryServerInterceptor {
 		return handler(valueCtx, req)
 	}
 }
+
