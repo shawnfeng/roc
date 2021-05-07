@@ -16,7 +16,6 @@ import (
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 	"gitlab.pri.ibanyu.com/middleware/util/idl/gen-go/util/thriftutil"
-	"gitlab.pri.ibanyu.com/middleware/util/snetutil"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
@@ -181,7 +180,7 @@ func Metric() gin.HandlerFunc {
 		errCode := getErrCodeFromContext(c.Request.Context())
 
 		path := c.Request.URL.Path
-		path = snetutil.ParseUriApi(path)
+		path = ParseUriApi(path)
 
 		group, serviceName := GetGroupAndService()
 		_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, path, xprom.LabelErrCode, strconv.Itoa(errCode)).Inc()
