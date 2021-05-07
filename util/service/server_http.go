@@ -16,6 +16,7 @@ import (
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 	"gitlab.pri.ibanyu.com/middleware/util/idl/gen-go/util/thriftutil"
+	"gitlab.pri.ibanyu.com/middleware/util/snetutil"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
@@ -178,13 +179,14 @@ func Metric() gin.HandlerFunc {
 		dt := time.Since(now)
 
 		errCode := getErrCodeFromContext(c.Request.Context())
-		if path, exist := c.Get(RoutePath); exist {
-			if fun, ok := path.(string); ok {
-				group, serviceName := GetGroupAndService()
-				_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun, xprom.LabelErrCode, strconv.Itoa(errCode)).Inc()
-				_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun, xprom.LabelErrCode, strconv.Itoa(errCode)).Observe(float64(dt / time.Millisecond))
-			}
-		}
+
+		path := c.Request.URL.Path
+		path = snetutil.ParseUriApi(path)
+
+		group, serviceName := GetGroupAndService()
+		_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, path, xprom.LabelErrCode, strconv.Itoa(errCode)).Inc()
+		_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, path, xprom.LabelErrCode, strconv.Itoa(errCode)).Observe(float64(dt / time.Millisecond))
+
 	}
 }
 
