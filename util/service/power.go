@@ -37,6 +37,7 @@ const (
 )
 
 const disableContextCancelKey = "disable_context_cancel"
+const enableMetricMiddlewareKey = "enable_metric_middleware"
 
 var errNilDriver = errors.New("nil driver")
 
@@ -60,6 +61,14 @@ func (dr *driverBuilder) isDisableContextCancel(ctx context.Context) bool {
 	return use
 }
 
+func (dr *driverBuilder) isEnableMetricMiddleware(ctx context.Context) bool {
+	use, ok := dr.c.GetBool(ctx, enableMetricMiddlewareKey)
+	if !ok {
+		return false
+	}
+	return use
+}
+
 func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p Processor) (*ServInfo, error) {
 	fun := "driverBuilder.powerProcessorDriver -> "
 	addr, driver := p.Driver()
@@ -77,7 +86,13 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 		if disableContextCancel {
 			extraHttpMiddlewares = append(extraHttpMiddlewares, disableContextCancelMiddleware)
 		}
-		extraHttpMiddlewares = append(extraHttpMiddlewares, errorCodeMetricMiddleware)
+
+		enableMetricMiddleware := dr.isEnableMetricMiddleware(ctx)
+		xlog.Infof(ctx, "%s enableMetricMiddleware: %v, processor: %s", fun, enableMetricMiddleware, n)
+		if enableMetricMiddleware {
+			extraHttpMiddlewares = append(extraHttpMiddlewares, metricMiddleware)
+		}
+
 		sa, err := powerHttp(addr, d, extraHttpMiddlewares...)
 		if err != nil {
 			return nil, err
@@ -118,7 +133,12 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 		if disableContextCancel {
 			extraHttpMiddlewares = append(extraHttpMiddlewares, disableContextCancelMiddleware)
 		}
-		extraHttpMiddlewares = append(extraHttpMiddlewares, errorCodeMetricMiddleware)
+
+		enableMetricMiddleware := dr.isEnableMetricMiddleware(ctx)
+		xlog.Infof(ctx, "%s enableMetricMiddleware: %v, processor: %s", fun, enableMetricMiddleware, n)
+		if enableMetricMiddleware {
+			extraHttpMiddlewares = append(extraHttpMiddlewares, metricMiddleware)
+		}
 
 		sa, err := powerGin(addr, d, extraHttpMiddlewares...)
 		if err != nil {
@@ -340,7 +360,7 @@ func reloadRouter(processor string, server interface{}, driver interface{}) erro
 	return nil
 }
 
-func errorCodeMetricMiddleware(next http.Handler) http.Handler {
+func metricMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		ctx = contextWithErrCode(ctx,1)
