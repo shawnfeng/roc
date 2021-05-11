@@ -3,6 +3,7 @@ package rocserv
 import (
 	"context"
 	"errors"
+	"math"
 	"runtime"
 	"strconv"
 	"strings"
@@ -24,6 +25,14 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+)
+
+const (
+	apolloGrpcMaxSendMsgSizeKey = "grpc_server_max_send_msg_size"
+	apolloGrpcMaxRecvMsgSizeKey = "grpc_server_max_recv_msg_size"
+
+	defaultMaxSendMsgSize = math.MaxInt32
+	defaultMaxRecvMsgSize = 1024 * 1024 * 4
 )
 
 const printRequestBodyKey = "print_body"
@@ -125,6 +134,30 @@ func (g *GrpcServer) addExtraContextCancelInterceptor() {
 	}
 }
 
+func getServerOptionFromApollo(ctx context.Context) []grpc.ServerOption {
+	result := make([]grpc.ServerOption, 0)
+	configCenter := GetConfigCenter()
+	if configCenter == nil {
+		return result
+	}
+	// max send msg size
+	maxSend, ok := configCenter.GetInt(ctx, apolloGrpcMaxSendMsgSizeKey)
+	if !ok {
+		maxSend = defaultMaxSendMsgSize
+	}
+	configCenter.GetInt(ctx, apolloGrpcMaxSendMsgSizeKey)
+
+	// max recv msg size
+	maxRecv, ok := configCenter.GetInt(ctx, apolloGrpcMaxRecvMsgSizeKey)
+	if !ok {
+		maxRecv = defaultMaxRecvMsgSize
+	}
+	configCenter.GetInt(ctx, apolloGrpcMaxSendMsgSizeKey)
+
+	result = append(result, grpc.MaxSendMsgSize(maxSend), grpc.MaxRecvMsgSize(maxRecv))
+	return result
+}
+
 func (g *GrpcServer) internalAddExtraInterceptors(extraInterceptors ...grpc.UnaryServerInterceptor) {
 	g.extraUnaryInterceptors = append(g.extraUnaryInterceptors, extraInterceptors...)
 }
@@ -155,6 +188,7 @@ func (g *GrpcServer) buildServer() (*grpc.Server, error) {
 	opts = append(opts, grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaryInterceptors...)))
 	opts = append(opts, grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)))
 
+	opts = append(opts, getServerOptionFromApollo(context.Background())...)
 	// 实例化grpc Server
 	server := grpc.NewServer(opts...)
 	return server, nil
