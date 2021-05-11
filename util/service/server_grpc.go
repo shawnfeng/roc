@@ -153,6 +153,7 @@ func getServerOptionFromApollo(ctx context.Context) []grpc.ServerOption {
 	}
 	configCenter.GetInt(ctx, apolloGrpcMaxSendMsgSizeKey)
 
+	xlog.Infof(ctx, "get apollo server option, send: %d, recv: %d", maxSend, maxRecv)
 	result = append(result, grpc.MaxSendMsgSize(maxSend), grpc.MaxRecvMsgSize(maxRecv))
 	return result
 }
@@ -187,6 +188,7 @@ func (g *GrpcServer) buildServer() (*grpc.Server, error) {
 	opts = append(opts, grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)))
 
 	opts = append(opts, getServerOptionFromApollo(context.Background())...)
+	xlog.Infof(context.Background(), "buildServer， opts： %v", opts)
 	// 实例化grpc Server
 	server := grpc.NewServer(opts...)
 	return server, nil
