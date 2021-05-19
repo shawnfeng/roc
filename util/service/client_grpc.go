@@ -25,6 +25,7 @@ const (
 	HTTP
 
 	LaneInfoMetadataKey = "ipalfish-lane-info"
+	BaggageCallerKey    = "ipalfish-roc-caller"
 )
 
 // ClientGrpc client of grpc in adapter
@@ -242,23 +243,20 @@ func (m *ClientGrpc) route(ctx context.Context, key string) (*ServInfo, rpcClien
 }
 
 func (m *ClientGrpc) injectServInfo(ctx context.Context, si *ServInfo) context.Context {
-	ctx, err := xcontext.SetControlCallerServerName(ctx, serviceFromServPath(m.clientLookup.ServPath()))
-	if err != nil {
-		return ctx
-	}
+	// 这个目前不生效
+	ctx, _ = xcontext.SetControlCallerServerName(ctx, serviceFromServPath(m.clientLookup.ServPath()))
 
-	ctx, err = xcontext.SetControlCallerServerID(ctx, fmt.Sprint(si.Servid))
-	if err != nil {
-		return ctx
-	}
+	ctx, _ = xcontext.SetControlCallerServerID(ctx, fmt.Sprint(si.Servid))
 
 	span := xtrace.SpanFromContext(ctx)
 	if span == nil {
 		return ctx
 	}
+	// 传入自己的servName进去
+	span.SetBaggageItem(BaggageCallerKey, server.sbase.Servname())
 
 	if jaegerSpan, ok := span.(*jaeger.Span); ok {
-		ctx, err = xcontext.SetControlCallerMethod(ctx, jaegerSpan.OperationName())
+		ctx, _ = xcontext.SetControlCallerMethod(ctx, jaegerSpan.OperationName())
 	}
 	return ctx
 }
