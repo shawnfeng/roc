@@ -210,9 +210,10 @@ func rateLimitInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 		parts := strings.Split(info.FullMethod, "/")
 		interfaceName := parts[len(parts)-1]
-
-		// 暂时不支持按照调用方限流
-		caller := UNSPECIFIED_CALLER
+		caller := GetCallerFromBaggage(ctx)
+		xlog.Infof(ctx, "rateLimitInterceptor caller: %v", caller)
+		//// 暂时不支持按照调用方限流
+		//caller := UNSPECIFIED_CALLER
 		err = rateLimitRegistry.InterfaceRateLimit(ctx, interfaceName, caller)
 		if err != nil {
 			if err == rate_limit.ErrRateLimited {
