@@ -11,11 +11,14 @@ import (
 	"net"
 	"net/http"
 	"reflect"
+	"strconv"
+	"time"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xnet"
+	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 	"gitlab.pri.ibanyu.com/tracing/go-stdlib/nethttp"
 
@@ -34,6 +37,7 @@ const (
 )
 
 const disableContextCancelKey = "disable_context_cancel"
+const enableMetricMiddlewareKey = "enable_metric_middleware"
 
 var errNilDriver = errors.New("nil driver")
 
@@ -57,6 +61,14 @@ func (dr *driverBuilder) isDisableContextCancel(ctx context.Context) bool {
 	return use
 }
 
+func (dr *driverBuilder) isEnableMetricMiddleware(ctx context.Context) bool {
+	use, ok := dr.c.GetBool(ctx, enableMetricMiddlewareKey)
+	if !ok {
+		return false
+	}
+	return use
+}
+
 func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p Processor) (*ServInfo, error) {
 	fun := "driverBuilder.powerProcessorDriver -> "
 	addr, driver := p.Driver()
@@ -74,6 +86,13 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 		if disableContextCancel {
 			extraHttpMiddlewares = append(extraHttpMiddlewares, disableContextCancelMiddleware)
 		}
+
+		enableMetricMiddleware := dr.isEnableMetricMiddleware(ctx)
+		xlog.Infof(ctx, "%s enableMetricMiddleware: %v, processor: %s", fun, enableMetricMiddleware, n)
+		if enableMetricMiddleware {
+			extraHttpMiddlewares = append(extraHttpMiddlewares, metricMiddleware)
+		}
+
 		sa, err := powerHttp(addr, d, extraHttpMiddlewares...)
 		if err != nil {
 			return nil, err
@@ -114,6 +133,13 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 		if disableContextCancel {
 			extraHttpMiddlewares = append(extraHttpMiddlewares, disableContextCancelMiddleware)
 		}
+
+		enableMetricMiddleware := dr.isEnableMetricMiddleware(ctx)
+		xlog.Infof(ctx, "%s enableMetricMiddleware: %v, processor: %s", fun, enableMetricMiddleware, n)
+		if enableMetricMiddleware {
+			extraHttpMiddlewares = append(extraHttpMiddlewares, metricMiddleware)
+		}
+
 		sa, err := powerGin(addr, d, extraHttpMiddlewares...)
 		if err != nil {
 			return nil, err
@@ -297,10 +323,8 @@ func powerGin(addr string, router *gin.Engine, middlewares ...middleware) (strin
 	if err != nil {
 		return "", err
 	}
-
 	// tracing
 	mw := decorateHttpMiddleware(router, middlewares...)
-
 	serv := &http.Server{Handler: mw}
 	go func() {
 		err := serv.Serve(netListen)
@@ -336,6 +360,26 @@ func reloadRouter(processor string, server interface{}, driver interface{}) erro
 	return nil
 }
 
+func metricMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		ctx = contextWithErrCode(ctx,1)
+		newR := r.WithContext(ctx)
+		path := r.URL.Path
+		path = ParseUriApi(path)
+
+		now := time.Now()
+		next.ServeHTTP(w, newR)
+		dt := time.Since(now)
+
+		errCode := getErrCodeFromContext(ctx)
+
+		group, serviceName := GetGroupAndService()
+		_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, path, xprom.LabelErrCode, strconv.Itoa(errCode)).Inc()
+		_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, path, xprom.LabelErrCode, strconv.Itoa(errCode)).Observe(float64(dt / time.Millisecond))
+	})
+}
+
 func disableContextCancelMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		newR := r.WithContext(xcontext.NewValueContext(r.Context()))
@@ -349,3 +393,4 @@ func newDisableContextCancelGrpcUnaryInterceptor() grpc.UnaryServerInterceptor {
 		return handler(valueCtx, req)
 	}
 }
+
