@@ -324,6 +324,9 @@ func shouldLogRequest(fullMethod string) bool {
 		return true
 	}
 	center := GetConfigCenter()
+	if center == nil {
+		return true
+	}
 	printBodyMethod := printBodyMethod{}
 
 	// 方法配置

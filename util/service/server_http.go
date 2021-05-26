@@ -1,9 +1,11 @@
 package rocserv
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"regexp"
@@ -11,6 +13,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
+
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
@@ -53,7 +59,7 @@ type HandlerFunc func(*Context)
 func NewHttpServer() *HttpServer {
 	// 实例化gin Server
 	router := gin.New()
-	router.Use(Recovery(), InjectFromRequest(), Metric(), Trace())
+	router.Use(Recovery(), AccessLog(), InjectFromRequest(), Metric(), Trace())
 
 	return &HttpServer{router}
 }
@@ -170,7 +176,7 @@ func InjectFromRequest() gin.HandlerFunc {
 func Metric() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
-		ctx = contextWithErrCode(ctx,1)
+		ctx = contextWithErrCode(ctx, 1)
 		c.Request = c.Request.WithContext(ctx)
 
 		now := time.Now()
@@ -204,6 +210,33 @@ func Trace() gin.HandlerFunc {
 		}
 
 		c.Next()
+	}
+}
+
+func AccessLog() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Start timer
+		st := xtime.NewTimeStat()
+		path := c.Request.URL.Path
+		bodyData, _ := c.GetRawData()
+		c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(bodyData))
+
+		c.Next()
+
+		method := c.Request.Method
+		statusCode := c.Writer.Status()
+		ctx := c.Request.Context()
+
+		keyAndValue := []interface{}{
+			"path", path,
+			"cost", st.Millisecond(),
+			"method", method,
+			"code", statusCode,
+		}
+		if shouldHttpLogRequest(path) {
+			keyAndValue = append(keyAndValue, "req", string(bodyData))
+		}
+		xlog.Infow(ctx, "", keyAndValue...)
 	}
 }
 
@@ -365,4 +398,31 @@ func getErrCodeFromContext(ctx context.Context) int {
 		return 1
 	}
 	return errCode.int
+}
+
+func shouldHttpLogRequest(path string) bool {
+	// 默认打印body
+	center := GetConfigCenter()
+	if center == nil {
+		return true
+	}
+	printBodyMethod := printBodyMethod{}
+
+	// 方法配置
+	_ = center.Unmarshal(context.Background(), &printBodyMethod)
+	// 不打印的优先级更高
+	if methodInList(path, printBodyMethod.NoLogRequestMethodList) {
+		return false
+	}
+	if methodInList(path, printBodyMethod.LogRequestMethodList) {
+		return true
+	}
+
+	// 全局配置
+	isPrint, ok := center.GetBool(context.Background(), logRequestKey)
+	if !ok {
+		// 默认输出
+		return true
+	}
+	return isPrint
 }
