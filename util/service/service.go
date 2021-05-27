@@ -130,7 +130,9 @@ func (m *ServBaseV2) Stop() {
 	xlog.Infof(ctx, "%s setStatusToStop end", f)
 	xlog.Infof(ctx, "%s clearRegisterInfos start", f)
 	m.clearRegisterInfos()
+	xlog.Infof(ctx, "%s clearRegisterInfos end", f)
 	m.clearCrossDCRegisterInfos()
+	xlog.Infof(ctx, "%s clearCrossDCRegisterInfos end", f)
 	m.onShutdown()
 }
 
