@@ -100,6 +100,8 @@ func (m *ServBaseV2) clearCrossDCRegisterInfos() {
 	m.muReg.Lock()
 	defer m.muReg.Unlock()
 
+	xlog.Infof(ctx, "%s start", fun)
+
 	for addr, _ := range m.crossRegisterClients {
 		for path, _ := range m.regInfos {
 			_, err := m.crossRegisterClients[addr].Delete(context.Background(), path, &etcd.DeleteOptions{
@@ -110,6 +112,7 @@ func (m *ServBaseV2) clearCrossDCRegisterInfos() {
 			}
 		}
 	}
+	xlog.Infof(ctx, "%s end", fun)
 }
 
 // 初始化跨机房etcd客户端
