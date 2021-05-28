@@ -158,6 +158,8 @@ func (m *ServBaseV2) clearRegisterInfos() {
 	m.muReg.Lock()
 	defer m.muReg.Unlock()
 
+	xlog.Infof(context.Background(), "%s start", fun)
+
 	for path, _ := range m.regInfos {
 		_, err := m.etcdClient.Delete(context.Background(), path, &etcd.DeleteOptions{
 			Recursive: true,
@@ -166,6 +168,7 @@ func (m *ServBaseV2) clearRegisterInfos() {
 			xlog.Warnf(context.Background(), "%s path: %s, err: %v", fun, path, err)
 		}
 	}
+	xlog.Infof(context.Background(), "%s end", fun)
 }
 
 func (m *ServBaseV2) RegisterBackDoor(servs map[string]*ServInfo) error {
