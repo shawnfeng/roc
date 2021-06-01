@@ -235,7 +235,7 @@ func monitorServerInterceptor() grpc.UnaryServerInterceptor {
 		st := xtime.NewTimeStat()
 		resp, err = handler(ctx, req)
 		if shouldLogRequest(info.FullMethod) {
-			xlog.Infow(ctx, "", "func", fun, "req", req, "err", err, "cost", st.Millisecond())
+			xlog.Infow(ctx, "", "func", fun, "req", req, "err", err, "cost", st.Millisecond(), "resp", resp)
 		} else {
 			xlog.Infow(ctx, "", "func", fun, "err", err, "cost", st.Millisecond())
 		}
