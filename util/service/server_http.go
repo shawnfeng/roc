@@ -220,6 +220,8 @@ func AccessLog() gin.HandlerFunc {
 		path := c.Request.URL.Path
 		bodyData, _ := c.GetRawData()
 		c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(bodyData))
+		blw := &bodyLogWriter{body: bytes.NewBufferString(""), ResponseWriter: c.Writer}
+		c.Writer = blw
 
 		c.Next()
 
@@ -234,7 +236,7 @@ func AccessLog() gin.HandlerFunc {
 			"code", statusCode,
 		}
 		if shouldHttpLogRequest(path) {
-			keyAndValue = append(keyAndValue, "req", string(bodyData))
+			keyAndValue = append(keyAndValue, "req", string(bodyData), "resp", blw.body.String())
 		}
 		xlog.Infow(ctx, "", keyAndValue...)
 	}
@@ -425,4 +427,15 @@ func shouldHttpLogRequest(path string) bool {
 		return true
 	}
 	return isPrint
+}
+
+// gin打印response的方式
+type bodyLogWriter struct {
+	gin.ResponseWriter
+	body *bytes.Buffer
+}
+
+func (w bodyLogWriter) Write(b []byte) (int, error) {
+	w.body.Write(b)
+	return w.ResponseWriter.Write(b)
 }
