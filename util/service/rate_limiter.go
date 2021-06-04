@@ -26,6 +26,6 @@ func GetCallerFromBaggage(ctx context.Context) string {
 	if span == nil {
 		return UNSPECIFIED_CALLER
 	}
-	caller := span.BaggageItem("ipalfish-roc-caller")
+	caller := span.BaggageItem(BaggageCallerKey)
 	return caller
 }
