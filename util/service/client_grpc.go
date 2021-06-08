@@ -253,7 +253,9 @@ func (m *ClientGrpc) injectServInfo(ctx context.Context, si *ServInfo) context.C
 		return ctx
 	}
 	// 传入自己的servName进去
-	span.SetBaggageItem(BaggageCallerKey, server.sbase.Servname())
+	if server != nil && server.sbase != nil {
+		span.SetBaggageItem(BaggageCallerKey, server.sbase.Servname())
+	}
 
 	if jaegerSpan, ok := span.(*jaeger.Span); ok {
 		ctx, _ = xcontext.SetControlCallerMethod(ctx, jaegerSpan.OperationName())

@@ -27,5 +27,8 @@ func GetCallerFromBaggage(ctx context.Context) string {
 		return UNSPECIFIED_CALLER
 	}
 	caller := span.BaggageItem(BaggageCallerKey)
+	if caller == "" {
+		return UNSPECIFIED_CALLER
+	}
 	return caller
 }
