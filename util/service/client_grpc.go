@@ -243,7 +243,7 @@ func (m *ClientGrpc) route(ctx context.Context, key string) (*ServInfo, rpcClien
 }
 
 func (m *ClientGrpc) injectServInfo(ctx context.Context, si *ServInfo) context.Context {
-	// 这个目前不生效
+	// 此处set失败，不应影响后面的流程
 	ctx, _ = xcontext.SetControlCallerServerName(ctx, serviceFromServPath(m.clientLookup.ServPath()))
 
 	ctx, _ = xcontext.SetControlCallerServerID(ctx, fmt.Sprint(si.Servid))
