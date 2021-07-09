@@ -442,15 +442,15 @@ func (w bodyLogWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
+// ErrorResponseBody HTTP 层出错时的标准响应。
+type ErrorResponseBody struct {
+	Ret  int32  `json:"ret"`
+	Code int32  `json:"code"`
+	Msg  string `json:"msg"`
+}
+
 // NotFound NotFound returns a 404 not found handle
 func NotFound() gin.HandlerFunc {
-	// ErrorResponseBody HTTP 层出错时的标准响应。
-	type ErrorResponseBody struct {
-		Ret  int32  `json:"ret"`
-		Code int32  `json:"code"`
-		Msg  string `json:"msg"`
-	}
-
 	return func(c *gin.Context) {
 		nfResp := &ErrorResponseBody{
 			Ret:  -1,
