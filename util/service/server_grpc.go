@@ -210,9 +210,7 @@ func rateLimitInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 		parts := strings.Split(info.FullMethod, "/")
 		interfaceName := parts[len(parts)-1]
-
-		// 暂时不支持按照调用方限流
-		caller := UNSPECIFIED_CALLER
+		caller := GetCallerFromBaggage(ctx)
 		err = rateLimitRegistry.InterfaceRateLimit(ctx, interfaceName, caller)
 		if err != nil {
 			if err == rate_limit.ErrRateLimited {
@@ -235,7 +233,7 @@ func monitorServerInterceptor() grpc.UnaryServerInterceptor {
 		st := xtime.NewTimeStat()
 		resp, err = handler(ctx, req)
 		if shouldLogRequest(info.FullMethod) {
-			xlog.Infow(ctx, "", "func", fun, "req", req, "err", err, "cost", st.Millisecond())
+			xlog.Infow(ctx, "", "func", fun, "req", req, "err", err, "cost", st.Millisecond(), "resp", resp)
 		} else {
 			xlog.Infow(ctx, "", "func", fun, "err", err, "cost", st.Millisecond())
 		}
@@ -324,6 +322,9 @@ func shouldLogRequest(fullMethod string) bool {
 		return true
 	}
 	center := GetConfigCenter()
+	if center == nil {
+		return true
+	}
 	printBodyMethod := printBodyMethod{}
 
 	// 方法配置

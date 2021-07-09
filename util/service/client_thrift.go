@@ -179,23 +179,20 @@ func (m *ClientThrift) rpcWithContext(ctx context.Context, si *ServInfo, rc rpcC
 }
 
 func (m *ClientThrift) injectServInfo(ctx context.Context, si *ServInfo) context.Context {
-	ctx, err := xcontext.SetControlCallerServerName(ctx, serviceFromServPath(m.clientLookup.ServPath()))
-	if err != nil {
-		return ctx
-	}
+	ctx, _ = xcontext.SetControlCallerServerName(ctx, serviceFromServPath(m.clientLookup.ServPath()))
 
-	ctx, err = xcontext.SetControlCallerServerID(ctx, fmt.Sprint(si.Servid))
-	if err != nil {
-		return ctx
-	}
+	ctx, _ = xcontext.SetControlCallerServerID(ctx, fmt.Sprint(si.Servid))
 
 	span := xtrace.SpanFromContext(ctx)
 	if span == nil {
 		return ctx
 	}
-
+	// 传入自己的servName进去
+	if server != nil && server.sbase != nil {
+		span.SetBaggageItem(BaggageCallerKey, server.sbase.Servname())
+	}
 	if jaegerSpan, ok := span.(*jaeger.Span); ok {
-		ctx, err = xcontext.SetControlCallerMethod(ctx, jaegerSpan.OperationName())
+		ctx, _ = xcontext.SetControlCallerMethod(ctx, jaegerSpan.OperationName())
 	}
 
 	return ctx

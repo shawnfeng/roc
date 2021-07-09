@@ -1,9 +1,11 @@
 package rocserv
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"regexp"
@@ -11,6 +13,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
+
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
@@ -53,7 +59,7 @@ type HandlerFunc func(*Context)
 func NewHttpServer() *HttpServer {
 	// 实例化gin Server
 	router := gin.New()
-	router.Use(Recovery(), InjectFromRequest(), Metric(), Trace())
+	router.Use(Recovery(), AccessLog(), InjectFromRequest(), Metric(), Trace())
 
 	return &HttpServer{router}
 }
@@ -170,7 +176,7 @@ func InjectFromRequest() gin.HandlerFunc {
 func Metric() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
-		ctx = contextWithErrCode(ctx,1)
+		ctx = contextWithErrCode(ctx, 1)
 		c.Request = c.Request.WithContext(ctx)
 
 		now := time.Now()
@@ -178,13 +184,13 @@ func Metric() gin.HandlerFunc {
 		dt := time.Since(now)
 
 		errCode := getErrCodeFromContext(c.Request.Context())
-		if path, exist := c.Get(RoutePath); exist {
-			if fun, ok := path.(string); ok {
-				group, serviceName := GetGroupAndService()
-				_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun, xprom.LabelErrCode, strconv.Itoa(errCode)).Inc()
-				_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, fun, xprom.LabelErrCode, strconv.Itoa(errCode)).Observe(float64(dt / time.Millisecond))
-			}
-		}
+
+		path := c.Request.URL.Path
+		path = ParseUriApi(path)
+
+		group, serviceName := GetGroupAndService()
+		_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, path, xprom.LabelErrCode, strconv.Itoa(errCode)).Inc()
+		_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, path, xprom.LabelErrCode, strconv.Itoa(errCode)).Observe(float64(dt / time.Millisecond))
 	}
 }
 
@@ -204,6 +210,35 @@ func Trace() gin.HandlerFunc {
 		}
 
 		c.Next()
+	}
+}
+
+func AccessLog() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Start timer
+		st := xtime.NewTimeStat()
+		path := c.Request.URL.Path
+		bodyData, _ := c.GetRawData()
+		c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(bodyData))
+		blw := &bodyLogWriter{body: bytes.NewBufferString(""), ResponseWriter: c.Writer}
+		c.Writer = blw
+
+		c.Next()
+
+		method := c.Request.Method
+		statusCode := c.Writer.Status()
+		ctx := c.Request.Context()
+
+		keyAndValue := []interface{}{
+			"path", path,
+			"cost", st.Millisecond(),
+			"method", method,
+			"code", statusCode,
+		}
+		if shouldHttpLogRequest(path) {
+			keyAndValue = append(keyAndValue, "req", string(bodyData), "resp", blw.body.String())
+		}
+		xlog.Infow(ctx, "", keyAndValue...)
 	}
 }
 
@@ -365,4 +400,42 @@ func getErrCodeFromContext(ctx context.Context) int {
 		return 1
 	}
 	return errCode.int
+}
+
+func shouldHttpLogRequest(path string) bool {
+	// 默认打印body
+	center := GetConfigCenter()
+	if center == nil {
+		return true
+	}
+	printBodyMethod := printBodyMethod{}
+
+	// 方法配置
+	_ = center.Unmarshal(context.Background(), &printBodyMethod)
+	// 不打印的优先级更高
+	if methodInList(path, printBodyMethod.NoLogRequestMethodList) {
+		return false
+	}
+	if methodInList(path, printBodyMethod.LogRequestMethodList) {
+		return true
+	}
+
+	// 全局配置
+	isPrint, ok := center.GetBool(context.Background(), logRequestKey)
+	if !ok {
+		// 默认输出
+		return true
+	}
+	return isPrint
+}
+
+// gin打印response的方式
+type bodyLogWriter struct {
+	gin.ResponseWriter
+	body *bytes.Buffer
+}
+
+func (w bodyLogWriter) Write(b []byte) (int, error) {
+	w.body.Write(b)
+	return w.ResponseWriter.Write(b)
 }
