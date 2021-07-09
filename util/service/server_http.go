@@ -62,7 +62,6 @@ func NewHttpServer() *HttpServer {
 
 	// 404 处理
 	router.NoRoute(NotFound())
-	router.NoMethod(NotFound())
 
 	return &HttpServer{router}
 }
