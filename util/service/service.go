@@ -67,7 +67,8 @@ const (
 	RPCConfNamespace     = "rpc.client"
 	ApplicationNamespace = "application"
 
-	serverStatusStop = 1
+	serverStatusStop         = 1
+	DefaultEtcdClientTimeout = 3 * time.Second
 )
 
 type configEtcd struct {
@@ -473,8 +474,9 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 	ctx := context.Background()
 
 	cfg := etcd.Config{
-		Endpoints: confEtcd.etcdAddrs,
-		Transport: etcd.DefaultTransport,
+		Endpoints:               confEtcd.etcdAddrs,
+		Transport:               etcd.DefaultTransport,
+		HeaderTimeoutPerRequest: DefaultEtcdClientTimeout,
 	}
 
 	xlog.Infof(ctx, "%s create etcd client start, cfg: %v", fun, cfg)

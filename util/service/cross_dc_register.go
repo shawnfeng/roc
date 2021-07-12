@@ -134,8 +134,9 @@ func initCrossRegisterCenterOrigin(sb *ServBaseV2) error {
 	}
 	for _, addr := range baseConfig.Base.CrossRegisterCenters {
 		baseCfg := etcd.Config{
-			Endpoints: []string{addr},
-			Transport: etcd.DefaultTransport,
+			Endpoints:               []string{addr},
+			Transport:               etcd.DefaultTransport,
+			HeaderTimeoutPerRequest: DefaultEtcdClientTimeout,
 		}
 		baseClient, err := etcd.New(baseCfg)
 		if err != nil {
@@ -162,8 +163,9 @@ func initCrossRegisterCenterNew(sb *ServBaseV2) error {
 			return fmt.Errorf("region has no endpoints, id: %d", regionId)
 		}
 		baseCfg := etcd.Config{
-			Endpoints: endpoints,
-			Transport: etcd.DefaultTransport,
+			Endpoints:               endpoints,
+			Transport:               etcd.DefaultTransport,
+			HeaderTimeoutPerRequest: DefaultEtcdClientTimeout,
 		}
 		baseClient, err := etcd.New(baseCfg)
 		if err != nil {
