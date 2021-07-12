@@ -2,6 +2,7 @@ package rocserv
 
 import (
 	"context"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 	"runtime"
 	"strings"
 	"time"
@@ -54,12 +55,12 @@ func GetFuncNameWithCtx(ctx context.Context, index int) string {
 	return funcName
 }
 
-// GetFuncTimeout get func timeout conf
-func GetFuncTimeout(servKey, funcName string, defaultTime time.Duration) time.Duration {
+// GetFuncTimeoutInner get configured timout when invoking servKey/funcName.
+// `defaultTime` will be returned if it's not configured
+func GetFuncTimeoutInner(confCenter xconfig.ConfigCenter, servKey, funcName string, defaultTime time.Duration) time.Duration {
 	key := xutil.Concat(servKey, ".", funcName, ".", Timeout)
 	var t int
 	var exist bool
-	confCenter := GetConfigCenter()
 	if confCenter != nil {
 		if t, exist = confCenter.GetIntWithNamespace(context.TODO(), RPCConfNamespace, key); !exist {
 			defaultKey := xutil.Concat(servKey, ".", Default, ".", Timeout)
@@ -73,12 +74,17 @@ func GetFuncTimeout(servKey, funcName string, defaultTime time.Duration) time.Du
 	return time.Duration(t) * time.Millisecond
 }
 
-// GetFuncRetry get func retry conf
-func GetFuncRetry(servKey, funcName string) int {
+// GetFuncTimeout get func timeout conf
+// Deprecated: use `GetFuncTimeout` method from `ClientGrpc`, `ClientThrift` and `ClientWrapper` instead.
+func GetFuncTimeout(servKey, funcName string, defaultTime time.Duration) time.Duration {
+	return GetFuncTimeoutInner(GetConfigCenter(), servKey, funcName, defaultTime)
+}
+
+// GetFuncRetryInner get configured retry times when invoking servKey/funcName.
+func GetFuncRetryInner(confCenter xconfig.ConfigCenter, servKey, funcName string) int {
 	key := xutil.Concat(servKey, ".", funcName, ".", Retry)
 	var t int
 	var exist bool
-	confCenter := GetConfigCenter()
 	if confCenter != nil {
 		if t, exist = confCenter.GetIntWithNamespace(context.TODO(), RPCConfNamespace, key); !exist {
 			defaultKey := xutil.Concat(servKey, ".", Default, ".", Retry)
@@ -86,6 +92,12 @@ func GetFuncRetry(servKey, funcName string) int {
 		}
 	}
 	return t
+}
+
+// GetFuncRetry get func retry conf
+// Deprecated: use `GetFuncRetry` method from `ClientGrpc`, `ClientThrift` and `ClientWrapper` instead.
+func GetFuncRetry(servKey, funcName string) int {
+	return GetFuncRetryInner(GetConfigCenter(), servKey, funcName)
 }
 
 func convertLevel(level string) xlog.Level {

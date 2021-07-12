@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
@@ -19,6 +20,7 @@ type ClientThrift struct {
 	fallbacks
 
 	clientLookup ClientLookup
+	configCenter xconfig.ConfigCenter
 	processor    string
 	fnFactory    func(thrift.TTransport, thrift.TProtocolFactory) interface{}
 	pool         *ClientPool
@@ -82,8 +84,8 @@ func (m *ClientThrift) RpcWithContext(ctx context.Context, hashKey string, timeo
 	if funcName == "rpc" {
 		funcName = GetFuncName(4)
 	}
-	retry := GetFuncRetry(m.clientLookup.ServKey(), funcName)
-	timeout = GetFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
+	retry := m.getFuncRetry(m.clientLookup.ServKey(), funcName)
+	timeout = m.getFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
 	for ; retry >= 0; retry-- {
 		err = m.do(ctx, hashKey, funcName, timeout, fnrpc)
 		if err == nil {
@@ -121,8 +123,8 @@ func (m *ClientThrift) do(ctx context.Context, hashKey, funcName string, timeout
 func (m *ClientThrift) RpcWithContextV2(ctx context.Context, hashKey string, timeout time.Duration, fnrpc func(context.Context, interface{}) error) error {
 	var err error
 	funcName := GetFuncNameWithCtx(ctx, 3)
-	retry := GetFuncRetry(m.clientLookup.ServKey(), funcName)
-	timeout = GetFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
+	retry := m.getFuncRetry(m.clientLookup.ServKey(), funcName)
+	timeout = m.getFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
 	for ; retry >= 0; retry-- {
 		err = m.doWithContext(ctx, hashKey, funcName, timeout, fnrpc)
 		if err == nil {
@@ -228,6 +230,35 @@ func deleteAddrFromConnPool(addr string, pool *ClientPool) {
 //	kv[TrafficLogKeyServerName] = serviceFromServPath(m.clientLookup.ServPath())
 //	logTrafficByKV(ctx, kv)
 //}
+
+func (m *ClientThrift) SetConfigCenter(configCenter xconfig.ConfigCenter) {
+	m.configCenter = configCenter
+}
+
+// getFuncTimeout get configured timout when invoking servKey/funcName.
+// `defaultTime` will be returned if it's not configured
+func (m *ClientThrift) getFuncTimeout(servKey, funcName string, defaultTime time.Duration) time.Duration {
+	var configCenter xconfig.ConfigCenter
+	if m.configCenter != nil {
+		configCenter = m.configCenter
+	} else {
+		// 兼容之前的行为
+		configCenter = GetConfigCenter()
+	}
+	return GetFuncTimeoutInner(configCenter, servKey, funcName, defaultTime)
+}
+
+// getFuncRetry get configured retry times when invoking servKey/funcName.
+func (m *ClientThrift) getFuncRetry(servKey, funcName string) int {
+	var configCenter xconfig.ConfigCenter
+	if m.configCenter != nil {
+		configCenter = m.configCenter
+	} else {
+		// 兼容之前的行为
+		configCenter = GetConfigCenter()
+	}
+	return GetFuncRetryInner(configCenter, servKey, funcName)
+}
 
 type thriftClientConn struct {
 	tsock         *thrift.TSocket

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
@@ -33,6 +34,7 @@ type ClientGrpc struct {
 	fallbacks
 
 	clientLookup ClientLookup
+	configCenter xconfig.ConfigCenter
 	processor    string
 	breaker      *Breaker
 	router       Router
@@ -143,7 +145,7 @@ func (m *ClientGrpc) RpcWithContext(ctx context.Context, hashKey string, fnrpc f
 	if funcName == "grpcInvoke" {
 		funcName = GetFuncName(4)
 	}
-	retry := GetFuncRetry(m.clientLookup.ServKey(), funcName)
+	retry := m.getFuncRetry(m.clientLookup.ServKey(), funcName)
 	for ; retry >= 0; retry-- {
 		err = m.do(ctx, hashKey, funcName, fnrpc)
 		if err == nil {
@@ -180,7 +182,7 @@ func (m *ClientGrpc) do(ctx context.Context, hashKey, funcName string, fnrpc fun
 func (m *ClientGrpc) RpcWithContextV2(ctx context.Context, hashKey string, fnrpc func(context.Context, interface{}) error) error {
 	var err error
 	funcName := GetFuncNameWithCtx(ctx, 3)
-	retry := GetFuncRetry(m.clientLookup.ServKey(), funcName)
+	retry := m.getFuncRetry(m.clientLookup.ServKey(), funcName)
 	for ; retry >= 0; retry-- {
 		err = m.doWithContext(ctx, hashKey, funcName, fnrpc)
 		if err == nil {
@@ -274,6 +276,35 @@ func (m *ClientGrpc) injectServInfo(ctx context.Context, si *ServInfo) context.C
 //	kv[TrafficLogKeyServerName] = serviceFromServPath(m.clientLookup.ServPath())
 //	logTrafficByKV(ctx, kv)
 //}
+
+func (m *ClientGrpc) SetConfigCenter(configCenter xconfig.ConfigCenter) {
+	m.configCenter = configCenter
+}
+
+// getFuncTimeout get configured timout when invoking servKey/funcName.
+// `defaultTime` will be returned if it's not configured
+func (m *ClientGrpc) getFuncTimeout(servKey, funcName string, defaultTime time.Duration) time.Duration {
+	var configCenter xconfig.ConfigCenter
+	if m.configCenter != nil {
+		configCenter = m.configCenter
+	} else {
+		// 兼容之前的行为
+		configCenter = GetConfigCenter()
+	}
+	return GetFuncTimeoutInner(configCenter, servKey, funcName, defaultTime)
+}
+
+// getFuncRetry get configured retry times when invoking servKey/funcName.
+func (m *ClientGrpc) getFuncRetry(servKey, funcName string) int {
+	var configCenter xconfig.ConfigCenter
+	if m.configCenter != nil {
+		configCenter = m.configCenter
+	} else {
+		// 兼容之前的行为
+		configCenter = GetConfigCenter()
+	}
+	return GetFuncRetryInner(configCenter, servKey, funcName)
+}
 
 type grpcClientConn struct {
 	serviceClient interface{}

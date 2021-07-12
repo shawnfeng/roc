@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
 )
 
@@ -17,6 +18,7 @@ type ClientWrapper struct {
 	fallbacks
 
 	clientLookup ClientLookup
+	configCenter xconfig.ConfigCenter
 	processor    string
 	breaker      *Breaker
 	router       Router
@@ -42,8 +44,8 @@ func NewClientWrapperWithRouterType(cb ClientLookup, processor string, routerTyp
 func (m *ClientWrapper) Do(hashKey string, timeout time.Duration, run func(addr string, timeout time.Duration) error) error {
 	var err error
 	funcName := GetFuncName(3)
-	retry := GetFuncRetry(m.clientLookup.ServKey(), funcName)
-	timeout = GetFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
+	retry := m.getFuncRetry(m.clientLookup.ServKey(), funcName)
+	timeout = m.getFuncTimeout(m.clientLookup.ServKey(), funcName, timeout)
 	for ; retry >= 0; retry-- {
 		err = m.do(hashKey, funcName, timeout, run)
 		if err == nil {
@@ -96,4 +98,33 @@ func (m *ClientWrapper) Call(ctx context.Context, hashKey, funcName string, run 
 	}()
 	err = m.breaker.Do(ctx, funcName, call, m.GetFallbackFunc(funcName))
 	return err
+}
+
+func (m *ClientWrapper) SetConfigCenter(configCenter xconfig.ConfigCenter) {
+	m.configCenter = configCenter
+}
+
+// getFuncTimeout get configured timout when invoking servKey/funcName.
+// `defaultTime` will be returned if it's not configured
+func (m *ClientWrapper) getFuncTimeout(servKey, funcName string, defaultTime time.Duration) time.Duration {
+	var configCenter xconfig.ConfigCenter
+	if m.configCenter != nil {
+		configCenter = m.configCenter
+	} else {
+		// 兼容之前的行为
+		configCenter = GetConfigCenter()
+	}
+	return GetFuncTimeoutInner(configCenter, servKey, funcName, defaultTime)
+}
+
+// getFuncRetry get configured retry times when invoking servKey/funcName.
+func (m *ClientWrapper) getFuncRetry(servKey, funcName string) int {
+	var configCenter xconfig.ConfigCenter
+	if m.configCenter != nil {
+		configCenter = m.configCenter
+	} else {
+		// 兼容之前的行为
+		configCenter = GetConfigCenter()
+	}
+	return GetFuncRetryInner(configCenter, servKey, funcName)
 }
