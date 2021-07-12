@@ -2,12 +2,14 @@ package rocserv
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc/codes"
 )
 
 type HelloReq struct {
@@ -71,4 +73,30 @@ func TestUser(t *testing.T) {
 	ass.Nil(err)
 	ass.NotNil(body)
 	fmt.Println(string(body))
+}
+
+func TestRouterNotFound(t *testing.T) {
+	ass := assert.New(t)
+	req, err := http.NewRequest(http.MethodPost, "http://127.0.0.1:19999/helloworld", nil)
+	ass.Nil(err)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	ass.Nil(err)
+	ass.Equal(404, resp.StatusCode)
+
+	body, err := ioutil.ReadAll(resp.Body)
+	ass.Nil(err)
+	ass.NotNil(body)
+
+	nfResp := &ErrorResponseBody{
+		Ret:  -1,
+		Code: int32(codes.NotFound),
+		Msg:  http.StatusText(http.StatusNotFound),
+	}
+
+	actualResp := new(ErrorResponseBody)
+	err = json.Unmarshal(body, actualResp)
+	ass.Nil(err)
+	ass.Equal(nfResp, actualResp)
 }

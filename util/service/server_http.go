@@ -14,12 +14,10 @@ import (
 	"strings"
 	"time"
 
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
-
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
-
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 	"gitlab.pri.ibanyu.com/middleware/util/idl/gen-go/util/thriftutil"
 
@@ -27,6 +25,7 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	"github.com/julienschmidt/httprouter"
 	"github.com/uber/jaeger-client-go"
+	"google.golang.org/grpc/codes"
 )
 
 const (
@@ -60,6 +59,9 @@ func NewHttpServer() *HttpServer {
 	// 实例化gin Server
 	router := gin.New()
 	router.Use(Recovery(), AccessLog(), InjectFromRequest(), Metric(), Trace())
+
+	// 404 处理
+	router.NoRoute(NotFound())
 
 	return &HttpServer{router}
 }
@@ -438,4 +440,25 @@ type bodyLogWriter struct {
 func (w bodyLogWriter) Write(b []byte) (int, error) {
 	w.body.Write(b)
 	return w.ResponseWriter.Write(b)
+}
+
+// ErrorResponseBody HTTP 层出错时的标准响应。
+type ErrorResponseBody struct {
+	Ret  int32  `json:"ret"`
+	Code int32  `json:"code"`
+	Msg  string `json:"msg"`
+}
+
+// NotFound NotFound returns a 404 not found handle
+func NotFound() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		nfResp := &ErrorResponseBody{
+			Ret:  -1,
+			Code: int32(codes.NotFound),
+			Msg:  http.StatusText(http.StatusNotFound),
+		}
+
+		c.JSON(http.StatusNotFound, nfResp)
+		return
+	}
 }
