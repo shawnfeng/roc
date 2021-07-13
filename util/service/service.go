@@ -469,7 +469,7 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 
 // Deprecated
 // etcd v2 接口
-func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sidOffset int, crossRegionIdList []int) (*ServBaseV2, error) {
+func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, crossRegionIdList []int) (*ServBaseV2, error) {
 	fun := "NewServBaseV2 -->"
 	ctx := context.Background()
 
@@ -544,8 +544,8 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, sid
 	return reg, nil
 }
 
-func newServBaseV2WithCmdArgs(confEtcd configEtcd, servLocation, skey, envGroup string, sidOffset int, crossRegionIdList []int, args *cmdArgs) (*ServBaseV2, error) {
-	sb, err := NewServBaseV2(confEtcd, servLocation, skey, envGroup, sidOffset, crossRegionIdList)
+func newServBaseV2WithCmdArgs(confEtcd configEtcd, servLocation, skey, envGroup string, crossRegionIdList []int, args *cmdArgs) (*ServBaseV2, error) {
+	sb, err := NewServBaseV2(confEtcd, servLocation, skey, envGroup, crossRegionIdList)
 	if err != nil {
 		return nil, err
 	}

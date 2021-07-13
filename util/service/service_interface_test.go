@@ -8,15 +8,16 @@ import (
 	"log"
 	"testing"
 	"time"
+
+	"gitlab.pri.ibanyu.com/middleware/util/servbase"
 )
 
 func TestIt(t *testing.T) {
-	etcds := []string{"http://127.0.0.1:20002"}
 	skey := "7e07d3e6-2737-43ac-86fa-157bc1bb8943a"
 	//skey = "beauty"
 	var sb ServBase
 	var err error
-	sb, err = NewServBaseV2(configEtcd{etcds, "/roc"}, "niubi/fuck", skey, "", 0, nil)
+	sb, err = NewServBaseV2(configEtcd{servbase.ETCDS_CLUSTER_0, "/roc"}, "niubi/fuck", skey, "", nil)
 
 	if err != nil {
 		t.Errorf("create err:%s", err)
