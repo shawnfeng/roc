@@ -51,7 +51,6 @@ type cmdArgs struct {
 	servLoc           string
 	logDir            string
 	sessKey           string
-	sidOffset         int
 	group             string
 	disable           bool
 	model             int
@@ -63,13 +62,12 @@ type cmdArgs struct {
 
 func (m *Server) parseFlag() (*cmdArgs, error) {
 	var serv, logDir, skey, group, startType, backdoorPort string
-	var logMaxSize, logMaxBackups, sidOffset int
+	var logMaxSize, logMaxBackups int
 	flag.IntVar(&logMaxSize, "logmaxsize", 0, "logMaxSize is the maximum size in megabytes of the log file")
 	flag.IntVar(&logMaxBackups, "logmaxbackups", 0, "logmaxbackups is the maximum number of old log files to retain")
 	flag.StringVar(&serv, "serv", "", "servic name")
 	flag.StringVar(&logDir, "logdir", "", "serice log dir")
 	flag.StringVar(&skey, "skey", "", "service session key")
-	flag.IntVar(&sidOffset, "sidoffset", 0, "service id offset for different data center")
 	flag.StringVar(&group, "group", "", "service group")
 	// 启动方式：local - 不注册至etcd
 	flag.StringVar(&startType, "stype", "", "start up type, local is not register to etcd")
@@ -99,7 +97,6 @@ func (m *Server) parseFlag() (*cmdArgs, error) {
 		servLoc:           serv,
 		logDir:            logDir,
 		sessKey:           skey,
-		sidOffset:         sidOffset,
 		group:             group,
 		startType:         startType,
 		crossRegionIdList: crossRegionIdList,
@@ -221,7 +218,7 @@ func (m *Server) initServer(fun string, confEtcd configEtcd, args *cmdArgs, init
 		return err
 	}
 	xlog.Infof(ctx, "%s new ServBaseV2 start", fun)
-	sb, err := newServBaseV2WithCmdArgs(confEtcd, servLoc, sessKey, args.group, args.sidOffset, crossRegionIdList, args)
+	sb, err := newServBaseV2WithCmdArgs(confEtcd, servLoc, sessKey, args.group, crossRegionIdList, args)
 	if err != nil {
 		xlog.Panicf(ctx, "%s init servbase loc: %s key: %s err: %v", fun, servLoc, sessKey, err)
 		return err
