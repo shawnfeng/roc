@@ -19,9 +19,8 @@ import (
 
 func TestClient(t *testing.T) {
 	ctx := context.Background()
-	etcds := []string{"http://127.0.0.1:20002"}
-
-	cli, err := NewClientLookup(etcds, "roc", "base/account")
+	cli, err := NewClientLookup(servbase.ETCDS_CLUSTER_0, "roc", "base/account")
+	assert.Nil(t, err)
 
 	xlog.Infof(ctx, "Test client:%s err:%v", cli, err)
 

@@ -467,10 +467,8 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 	return nil
 }
 
-// Deprecated
-// etcd v2 接口
-func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, crossRegionIdList []int) (*ServBaseV2, error) {
-	fun := "NewServBaseV2 -->"
+func newServBaseV2WithCmdArgs(confEtcd configEtcd, args *cmdArgs) (*ServBaseV2, error) {
+	fun := "newServBaseV2WithCmdArgs -->"
 	ctx := context.Background()
 
 	cfg := etcd.Config{
@@ -490,28 +488,35 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, cro
 		return nil, fmt.Errorf("create etchd api error")
 	}
 
-	path := fmt.Sprintf("%s/%s/%s", confEtcd.useBaseloc, BASE_LOC_SKEY, servLocation)
+	path := fmt.Sprintf("%s/%s/%s", confEtcd.useBaseloc, BASE_LOC_SKEY, args.servLoc)
 
 	xlog.Infof(ctx, "%s retryGenSid start", fun)
-	sid, err := retryGenSid(client, path, skey, 3)
+	sid, err := retryGenSid(client, path, args.sessKey, 3)
 	if err != nil {
 		return nil, err
 	}
 
-	xlog.Infof(ctx, "%s retryGenSid end, path: %s, sid: %d, skey: %s, envGroup: %s", fun, path, sid, skey, envGroup)
+	xlog.Infof(ctx, "%s retryGenSid end, path: %s, sid: %d, skey: %s, envGroup: %s", fun, path, sid, args.sessKey, args.group)
 
 	// init global config center
 	xlog.Infof(ctx, " %s init configcenter start", fun)
-	configCenter, err := xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, servLocation, []string{ApplicationNamespace, RPCConfNamespace, xsql.MysqlConfNamespace, xmgo.MongoConfNamespace})
+	configCenter, err := xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, args.servLoc, []string{ApplicationNamespace, RPCConfNamespace, xsql.MysqlConfNamespace, xmgo.MongoConfNamespace})
 	if err != nil {
 		return nil, err
 	}
 	xlog.Infof(ctx, " %s init configcenter end", fun)
 
+	crossRegionIdList, err := parseCrossRegionIdList(args.crossRegionIdList)
+	if err != nil {
+		xlog.Errorf(ctx, "%s parse cross region id list error, arg: %v, err: %v", fun, args.crossRegionIdList, err)
+		return nil, err
+	}
+
 	reg := &ServBaseV2{
 		confEtcd:               confEtcd,
-		servLocation:           servLocation,
-		sessKey:                skey,
+		servLocation:           args.servLoc,
+		sessKey:                args.sessKey,
+		region:                 args.region,
 		etcdClient:             client,
 		crossRegisterRegionIds: crossRegionIdList,
 		crossRegisterClients:   make(map[string]etcd.KeysAPI, 2),
@@ -522,15 +527,19 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, cro
 
 		configCenter: configCenter,
 
-		envGroup:   envGroup,
+		envGroup:   args.group,
 		onShutdown: func() { xlog.Info(context.TODO(), "app shutdown") },
 	}
-	svrInfo := strings.SplitN(servLocation, "/", 2)
+	svrInfo := strings.SplitN(args.servLoc, "/", 2)
 	if len(svrInfo) == 2 {
 		reg.servGroup = svrInfo[0]
 		reg.servName = svrInfo[1]
 	} else {
-		xlog.Warnf(ctx, "%s servLocation:%s do not match group/service format", fun, servLocation)
+		xlog.Warnf(ctx, "%s servLocation:%s do not match group/service format", fun, args.servLoc)
+	}
+
+	if args.startType == START_TYPE_LOCAL {
+		reg.setLocalRunning(true)
 	}
 
 	// init cross register clients
@@ -542,21 +551,6 @@ func NewServBaseV2(confEtcd configEtcd, servLocation, skey, envGroup string, cro
 	xlog.Infof(ctx, " %s init CrossRegisterCenter end", fun)
 
 	return reg, nil
-}
-
-func newServBaseV2WithCmdArgs(confEtcd configEtcd, servLocation, skey, envGroup string, crossRegionIdList []int, args *cmdArgs) (*ServBaseV2, error) {
-	sb, err := NewServBaseV2(confEtcd, servLocation, skey, envGroup, crossRegionIdList)
-	if err != nil {
-		return nil, err
-	}
-
-	sb.region = args.region
-
-	if args.startType == START_TYPE_LOCAL {
-		sb.setLocalRunning(true)
-	}
-
-	return sb, nil
 }
 
 func (m *ServBaseV2) isPreEnvGroup() bool {
