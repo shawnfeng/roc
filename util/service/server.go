@@ -16,7 +16,6 @@ import (
 	"strings"
 	"syscall"
 
-	"gitlab.pri.ibanyu.com/middleware/dolphin/circuit_breaker"
 	"gitlab.pri.ibanyu.com/middleware/dolphin/rate_limit/registry"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
@@ -415,13 +414,6 @@ func (m *Server) initMetric(sb *ServBaseV2) error {
 
 func (m *Server) initDolphin(sb *ServBaseV2) error {
 	fun := "Server.initDolphin -->"
-	// circuit breaker
-	err := circuit_breaker.Init(sb.servGroup, sb.servName)
-	if err != nil {
-		xlog.Errorf(context.Background(), "%s: circuit_breaker.Init() failed, error: %+v", fun, err)
-		return err
-	}
-
 	// rate limiter
 	etcdInterfaceRateLimitRegistry, err := registry.NewEtcdInterfaceRateLimitRegistry(sb.servGroup, sb.servName, servbase.ETCDS_CLUSTER_0)
 	if err != nil {
