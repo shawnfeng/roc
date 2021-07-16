@@ -324,8 +324,7 @@ func parseCrossRegionIdList(idListStr string) ([]int, error) {
 func (m *Server) awaitSignal(sb ServBase) {
 	c := make(chan os.Signal, 1)
 	ctx := context.Background()
-	signals := []os.Signal{syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGPIPE}
-	signal.Reset(signals...)
+	signals := []os.Signal{syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGPIPE}
 	signal.Notify(c, signals...)
 
 	for {
