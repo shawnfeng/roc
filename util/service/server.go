@@ -20,7 +20,6 @@ import (
 	"gitlab.pri.ibanyu.com/middleware/dolphin/rate_limit/registry"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
-	stat "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/sys"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
 	"gitlab.pri.ibanyu.com/middleware/util/servbase"
@@ -174,11 +173,6 @@ func (m *Server) initServer(fun string, confEtcd configEtcd, args *cmdArgs, init
 	if err := sb.setIp(); err != nil {
 		xlog.Errorf(ctx, "%s set ip error: %v", fun, err)
 	}
-
-	// 初始化服务进程打点
-	xlog.Infof(ctx, "%s init stat start", fun)
-	stat.Init(sb.servGroup, sb.servName, "")
-	xlog.Infof(ctx, "%s init stat end", fun)
 
 	defer xlog.AppLogSync()
 	defer xlog.StatLogSync()
