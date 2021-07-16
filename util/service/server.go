@@ -143,55 +143,6 @@ func (m *Server) Serve(confEtcd configEtcd, initfn func(ServBase) error, procs m
 	return m.Init(confEtcd, args, initfn, procs)
 }
 
-func (m *Server) initLog(sb *ServBaseV2, args *cmdArgs) error {
-	fun := "Server.initLog -->"
-
-	logDir := args.logDir
-	var logConfig struct {
-		Log struct {
-			Level string
-			Dir   string
-		}
-	}
-	logConfig.Log.Level = "INFO"
-
-	err := sb.ServConfig(&logConfig)
-	if err != nil {
-		xlog.Errorf(context.Background(), "%s serv config err: %v", fun, err)
-		return err
-	}
-
-	var logdir string
-	if len(logConfig.Log.Dir) > 0 {
-		logdir = fmt.Sprintf("%s/%s", logConfig.Log.Dir, sb.Copyname())
-	}
-
-	if len(logDir) > 0 {
-		logdir = fmt.Sprintf("%s/%s", logDir, sb.Copyname())
-	}
-
-	if logDir == "console" {
-		logdir = ""
-	}
-
-	xlog.Infof(context.Background(), "%s init log dir:%s name:%s level:%s", fun, logdir, args.servLoc, logConfig.Log.Level)
-
-	// 最终根据Apollo中配置的log level决定日志级别， TODO 后续将从etcd获取日志配置的逻辑去掉，统一在Apollo内配置
-	logLevel, ok := m.sbase.ConfigCenter().GetString(context.TODO(), "log_level")
-	if ok {
-		logConfig.Log.Level = logLevel
-	}
-	extraHeaders := map[string]interface{}{
-		"region": sb.Region(),
-		"lane":   sb.Lane(),
-		"ip":     sb.ServIp(),
-	}
-	xlog.InitAppLogV2(logdir, "serv.log", convertLevel(logConfig.Log.Level), extraHeaders)
-	xlog.InitStatLog(logdir, "stat.log")
-	xlog.SetStatLogService(args.servLoc)
-	return nil
-}
-
 func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) error, procs map[string]Processor) error {
 	fun := "Server.Init -->"
 	if err := m.initServer(fun, confEtcd, args, initfn, procs); err != nil {
@@ -223,11 +174,6 @@ func (m *Server) initServer(fun string, confEtcd configEtcd, args *cmdArgs, init
 	if err := sb.setIp(); err != nil {
 		xlog.Errorf(ctx, "%s set ip error: %v", fun, err)
 	}
-
-	// 初始化日志
-	xlog.Infof(ctx, "%s initLog start", fun)
-	m.initLog(sb, args)
-	xlog.Infof(ctx, "%s initLog end", fun)
 
 	// 初始化服务进程打点
 	xlog.Infof(ctx, "%s init stat start", fun)
