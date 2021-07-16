@@ -16,12 +16,9 @@ import (
 	"time"
 
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig/apollo"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
-	xmgo "gitlab.pri.ibanyu.com/middleware/seaweed/xmgo/manager"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xnet"
-	xsql "gitlab.pri.ibanyu.com/middleware/seaweed/xsql/manager"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtransport/gen-go/util/thriftutil"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xutil/sync2"
 
@@ -467,7 +464,7 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 	return nil
 }
 
-func newServBaseV2WithCmdArgs(confEtcd configEtcd, args *cmdArgs) (*ServBaseV2, error) {
+func newServBaseV2WithCmdArgs(confEtcd configEtcd, args *cmdArgs, configCenter xconfig.ConfigCenter) (*ServBaseV2, error) {
 	fun := "newServBaseV2WithCmdArgs -->"
 	ctx := context.Background()
 
@@ -497,14 +494,6 @@ func newServBaseV2WithCmdArgs(confEtcd configEtcd, args *cmdArgs) (*ServBaseV2, 
 	}
 
 	xlog.Infof(ctx, "%s retryGenSid end, path: %s, sid: %d, skey: %s, envGroup: %s", fun, path, sid, args.sessKey, args.group)
-
-	// init global config center
-	xlog.Infof(ctx, " %s init configcenter start", fun)
-	configCenter, err := xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, args.servLoc, []string{ApplicationNamespace, RPCConfNamespace, xsql.MysqlConfNamespace, xmgo.MongoConfNamespace})
-	if err != nil {
-		return nil, err
-	}
-	xlog.Infof(ctx, " %s init configcenter end", fun)
 
 	crossRegionIdList, err := parseCrossRegionIdList(args.crossRegionIdList)
 	if err != nil {

@@ -5,22 +5,31 @@
 package rocserv
 
 import (
+	"context"
 	"log"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig/apollo"
+	xmgo "gitlab.pri.ibanyu.com/middleware/seaweed/xmgo/manager"
+	xsql "gitlab.pri.ibanyu.com/middleware/seaweed/xsql/manager"
 	"gitlab.pri.ibanyu.com/middleware/util/servbase"
 )
 
 func TestIt(t *testing.T) {
 	args := &cmdArgs{
-		servLoc: "niubi/fuck",
-		sessKey: "7e07d3e6-2737-43ac-86fa-157bc1bb8943a",
-		group: "",
+		servLoc:           "niubi/fuck",
+		sessKey:           "7e07d3e6-2737-43ac-86fa-157bc1bb8943a",
+		group:             "",
 		crossRegionIdList: "",
 	}
 
-	sb, err := newServBaseV2WithCmdArgs(configEtcd{servbase.ETCDS_CLUSTER_0, "/roc"}, args)
+	configCenter, err := xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, args.servLoc, []string{ApplicationNamespace, RPCConfNamespace, xsql.MysqlConfNamespace, xmgo.MongoConfNamespace})
+	assert.Nil(t, err)
+
+	sb, err := newServBaseV2WithCmdArgs(configEtcd{servbase.ETCDS_CLUSTER_0, "/roc"}, args, configCenter)
 	if err != nil {
 		t.Errorf("create err:%s", err)
 		return

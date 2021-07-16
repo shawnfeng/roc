@@ -129,7 +129,7 @@ func (m *Server) loadDriver(procs map[string]Processor) (map[string]*ServInfo, e
 }
 
 // Serve handle request and return response
-func (m *Server) Serve(confEtcd configEtcd, initfn func(ServBase) error, procs map[string]Processor) error {
+func (m *Server) Serve(confEtcd configEtcd, configCenter xconfig.ConfigCenter, procs map[string]Processor) error {
 	fun := "Server.Serve -->"
 
 	args, err := m.parseFlag()
@@ -138,12 +138,12 @@ func (m *Server) Serve(confEtcd configEtcd, initfn func(ServBase) error, procs m
 		return err
 	}
 
-	return m.Init(confEtcd, args, initfn, procs)
+	return m.Init(confEtcd, args, configCenter, procs)
 }
 
-func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) error, procs map[string]Processor) error {
+func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, configCenter xconfig.ConfigCenter, procs map[string]Processor) error {
 	fun := "Server.Init -->"
-	if err := m.initServer(fun, confEtcd, args, initfn, procs); err != nil {
+	if err := m.initServer(fun, confEtcd, args, configCenter, procs); err != nil {
 		return err
 	}
 
@@ -151,16 +151,16 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 	return nil
 }
 
-func (m *Server) InitWithoutAwaitSignal(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) error, procs map[string]Processor) error {
+func (m *Server) InitWithoutAwaitSignal(confEtcd configEtcd, args *cmdArgs, configCenter xconfig.ConfigCenter, procs map[string]Processor) error {
 	fun := "Server.InitWithoutAwaitSignal -->"
-	return m.initServer(fun, confEtcd, args, initfn, procs)
+	return m.initServer(fun, confEtcd, args, configCenter, procs)
 }
 
-func (m *Server) initServer(fun string, confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) error, procs map[string]Processor) error {
+func (m *Server) initServer(fun string, confEtcd configEtcd, args *cmdArgs, configCenter xconfig.ConfigCenter, procs map[string]Processor) error {
 	ctx := context.Background()
 
 	xlog.Infof(ctx, "%s new ServBaseV2 start", fun)
-	sb, err := newServBaseV2WithCmdArgs(confEtcd, args)
+	sb, err := newServBaseV2WithCmdArgs(confEtcd, args, configCenter)
 	if err != nil {
 		xlog.Panicf(ctx, "%s init servbase loc: %s key: %s err: %v", fun, args.servLoc, args.sessKey, err)
 		return err
@@ -196,15 +196,6 @@ func (m *Server) initServer(fun string, confEtcd configEtcd, args *cmdArgs, init
 		return err
 	}
 	xlog.Infof(ctx, "%s init dolphin end", fun)
-
-	// App层初始化
-	xlog.Infof(ctx, "%s init initfn start", fun)
-	err = initfn(sb)
-	if err != nil {
-		xlog.Panicf(ctx, "%s callInitFunc err: %v", fun, err)
-		return err
-	}
-	xlog.Infof(ctx, "%s init initfn end", fun)
 
 	// NOTE: processor 在初始化 trace middleware 前需要保证 xtrace.GlobalTracer() 初始化完毕
 	xlog.Infof(ctx, "%s init tracer start", fun)
@@ -427,17 +418,17 @@ func (m *Server) initDolphin(sb *ServBaseV2) error {
 	return nil
 }
 
-// Serve app call Serve to start server, initLogic is the init func in app, logic.InitLogic,
-func Serve(etcdAddrs []string, baseLoc string, initLogic func(ServBase) error, processors map[string]Processor) error {
-	return server.Serve(configEtcd{etcdAddrs, baseLoc}, initLogic, processors)
+// Serve app call Serve to start server
+func Serve(etcdAddrs []string, baseLoc string, configCenter xconfig.ConfigCenter, processors map[string]Processor) error {
+	return server.Serve(configEtcd{etcdAddrs, baseLoc}, configCenter, processors)
 }
 
 // MasterSlave Leader-Follower模式，通过etcd distribute lock进行选举
-func MasterSlave(etcdAddrs []string, baseLoc string, initLogic func(ServBase) error, processors map[string]Processor) error {
-	return server.MasterSlave(configEtcd{etcdAddrs, baseLoc}, initLogic, processors)
+func MasterSlave(etcdAddrs []string, baseLoc string, configCenter xconfig.ConfigCenter, processors map[string]Processor) error {
+	return server.MasterSlave(configEtcd{etcdAddrs, baseLoc}, configCenter, processors)
 }
 
-func (m *Server) MasterSlave(confEtcd configEtcd, initLogic func(ServBase) error, processors map[string]Processor) error {
+func (m *Server) MasterSlave(confEtcd configEtcd, configCenter xconfig.ConfigCenter, processors map[string]Processor) error {
 	fun := "Server.MasterSlave -->"
 	ctx := context.Background()
 
@@ -448,19 +439,7 @@ func (m *Server) MasterSlave(confEtcd configEtcd, initLogic func(ServBase) error
 	}
 	args.model = MODEL_MASTERSLAVE
 
-	return m.Init(confEtcd, args, initLogic, processors)
-}
-
-// Init use in test of application
-func Init(etcdAddrs []string, baseLoc string, servLoc, servKey, logDir string, initLogic func(ServBase) error, processors map[string]Processor) error {
-	args := &cmdArgs{
-		logMaxSize:    0,
-		logMaxBackups: 0,
-		servLoc:       servLoc,
-		logDir:        logDir,
-		sessKey:       servKey,
-	}
-	return server.Init(configEtcd{etcdAddrs, baseLoc}, args, initLogic, processors)
+	return m.Init(confEtcd, args, configCenter, processors)
 }
 
 func GetServBase() ServBase {
@@ -532,7 +511,7 @@ func getRegionFromEnvOrDefault() string {
 }
 
 // Test 方便开发人员在本地启动服务、测试，实例信息不会注册到etcd
-func Test(etcdAddrs []string, baseLoc, servLoc string, initLogic func(ServBase) error) error {
+func Test(etcdAddrs []string, baseLoc, servLoc string, configCenter xconfig.ConfigCenter) error {
 	args := &cmdArgs{
 		logMaxSize:    0,
 		logMaxBackups: 0,
@@ -542,11 +521,11 @@ func Test(etcdAddrs []string, baseLoc, servLoc string, initLogic func(ServBase) 
 		disable:       true,
 		startType:     START_TYPE_LOCAL,
 	}
-	return server.Init(configEtcd{etcdAddrs, baseLoc}, args, initLogic, nil)
+	return server.Init(configEtcd{etcdAddrs, baseLoc}, args, configCenter, nil)
 }
 
 // 用于测试时启动框架, 功能同Test(), 但启动完成后不会阻塞
-func ServeForTest(etcdAddrs []string, baseLoc, servLoc string, initLogic func(ServBase) error) error {
+func ServeForTest(etcdAddrs []string, baseLoc, servLoc string, configCenter xconfig.ConfigCenter) error {
 	args := &cmdArgs{
 		logMaxSize:    0,
 		logMaxBackups: 0,
@@ -556,5 +535,5 @@ func ServeForTest(etcdAddrs []string, baseLoc, servLoc string, initLogic func(Se
 		disable:       true,
 		startType:     START_TYPE_LOCAL,
 	}
-	return server.InitWithoutAwaitSignal(configEtcd{etcdAddrs, baseLoc}, args, initLogic, nil)
+	return server.InitWithoutAwaitSignal(configEtcd{etcdAddrs, baseLoc}, args, configCenter, nil)
 }
