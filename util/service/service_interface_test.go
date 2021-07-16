@@ -13,12 +13,14 @@ import (
 )
 
 func TestIt(t *testing.T) {
-	skey := "7e07d3e6-2737-43ac-86fa-157bc1bb8943a"
-	//skey = "beauty"
-	var sb ServBase
-	var err error
-	sb, err = NewServBaseV2(configEtcd{servbase.ETCDS_CLUSTER_0, "/roc"}, "niubi/fuck", skey, "", nil)
+	args := &cmdArgs{
+		servLoc: "niubi/fuck",
+		sessKey: "7e07d3e6-2737-43ac-86fa-157bc1bb8943a",
+		group: "",
+		crossRegionIdList: "",
+	}
 
+	sb, err := newServBaseV2WithCmdArgs(configEtcd{servbase.ETCDS_CLUSTER_0, "/roc"}, args)
 	if err != nil {
 		t.Errorf("create err:%s", err)
 		return

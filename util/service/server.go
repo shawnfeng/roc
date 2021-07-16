@@ -210,17 +210,10 @@ func (m *Server) InitWithoutAwaitSignal(confEtcd configEtcd, args *cmdArgs, init
 func (m *Server) initServer(fun string, confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) error, procs map[string]Processor) error {
 	ctx := context.Background()
 
-	servLoc := args.servLoc
-	sessKey := args.sessKey
-	crossRegionIdList, err := parseCrossRegionIdList(args.crossRegionIdList)
-	if err != nil {
-		xlog.Panicf(ctx, "%s parse cross region id list error, arg: %v, err: %v", fun, args.crossRegionIdList, err)
-		return err
-	}
 	xlog.Infof(ctx, "%s new ServBaseV2 start", fun)
-	sb, err := newServBaseV2WithCmdArgs(confEtcd, servLoc, sessKey, args.group, crossRegionIdList, args)
+	sb, err := newServBaseV2WithCmdArgs(confEtcd, args)
 	if err != nil {
-		xlog.Panicf(ctx, "%s init servbase loc: %s key: %s err: %v", fun, servLoc, sessKey, err)
+		xlog.Panicf(ctx, "%s init servbase loc: %s key: %s err: %v", fun, args.servLoc, args.sessKey, err)
 		return err
 	}
 	m.sbase = sb
@@ -250,7 +243,7 @@ func (m *Server) initServer(fun string, confEtcd configEtcd, args *cmdArgs, init
 	xlog.Infof(ctx, "%s init backdoor end", fun)
 
 	xlog.Infof(ctx, "%s init handleModel start", fun)
-	err = m.handleModel(sb, servLoc, args.model)
+	err = m.handleModel(sb, args.servLoc, args.model)
 	if err != nil {
 		xlog.Panicf(ctx, "%s handleModel err: %v", fun, err)
 		return err
@@ -276,7 +269,7 @@ func (m *Server) initServer(fun string, confEtcd configEtcd, args *cmdArgs, init
 
 	// NOTE: processor 在初始化 trace middleware 前需要保证 xtrace.GlobalTracer() 初始化完毕
 	xlog.Infof(ctx, "%s init tracer start", fun)
-	m.initTracer(servLoc)
+	m.initTracer(args.servLoc)
 	xlog.Infof(ctx, "%s init tracer end", fun)
 
 	xlog.Infof(ctx, "%s init processor start", fun)
