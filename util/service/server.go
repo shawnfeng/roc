@@ -46,8 +46,6 @@ func NewServer() *Server {
 }
 
 type cmdArgs struct {
-	logMaxSize        int
-	logMaxBackups     int
 	servLoc           string
 	logDir            string
 	sessKey           string
@@ -62,9 +60,6 @@ type cmdArgs struct {
 
 func (m *Server) parseFlag() (*cmdArgs, error) {
 	var serv, logDir, skey, group, startType, backdoorPort string
-	var logMaxSize, logMaxBackups int
-	flag.IntVar(&logMaxSize, "logmaxsize", 0, "logMaxSize is the maximum size in megabytes of the log file")
-	flag.IntVar(&logMaxBackups, "logmaxbackups", 0, "logmaxbackups is the maximum number of old log files to retain")
 	flag.StringVar(&serv, "serv", "", "servic name")
 	flag.StringVar(&logDir, "logdir", "", "serice log dir")
 	flag.StringVar(&skey, "skey", "", "service session key")
@@ -92,8 +87,6 @@ func (m *Server) parseFlag() (*cmdArgs, error) {
 	region := getRegionFromEnvOrDefault()
 
 	return &cmdArgs{
-		logMaxSize:        logMaxSize,
-		logMaxBackups:     logMaxBackups,
 		servLoc:           serv,
 		logDir:            logDir,
 		sessKey:           skey,
@@ -522,11 +515,9 @@ func (m *Server) MasterSlave(confEtcd configEtcd, initLogic func(ServBase) error
 // Init use in test of application
 func Init(etcdAddrs []string, baseLoc string, servLoc, servKey, logDir string, initLogic func(ServBase) error, processors map[string]Processor) error {
 	args := &cmdArgs{
-		logMaxSize:    0,
-		logMaxBackups: 0,
-		servLoc:       servLoc,
-		logDir:        logDir,
-		sessKey:       servKey,
+		servLoc: servLoc,
+		logDir:  logDir,
+		sessKey: servKey,
 	}
 	return server.Init(configEtcd{etcdAddrs, baseLoc}, args, initLogic, processors)
 }
@@ -602,13 +593,11 @@ func getRegionFromEnvOrDefault() string {
 // Test 方便开发人员在本地启动服务、测试，实例信息不会注册到etcd
 func Test(etcdAddrs []string, baseLoc, servLoc string, initLogic func(ServBase) error) error {
 	args := &cmdArgs{
-		logMaxSize:    0,
-		logMaxBackups: 0,
-		servLoc:       servLoc,
-		sessKey:       "test",
-		logDir:        "console",
-		disable:       true,
-		startType:     START_TYPE_LOCAL,
+		servLoc:   servLoc,
+		sessKey:   "test",
+		logDir:    "console",
+		disable:   true,
+		startType: START_TYPE_LOCAL,
 	}
 	return server.Init(configEtcd{etcdAddrs, baseLoc}, args, initLogic, nil)
 }
@@ -616,13 +605,11 @@ func Test(etcdAddrs []string, baseLoc, servLoc string, initLogic func(ServBase) 
 // 用于测试时启动框架, 功能同Test(), 但启动完成后不会阻塞
 func ServeForTest(etcdAddrs []string, baseLoc, servLoc string, initLogic func(ServBase) error) error {
 	args := &cmdArgs{
-		logMaxSize:    0,
-		logMaxBackups: 0,
-		servLoc:       servLoc,
-		sessKey:       "test",
-		logDir:        "console",
-		disable:       true,
-		startType:     START_TYPE_LOCAL,
+		servLoc:   servLoc,
+		sessKey:   "test",
+		logDir:    "console",
+		disable:   true,
+		startType: START_TYPE_LOCAL,
 	}
 	return server.InitWithoutAwaitSignal(configEtcd{etcdAddrs, baseLoc}, args, initLogic, nil)
 }
