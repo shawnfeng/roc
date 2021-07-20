@@ -53,8 +53,6 @@ type cmdArgs struct {
 	logDir            string
 	sessKey           string
 	group             string
-	disable           bool
-	model             ServerModel
 	startType         string // 启动方式：local - 不注册至etcd
 	crossRegionIdList string
 	region            string
@@ -130,14 +128,21 @@ func (m *Server) loadDriver(procs map[string]Processor) (map[string]*ServInfo, e
 func (m *Server) Serve(confEtcd configEtcd, initfn func(ServBase) error, procs map[string]Processor, model ServerModel) error {
 	fun := "Server.Serve -->"
 
+	options := DefaultRocOptions()
+	options.etcdAddrs = confEtcd.etcdAddrs
+	options.baseLoc = confEtcd.useBaseloc
+	options.model = model
+	options.createConfigCenterWhenNil = true
+	options.procs = procs
+
 	args, err := m.parseFlag()
 	if err != nil {
-		xlog.Panicf(context.Background(), "%s parse arg err: %v", fun, err)
+		xlog.Errorf(context.Background(), "%s parse arg err: %v", fun, err)
 		return err
 	}
+	options.args = args
 
-	args.model = model
-	return m.Init(confEtcd, args, initfn, procs, true)
+	return m.Init(options, initfn, true)
 }
 
 func (m *Server) initLog(sb *ServBaseV2, args *cmdArgs) error {
@@ -189,9 +194,11 @@ func (m *Server) initLog(sb *ServBaseV2, args *cmdArgs) error {
 	return nil
 }
 
-func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) error, procs map[string]Processor, awaitSignal bool) error {
+// 	func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) error, procs map[string]Processor, awaitSignal bool) error {...}
+func (m *Server) Init(options *RocOptions, initfn func(ServBase) error, awaitSignal bool) error {
 	fun := "Server.Init -->"
-	if err := m.initServer(confEtcd, args, initfn, procs); err != nil {
+
+	if err := m.initServer(options, initfn); err != nil {
 		return err
 	}
 
@@ -202,14 +209,14 @@ func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) 
 	return nil
 }
 
-func (m *Server) initServer(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) error, procs map[string]Processor) error {
+func (m *Server) initServer(options *RocOptions, initfn func(ServBase) error) error {
 	fun := "Server.initServer -->"
-
 	ctx := context.Background()
+
 	xlog.Infof(ctx, "%s new ServBaseV2 start", fun)
-	sb, err := newServBaseV2WithCmdArgs(confEtcd, args)
+	sb, err := newServBaseV2WithOptions(options)
 	if err != nil {
-		xlog.Panicf(ctx, "%s init servbase loc: %s key: %s err: %v", fun, args.servLoc, args.sessKey, err)
+		xlog.Errorf(ctx, "%s init servbase loc: %s key: %s err: %v", fun, options.args.servLoc, options.args.sessKey, err)
 		return err
 	}
 	m.sbase = sb
@@ -222,7 +229,7 @@ func (m *Server) initServer(confEtcd configEtcd, args *cmdArgs, initfn func(Serv
 
 	// 初始化日志
 	xlog.Infof(ctx, "%s initLog start", fun)
-	m.initLog(sb, args)
+	m.initLog(sb, options.args)
 	xlog.Infof(ctx, "%s initLog end", fun)
 
 	// 初始化服务进程打点
@@ -235,19 +242,19 @@ func (m *Server) initServer(confEtcd configEtcd, args *cmdArgs, initfn func(Serv
 
 	// NOTE: initBackdoor会启动http服务，但由于health check的http请求不需要追踪，且它是判断服务启动与否的关键，所以initTracer可以放在它之后进行
 	xlog.Infof(ctx, "%s init backdoor start", fun)
-	m.initBackdoor(sb, args)
+	m.initBackdoor(sb, options.args)
 	xlog.Infof(ctx, "%s init backdoor end", fun)
 
 	xlog.Infof(ctx, "%s init handleModel start", fun)
-	err = m.handleModel(sb, args.servLoc, args.model)
+	err = m.handleModel(sb, options.args.servLoc, options.model)
 	if err != nil {
-		xlog.Panicf(ctx, "%s handleModel err: %v", fun, err)
+		xlog.Errorf(ctx, "%s handleModel err: %v", fun, err)
 		return err
 	}
 	xlog.Infof(ctx, "%s init handleModel end", fun)
 
 	xlog.Infof(ctx, "%s init dolphin start", fun)
-	err = m.initDolphin(sb)
+	err = m.initDolphin(sb, true)
 	if err != nil {
 		xlog.Errorf(ctx, "%s initDolphin() failed, error: %v", fun, err)
 		return err
@@ -258,26 +265,26 @@ func (m *Server) initServer(confEtcd configEtcd, args *cmdArgs, initfn func(Serv
 	xlog.Infof(ctx, "%s init initfn start", fun)
 	err = initfn(sb)
 	if err != nil {
-		xlog.Panicf(ctx, "%s callInitFunc err: %v", fun, err)
+		xlog.Errorf(ctx, "%s callInitFunc err: %v", fun, err)
 		return err
 	}
 	xlog.Infof(ctx, "%s init initfn end", fun)
 
 	// NOTE: processor 在初始化 trace middleware 前需要保证 xtrace.GlobalTracer() 初始化完毕
 	xlog.Infof(ctx, "%s init tracer start", fun)
-	m.initTracer(args.servLoc)
+	m.initTracer(options.args.servLoc)
 	xlog.Infof(ctx, "%s init tracer end", fun)
 
 	xlog.Infof(ctx, "%s init processor start", fun)
-	err = m.initProcessor(sb, procs, args.startType)
+	err = m.initProcessor(sb, options.procs, options.args.startType)
 	if err != nil {
-		xlog.Panicf(ctx, "%s initProcessor err: %v", fun, err)
+		xlog.Errorf(ctx, "%s initProcessor err: %v", fun, err)
 		return err
 	}
 	xlog.Infof(ctx, "%s init processor end", fun)
 
 	xlog.Infof(ctx, "%s init SetGroupAndDisable start", fun)
-	sb.SetGroupAndDisable(args.group, args.disable)
+	sb.SetGroupAndDisable(options.args.group, options.disable)
 	xlog.Infof(ctx, "%s init SetGroupAndDisable end", fun)
 
 	xlog.Infof(ctx, "%s init metric start", fun)
@@ -469,13 +476,17 @@ func (m *Server) initMetric(sb *ServBaseV2) error {
 	return err
 }
 
-func (m *Server) initDolphin(sb *ServBaseV2) error {
+func (m *Server) initDolphin(sb *ServBaseV2, includeCircuitBreaker bool) error {
+	// V1 版需要在 roc 中初始化 circuit breaker，但 V2 版则需要在 roc 外部初始化 circuit breaker。
 	fun := "Server.initDolphin -->"
-	// circuit breaker
-	err := circuit_breaker.Init(sb.servGroup, sb.servName)
-	if err != nil {
-		xlog.Errorf(context.Background(), "%s: circuit_breaker.Init() failed, error: %+v", fun, err)
-		return err
+
+	if includeCircuitBreaker {
+		// circuit breaker
+		err := circuit_breaker.Init(sb.servGroup, sb.servName)
+		if err != nil {
+			xlog.Errorf(context.Background(), "%s: circuit_breaker.Init() failed, error: %+v", fun, err)
+			return err
+		}
 	}
 
 	// rate limiter
@@ -504,12 +515,19 @@ func MasterSlave(etcdAddrs []string, baseLoc string, initLogic func(ServBase) er
 // Init use in test of application
 // Deprecated, use Test instead
 func Init(etcdAddrs []string, baseLoc string, servLoc, servKey, logDir string, initLogic func(ServBase) error, processors map[string]Processor) error {
-	args := &cmdArgs{
-		servLoc: servLoc,
-		logDir:  logDir,
-		sessKey: servKey,
+	options := &RocOptions{
+		etcdAddrs: etcdAddrs,
+		baseLoc:   baseLoc,
+		args: &cmdArgs{
+			servLoc: servLoc,
+			logDir:  logDir,
+			sessKey: servKey,
+		},
+		createConfigCenterWhenNil: true,
+		procs:                     processors,
 	}
-	return server.Init(configEtcd{etcdAddrs, baseLoc}, args, initLogic, processors, true)
+
+	return server.Init(options, initLogic, true)
 }
 
 func GetServBase() ServBase {
@@ -582,24 +600,36 @@ func getRegionFromEnvOrDefault() string {
 
 // Test 方便开发人员在本地启动服务、测试，实例信息不会注册到etcd
 func Test(etcdAddrs []string, baseLoc, servLoc string, initLogic func(ServBase) error) error {
-	args := &cmdArgs{
-		servLoc:   servLoc,
-		sessKey:   "test",
-		logDir:    "console",
+	options := &RocOptions{
+		etcdAddrs: etcdAddrs,
+		baseLoc:   baseLoc,
 		disable:   true,
-		startType: START_TYPE_LOCAL,
+		args: &cmdArgs{
+			servLoc:   servLoc,
+			sessKey:   "test",
+			logDir:    "console",
+			startType: START_TYPE_LOCAL,
+		},
+		createConfigCenterWhenNil: true,
 	}
-	return server.Init(configEtcd{etcdAddrs, baseLoc}, args, initLogic, nil, true)
+
+	return server.Init(options, initLogic, true)
 }
 
 // 用于测试时启动框架, 功能同Test(), 但启动完成后不会阻塞
 func ServeForTest(etcdAddrs []string, baseLoc, servLoc string, initLogic func(ServBase) error) error {
-	args := &cmdArgs{
-		servLoc:   servLoc,
-		sessKey:   "test",
-		logDir:    "console",
+	options := &RocOptions{
+		etcdAddrs: etcdAddrs,
+		baseLoc:   baseLoc,
 		disable:   true,
-		startType: START_TYPE_LOCAL,
+		args: &cmdArgs{
+			servLoc:   servLoc,
+			sessKey:   "test",
+			logDir:    "console",
+			startType: START_TYPE_LOCAL,
+		},
+		createConfigCenterWhenNil: true,
 	}
-	return server.Init(configEtcd{etcdAddrs, baseLoc}, args, initLogic, nil, false)
+
+	return server.Init(options, initLogic, false)
 }

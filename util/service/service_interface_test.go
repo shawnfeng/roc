@@ -13,14 +13,20 @@ import (
 )
 
 func TestIt(t *testing.T) {
-	args := &cmdArgs{
-		servLoc: "niubi/fuck",
-		sessKey: "7e07d3e6-2737-43ac-86fa-157bc1bb8943a",
-		group: "",
-		crossRegionIdList: "",
+	options := &RocOptions{
+		etcdAddrs: servbase.ETCDS_CLUSTER_0,
+		baseLoc:   "/roc",
+		args: &cmdArgs{
+			servLoc:           "niubi/fuck",
+			sessKey:           "7e07d3e6-2737-43ac-86fa-157bc1bb8943a",
+			group:             "",
+			crossRegionIdList: "",
+		},
+		configCenter:              nil,
+		createConfigCenterWhenNil: true,
 	}
 
-	sb, err := newServBaseV2WithCmdArgs(configEtcd{servbase.ETCDS_CLUSTER_0, "/roc"}, args)
+	sb, err := newServBaseV2WithOptions(options)
 	if err != nil {
 		t.Errorf("create err:%s", err)
 		return

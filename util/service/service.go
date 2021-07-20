@@ -80,12 +80,10 @@ type ServBaseV2 struct {
 	confEtcd     configEtcd
 	configCenter xconfig.ConfigCenter
 
-	dbLocation   string
 	servLocation string
 	servGroup    string
 	servName     string
 	servIp       string
-	copyName     string
 	sessKey      string
 	region       string // 地区, 与PaaS一致
 
@@ -467,10 +465,14 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 	return nil
 }
 
-func newServBaseV2WithCmdArgs(confEtcd configEtcd, args *cmdArgs) (*ServBaseV2, error) {
-	fun := "newServBaseV2WithCmdArgs -->"
+func newServBaseV2WithOptions(options *RocOptions) (*ServBaseV2, error) {
+	fun := "newServBaseV2WithOptions -->"
 	ctx := context.Background()
 
+	confEtcd := configEtcd{
+		etcdAddrs:  options.etcdAddrs,
+		useBaseloc: options.baseLoc,
+	}
 	cfg := etcd.Config{
 		Endpoints:               confEtcd.etcdAddrs,
 		Transport:               etcd.DefaultTransport,
@@ -488,35 +490,39 @@ func newServBaseV2WithCmdArgs(confEtcd configEtcd, args *cmdArgs) (*ServBaseV2, 
 		return nil, fmt.Errorf("create etchd api error")
 	}
 
-	path := fmt.Sprintf("%s/%s/%s", confEtcd.useBaseloc, BASE_LOC_SKEY, args.servLoc)
+	path := fmt.Sprintf("%s/%s/%s", confEtcd.useBaseloc, BASE_LOC_SKEY, options.args.servLoc)
 
 	xlog.Infof(ctx, "%s retryGenSid start", fun)
-	sid, err := retryGenSid(client, path, args.sessKey, 3)
+	sid, err := retryGenSid(client, path, options.args.sessKey, 3)
 	if err != nil {
 		return nil, err
 	}
 
-	xlog.Infof(ctx, "%s retryGenSid end, path: %s, sid: %d, skey: %s, envGroup: %s", fun, path, sid, args.sessKey, args.group)
+	xlog.Infof(ctx, "%s retryGenSid end, path: %s, sid: %d, skey: %s, envGroup: %s", fun, path, sid, options.args.sessKey, options.args.group)
 
-	// init global config center
-	xlog.Infof(ctx, " %s init configcenter start", fun)
-	configCenter, err := xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, args.servLoc, []string{ApplicationNamespace, RPCConfNamespace, xsql.MysqlConfNamespace, xmgo.MongoConfNamespace})
-	if err != nil {
-		return nil, err
+	configCenter := options.configCenter
+	if configCenter == nil && options.createConfigCenterWhenNil {
+		// init global config center
+		xlog.Infof(ctx, " %s init configcenter start", fun)
+		var err error
+		configCenter, err = xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, options.args.servLoc, []string{ApplicationNamespace, RPCConfNamespace, xsql.MysqlConfNamespace, xmgo.MongoConfNamespace})
+		if err != nil {
+			return nil, err
+		}
+		xlog.Infof(ctx, " %s init configcenter end", fun)
 	}
-	xlog.Infof(ctx, " %s init configcenter end", fun)
 
-	crossRegionIdList, err := parseCrossRegionIdList(args.crossRegionIdList)
+	crossRegionIdList, err := parseCrossRegionIdList(options.args.crossRegionIdList)
 	if err != nil {
-		xlog.Errorf(ctx, "%s parse cross region id list error, arg: %v, err: %v", fun, args.crossRegionIdList, err)
+		xlog.Errorf(ctx, "%s parse cross region id list error, arg: %v, err: %v", fun, options.args.crossRegionIdList, err)
 		return nil, err
 	}
 
 	reg := &ServBaseV2{
 		confEtcd:               confEtcd,
-		servLocation:           args.servLoc,
-		sessKey:                args.sessKey,
-		region:                 args.region,
+		servLocation:           options.args.servLoc,
+		sessKey:                options.args.sessKey,
+		region:                 options.args.region,
 		etcdClient:             client,
 		crossRegisterRegionIds: crossRegionIdList,
 		crossRegisterClients:   make(map[string]etcd.KeysAPI, 2),
@@ -527,18 +533,18 @@ func newServBaseV2WithCmdArgs(confEtcd configEtcd, args *cmdArgs) (*ServBaseV2, 
 
 		configCenter: configCenter,
 
-		envGroup:   args.group,
+		envGroup:   options.args.group,
 		onShutdown: func() { xlog.Info(context.TODO(), "app shutdown") },
 	}
-	svrInfo := strings.SplitN(args.servLoc, "/", 2)
+	svrInfo := strings.SplitN(options.args.servLoc, "/", 2)
 	if len(svrInfo) == 2 {
 		reg.servGroup = svrInfo[0]
 		reg.servName = svrInfo[1]
 	} else {
-		xlog.Warnf(ctx, "%s servLocation:%s do not match group/service format", fun, args.servLoc)
+		xlog.Warnf(ctx, "%s servLocation:%s do not match group/service format", fun, options.args.servLoc)
 	}
 
-	if args.startType == START_TYPE_LOCAL {
+	if options.args.startType == START_TYPE_LOCAL {
 		reg.setLocalRunning(true)
 	}
 
