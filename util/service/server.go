@@ -27,11 +27,14 @@ import (
 )
 
 // server model
+type ServerModel int
+
 const (
-	MODEL_SERVER      = 0
-	MODEL_MASTERSLAVE = 1
-	START_TYPE_LOCAL  = "local"
+	MODEL_SERVER      ServerModel = 0
+	MODEL_MASTERSLAVE ServerModel = 1
 )
+
+const START_TYPE_LOCAL = "local"
 
 var server = NewServer()
 
@@ -51,7 +54,7 @@ type cmdArgs struct {
 	sessKey           string
 	group             string
 	disable           bool
-	model             int
+	model             ServerModel
 	startType         string // 启动方式：local - 不注册至etcd
 	crossRegionIdList string
 	region            string
@@ -124,7 +127,7 @@ func (m *Server) loadDriver(procs map[string]Processor) (map[string]*ServInfo, e
 }
 
 // Serve handle request and return response
-func (m *Server) Serve(confEtcd configEtcd, initfn func(ServBase) error, procs map[string]Processor) error {
+func (m *Server) Serve(confEtcd configEtcd, initfn func(ServBase) error, procs map[string]Processor, model ServerModel) error {
 	fun := "Server.Serve -->"
 
 	args, err := m.parseFlag()
@@ -133,7 +136,8 @@ func (m *Server) Serve(confEtcd configEtcd, initfn func(ServBase) error, procs m
 		return err
 	}
 
-	return m.Init(confEtcd, args, initfn, procs)
+	args.model = model
+	return m.Init(confEtcd, args, initfn, procs, true)
 }
 
 func (m *Server) initLog(sb *ServBaseV2, args *cmdArgs) error {
@@ -185,24 +189,23 @@ func (m *Server) initLog(sb *ServBaseV2, args *cmdArgs) error {
 	return nil
 }
 
-func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) error, procs map[string]Processor) error {
+func (m *Server) Init(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) error, procs map[string]Processor, awaitSignal bool) error {
 	fun := "Server.Init -->"
-	if err := m.initServer(fun, confEtcd, args, initfn, procs); err != nil {
+	if err := m.initServer(confEtcd, args, initfn, procs); err != nil {
 		return err
 	}
 
-	m.awaitSignal(m.sbase)
+	if awaitSignal {
+		xlog.Infof(context.Background(), "%s awaiting signal", fun)
+		m.awaitSignal(m.sbase)
+	}
 	return nil
 }
 
-func (m *Server) InitWithoutAwaitSignal(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) error, procs map[string]Processor) error {
-	fun := "Server.InitWithoutAwaitSignal -->"
-	return m.initServer(fun, confEtcd, args, initfn, procs)
-}
+func (m *Server) initServer(confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) error, procs map[string]Processor) error {
+	fun := "Server.initServer -->"
 
-func (m *Server) initServer(fun string, confEtcd configEtcd, args *cmdArgs, initfn func(ServBase) error, procs map[string]Processor) error {
 	ctx := context.Background()
-
 	xlog.Infof(ctx, "%s new ServBaseV2 start", fun)
 	sb, err := newServBaseV2WithCmdArgs(confEtcd, args)
 	if err != nil {
@@ -328,7 +331,7 @@ func (m *Server) awaitSignal(sb ServBase) {
 
 }
 
-func (m *Server) handleModel(sb *ServBaseV2, servLoc string, model int) error {
+func (m *Server) handleModel(sb *ServBaseV2, servLoc string, model ServerModel) error {
 	fun := "Server.handleModel -->"
 	ctx := context.Background()
 
@@ -490,36 +493,23 @@ func (m *Server) initDolphin(sb *ServBaseV2) error {
 
 // Serve app call Serve to start server, initLogic is the init func in app, logic.InitLogic,
 func Serve(etcdAddrs []string, baseLoc string, initLogic func(ServBase) error, processors map[string]Processor) error {
-	return server.Serve(configEtcd{etcdAddrs, baseLoc}, initLogic, processors)
+	return server.Serve(configEtcd{etcdAddrs, baseLoc}, initLogic, processors, MODEL_SERVER)
 }
 
 // MasterSlave Leader-Follower模式，通过etcd distribute lock进行选举
 func MasterSlave(etcdAddrs []string, baseLoc string, initLogic func(ServBase) error, processors map[string]Processor) error {
-	return server.MasterSlave(configEtcd{etcdAddrs, baseLoc}, initLogic, processors)
-}
-
-func (m *Server) MasterSlave(confEtcd configEtcd, initLogic func(ServBase) error, processors map[string]Processor) error {
-	fun := "Server.MasterSlave -->"
-	ctx := context.Background()
-
-	args, err := m.parseFlag()
-	if err != nil {
-		xlog.Panicf(ctx, "%s parse arg err: %v", fun, err)
-		return err
-	}
-	args.model = MODEL_MASTERSLAVE
-
-	return m.Init(confEtcd, args, initLogic, processors)
+	return server.Serve(configEtcd{etcdAddrs, baseLoc}, initLogic, processors, MODEL_MASTERSLAVE)
 }
 
 // Init use in test of application
+// Deprecated, use Test instead
 func Init(etcdAddrs []string, baseLoc string, servLoc, servKey, logDir string, initLogic func(ServBase) error, processors map[string]Processor) error {
 	args := &cmdArgs{
 		servLoc: servLoc,
 		logDir:  logDir,
 		sessKey: servKey,
 	}
-	return server.Init(configEtcd{etcdAddrs, baseLoc}, args, initLogic, processors)
+	return server.Init(configEtcd{etcdAddrs, baseLoc}, args, initLogic, processors, true)
 }
 
 func GetServBase() ServBase {
@@ -599,7 +589,7 @@ func Test(etcdAddrs []string, baseLoc, servLoc string, initLogic func(ServBase) 
 		disable:   true,
 		startType: START_TYPE_LOCAL,
 	}
-	return server.Init(configEtcd{etcdAddrs, baseLoc}, args, initLogic, nil)
+	return server.Init(configEtcd{etcdAddrs, baseLoc}, args, initLogic, nil, true)
 }
 
 // 用于测试时启动框架, 功能同Test(), 但启动完成后不会阻塞
@@ -611,5 +601,5 @@ func ServeForTest(etcdAddrs []string, baseLoc, servLoc string, initLogic func(Se
 		disable:   true,
 		startType: START_TYPE_LOCAL,
 	}
-	return server.InitWithoutAwaitSignal(configEtcd{etcdAddrs, baseLoc}, args, initLogic, nil)
+	return server.Init(configEtcd{etcdAddrs, baseLoc}, args, initLogic, nil, false)
 }
