@@ -3,6 +3,8 @@ package rocserv
 import (
 	"context"
 	"errors"
+	_ "unsafe"
+
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"gitlab.pri.ibanyu.com/middleware/util/servbase"
@@ -165,11 +167,21 @@ func (m *Server) initServerV2(options *RocOptions) error {
 	m.initMetric(sb)
 	xlog.Infof(ctx, "%s init metric end", fun)
 
+	xlog.Infof(ctx, "%s initMonitorV2 start", fun)
+	initMonitorV2(sb)
+	xlog.Infof(ctx, "%s initMonitorV2 end", fun)
+
 	xlog.Infof(ctx, "server start success, grpc: [%s], thrift: [%s]", GetProcessorAddress(PROCESSOR_GRPC_PROPERTY_NAME), GetProcessorAddress(PROCESSOR_THRIFT_PROPERTY_NAME))
 	return nil
 }
 
-// TestV2 TODO: 换个更好的名字？
+// HACK!!!
+// 通过此种方式来调用 middleware/util 中的 monitor.InitV2()，但又避免循环 import。
+//go:noescape
+//go:linkname initMonitorV2 gitlab.pri.ibanyu.com/middleware/util/servbase/monitor.InitV2
+func initMonitorV2(sb ServBase) error
+
+// TestV2
 func TestV2(configCenter xconfig.ConfigCenter, servLoc string, opts ...Option) error {
 	fun := "TestV2 -->"
 

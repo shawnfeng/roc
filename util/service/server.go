@@ -291,6 +291,10 @@ func (m *Server) initServer(options *RocOptions, initfn func(ServBase) error) er
 	m.initMetric(sb)
 	xlog.Infof(ctx, "%s init metric end", fun)
 
+	xlog.Infof(ctx, "%s initMonitorV2 start", fun)
+	initMonitorV2(sb)
+	xlog.Infof(ctx, "%s initMonitorV2 end", fun)
+
 	xlog.Infof(ctx, "server start success, grpc: [%s], thrift: [%s]", GetProcessorAddress(PROCESSOR_GRPC_PROPERTY_NAME), GetProcessorAddress(PROCESSOR_THRIFT_PROPERTY_NAME))
 	return nil
 }
