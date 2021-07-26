@@ -336,6 +336,7 @@ func (m *ClientGrpc) newConn(addr string) (rpcClientConn, error) {
 		grpc.WithChainUnaryInterceptor(
 			otgrpc.OpenTracingClientInterceptorWithGlobalTracer(otgrpc.SpanDecorator(apmSetSpanTagDecorator)),
 			LaneInfoUnaryClientInterceptor(),
+			ContextHeadUnaryClientInterceptor(),
 		),
 		grpc.WithStreamInterceptor(
 			otgrpc.OpenTracingStreamClientInterceptorWithGlobalTracer()),
@@ -366,6 +367,27 @@ func LaneInfoUnaryClientInterceptor() grpc.UnaryClientInterceptor {
 			md = md.Copy()
 		}
 		md.Set(LaneInfoMetadataKey, lane)
+		return invoker(metadata.NewOutgoingContext(ctx, md), method, req, reply, cc, opts...)
+	}
+}
+
+func ContextHeadUnaryClientInterceptor() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string,
+		req, reply interface{},
+		cc *grpc.ClientConn,
+		invoker grpc.UnaryInvoker,
+		opts ...grpc.CallOption) error {
+
+		md, ok := metadata.FromOutgoingContext(ctx)
+		if !ok {
+			md = metadata.New(nil)
+		} else {
+			md = md.Copy()
+		}
+		hlc, ok := xcontext.GetPropertiesHLC(ctx)
+		if ok {
+			md.Set(xcontext.ContextPropertiesKeyHLC, hlc)
+		}
 		return invoker(metadata.NewOutgoingContext(ctx, md), method, req, reply, cc, opts...)
 	}
 }
