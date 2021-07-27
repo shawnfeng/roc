@@ -3,7 +3,7 @@ module github.com/shawnfeng/roc
 require (
 	git.apache.org/thrift.git v0.0.0-20150427210205-dc799ca07862
 	github.com/coreos/etcd v3.3.22+incompatible
-	github.com/gin-gonic/gin v1.4.0
+	github.com/gin-gonic/gin v1.7.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
 	github.com/julienschmidt/httprouter v1.2.0
 	github.com/opentracing/opentracing-go v1.1.0

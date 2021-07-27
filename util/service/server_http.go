@@ -201,7 +201,7 @@ func Trace() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		span := xtrace.SpanFromContext(c.Request.Context())
 		if span == nil {
-			newSpan, ctx := xtrace.StartSpanFromContext(c.Request.Context(), c.Request.RequestURI)
+			newSpan, ctx := xtrace.StartSpanFromContext(c.Request.Context(), c.FullPath())
 			c.Request.WithContext(ctx)
 			span = newSpan
 		}
