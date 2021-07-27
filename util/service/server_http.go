@@ -187,7 +187,7 @@ func Metric() gin.HandlerFunc {
 
 		errCode := getErrCodeFromContext(c.Request.Context())
 
-		path := c.Request.URL.Path
+		path := c.FullPath()
 		path = ParseUriApi(path)
 
 		group, serviceName := GetGroupAndService()
