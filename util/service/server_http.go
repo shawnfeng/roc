@@ -39,6 +39,8 @@ const (
 	HttpHeaderKeyHead  = "ipalfish-head"
 
 	CookieNameGroup = "ipalfish_group"
+
+	ReqHeaderKey = "req_header"
 )
 
 // HttpServer is the http server, Create an instance of GinServer, by using NewGinServer()
@@ -49,6 +51,30 @@ type HttpServer struct {
 // Context warp gin Context
 type Context struct {
 	*gin.Context
+}
+
+// ReqHeader 请求规范中，在请求参数中统一包装的一些内容，参考：http://midplatform.book.pri.ibanyu.com/doc/standard/interface.html
+type ReqHeader struct {
+	Token string `json:"token"`
+	Uid   int64  `json:"h_m"`
+
+	Did     string `json:"h_did"`
+	Ver     string `json:"h_av"`
+	Model   string `json:"h_model"` // 设备型号
+	Dt      int32  `json:"h_dt"`
+	Dtsub   int32  `json:"h_dt_sub"`
+	Ch      string `json:"h_ch"`
+	Net     int32  `json:"h_nt"`
+	Unionid string `json:"h_unionid"`
+	Het     int32  `json:"h_et"` // 终端类型，0其他；1APP；2web或H5；3微信；4小程序
+
+	HLc  string `json:"h_lc"`
+	Cate int32  `json:"cate"`
+
+	Source    int32  `json:"h_src"`
+	Zone      int32  `json:"zone"`
+	Subsource int32  `json:"h_sub_src"`
+	ZoneName  string `json:"zone_name"`
 }
 
 // HandlerFunc ...
@@ -168,8 +194,11 @@ func (c *Context) Bind(obj interface{}) error {
 func InjectFromRequest() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
-		ctx = extractThriftUtilContextControlFromRequest(ctx, c.Request)
-		ctx = extractThriftUtilContextHeadFromRequest(ctx, c.Request)
+		if _, ok := c.Get(ReqHeaderKey); !ok {
+			ctx = extractContextHeadFromReqHeader(ctx, c.Request)
+		}
+		ctx = extractContextControlFromRequest(ctx, c.Request)
+		ctx = extractContextHeadFromRequest(ctx, c.Request)
 		c.Request = c.Request.WithContext(ctx)
 	}
 }
@@ -309,7 +338,7 @@ func WrapHttpRouter(handle httprouter.Handle) HandlerFunc {
 	}
 }
 
-func extractThriftUtilContextControlFromRequest(ctx context.Context, req *http.Request) context.Context {
+func extractContextControlFromRequest(ctx context.Context, req *http.Request) context.Context {
 	var group string
 	if group = extractRouteGroupFromHost(req); group != "" {
 		return injectRouteGroupToContext(ctx, group)
@@ -326,7 +355,7 @@ func extractThriftUtilContextControlFromRequest(ctx context.Context, req *http.R
 	return injectRouteGroupToContext(ctx, xcontext.DefaultGroup)
 }
 
-func extractThriftUtilContextHeadFromRequest(ctx context.Context, req *http.Request) context.Context {
+func extractContextHeadFromRequest(ctx context.Context, req *http.Request) context.Context {
 	// NOTE: 如果已经有了就先不覆盖
 	val := ctx.Value(xcontext.ContextKeyHead)
 	if val != nil {
@@ -461,4 +490,32 @@ func NotFound() gin.HandlerFunc {
 		c.JSON(http.StatusNotFound, nfResp)
 		return
 	}
+}
+
+func extractContextHeadFromReqHeader(ctx context.Context, req *http.Request) context.Context {
+	reqHeader := new(ReqHeader)
+	bodyData, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		return ctx
+	}
+	// set body
+	req.Body = ioutil.NopCloser(bytes.NewBuffer(bodyData))
+	err = json.Unmarshal(bodyData, reqHeader)
+	if err != nil {
+		return ctx
+	}
+	head := &thriftutil.Head{}
+	val := ctx.Value(xcontext.ContextKeyHead)
+	if val != nil {
+		if vh, ok := val.(*thriftutil.Head); ok {
+			head = vh
+		}
+	}
+	// 暂时先加一个hlc字段
+	if head.Properties == nil {
+		head.Properties = make(map[string]string)
+	}
+	head.Properties[xcontext.ContextPropertiesKeyHLC] = reqHeader.HLc
+	ctx = context.WithValue(ctx, xcontext.ContextKeyHead, head)
+	return ctx
 }
