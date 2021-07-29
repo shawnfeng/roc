@@ -429,19 +429,37 @@ func (m *ServBaseV2) RegInfos() map[string]string {
 	return result
 }
 
-func (m *ServBaseV2) ServConfig(cfg interface{}) error {
-	fun := "ServBaseV2.ServConfig -->"
+func ServConfig(etcdAddrs []string, servLoc string, baseLoc string, config interface{}) error {
+	fun := "ServConfig -->"
 	ctx := context.Background()
+
+	cfg := etcd.Config{
+		Endpoints:               etcdAddrs,
+		Transport:               etcd.DefaultTransport,
+		HeaderTimeoutPerRequest: DefaultEtcdClientTimeout,
+	}
+
+	xlog.Infof(ctx, "%s create etcd client start, cfg: %v", fun, cfg)
+	c, err := etcd.New(cfg)
+	if err != nil {
+		return fmt.Errorf("create etchd client cfg error")
+	}
+
+	client := etcd.NewKeysAPI(c)
+	if client == nil {
+		return fmt.Errorf("create etchd api error")
+	}
+
 	// 获取全局配置
-	path := fmt.Sprintf("%s/%s", m.confEtcd.useBaseloc, BASE_LOC_ETC_GLOBAL)
-	scfg_global, err := getValue(m.etcdClient, path)
+	path := fmt.Sprintf("%s/%s", baseLoc, BASE_LOC_ETC_GLOBAL)
+	scfg_global, err := getValue(client, path)
 	if err != nil {
 		xlog.Warnf(ctx, "%s serv config global value path: %s err: %v", fun, path, err)
 	}
 	xlog.Infof(ctx, "%s global cfg:%s path:%s", fun, scfg_global, path)
 
-	path = fmt.Sprintf("%s/%s/%s", m.confEtcd.useBaseloc, BASE_LOC_ETC, m.servLocation)
-	scfg, err := getValue(m.etcdClient, path)
+	path = fmt.Sprintf("%s/%s/%s", baseLoc, BASE_LOC_ETC, servLoc)
+	scfg, err := getValue(client, path)
 	if err != nil {
 		xlog.Warnf(context.Background(), "%s serv config value path: %s err: %v", fun, path, err)
 	}
@@ -457,12 +475,17 @@ func (m *ServBaseV2) ServConfig(cfg interface{}) error {
 		return err
 	}
 
-	err = tf.Unmarshal(cfg)
+	err = tf.Unmarshal(config)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+
+func (m *ServBaseV2) ServConfig(cfg interface{}) error {
+	return ServConfig(m.confEtcd.etcdAddrs, m.servLocation, m.confEtcd.useBaseloc, cfg)
 }
 
 func newServBaseV2WithOptions(options *RocOptions) (*ServBaseV2, error) {
