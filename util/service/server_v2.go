@@ -108,7 +108,6 @@ func (m *Server) InitV2(options *RocOptions, awaitSignal bool) error {
 
 func (m *Server) initServerV2(options *RocOptions) error {
 	// 相较于 V1 版的 initServer() 方法，此方法去掉了以下行为:
-	// initLog()
 	// stat.Init()
 	// initDolphin(): V2 不再初始化 circuit breaker，而只初始化 rate limiter
 	// initfn()
@@ -130,6 +129,11 @@ func (m *Server) initServerV2(options *RocOptions) error {
 	if err := sb.setIp(); err != nil {
 		xlog.Errorf(ctx, "%s set ip error: %v", fun, err)
 	}
+
+	// 初始化日志
+	xlog.Infof(ctx, "%s initLog start", fun)
+	m.initLog(sb, options.args)
+	xlog.Infof(ctx, "%s initLog end", fun)
 
 	xlog.Infof(ctx, "%s init backdoor start", fun)
 	m.initBackdoor(sb, options.args)
