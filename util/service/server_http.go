@@ -195,10 +195,10 @@ func InjectFromRequest() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
 		if _, ok := c.Get(ReqHeaderKey); !ok {
-			ctx = extractThriftUtilContextHeadFromReqHeader(ctx, c.Request)
+			ctx = extractContextHeadFromReqHeader(ctx, c.Request)
 		}
-		ctx = extractThriftUtilContextControlFromRequest(ctx, c.Request)
-		ctx = extractThriftUtilContextHeadFromRequest(ctx, c.Request)
+		ctx = extractContextControlFromRequest(ctx, c.Request)
+		ctx = extractContextHeadFromRequest(ctx, c.Request)
 		c.Request = c.Request.WithContext(ctx)
 	}
 }
@@ -338,7 +338,7 @@ func WrapHttpRouter(handle httprouter.Handle) HandlerFunc {
 	}
 }
 
-func extractThriftUtilContextControlFromRequest(ctx context.Context, req *http.Request) context.Context {
+func extractContextControlFromRequest(ctx context.Context, req *http.Request) context.Context {
 	var group string
 	if group = extractRouteGroupFromHost(req); group != "" {
 		return injectRouteGroupToContext(ctx, group)
@@ -355,7 +355,7 @@ func extractThriftUtilContextControlFromRequest(ctx context.Context, req *http.R
 	return injectRouteGroupToContext(ctx, xcontext.DefaultGroup)
 }
 
-func extractThriftUtilContextHeadFromRequest(ctx context.Context, req *http.Request) context.Context {
+func extractContextHeadFromRequest(ctx context.Context, req *http.Request) context.Context {
 	// NOTE: 如果已经有了就先不覆盖
 	val := ctx.Value(xcontext.ContextKeyHead)
 	if val != nil {
@@ -492,7 +492,7 @@ func NotFound() gin.HandlerFunc {
 	}
 }
 
-func extractThriftUtilContextHeadFromReqHeader(ctx context.Context, req *http.Request) context.Context {
+func extractContextHeadFromReqHeader(ctx context.Context, req *http.Request) context.Context {
 	reqHeader := new(ReqHeader)
 	bodyData, err := ioutil.ReadAll(req.Body)
 	if err != nil {
