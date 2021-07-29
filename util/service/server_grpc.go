@@ -142,6 +142,7 @@ func (g *GrpcServer) buildServer() (*grpc.Server, error) {
 		rateLimitInterceptor(),
 		monitorServerInterceptor(),
 		laneInfoServerInterceptor(),
+		headInfoServerInterceptor(),
 	)
 	userUnaryInterceptors := g.userUnaryInterceptors
 	unaryInterceptors = append(unaryInterceptors, userUnaryInterceptors...)
@@ -302,6 +303,24 @@ func laneInfoServerInterceptor() grpc.UnaryServerInterceptor {
 		control.Route = route
 
 		ctx = context.WithValue(ctx, xcontext.ContextKeyControl, control)
+		return handler(ctx, req)
+	}
+}
+
+func headInfoServerInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{},
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler) (resp interface{}, err error) {
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			md = metadata.New(nil)
+		}
+		var hlc string
+		values := md[xcontext.ContextPropertiesKeyHLC]
+		if len(values) >= 1 {
+			hlc = values[0]
+		}
+		ctx = xcontext.SetHeaderPropertiesHLC(ctx, hlc)
 		return handler(ctx, req)
 	}
 }
