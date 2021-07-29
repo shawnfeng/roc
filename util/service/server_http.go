@@ -216,7 +216,7 @@ func Metric() gin.HandlerFunc {
 
 		errCode := getErrCodeFromContext(c.Request.Context())
 
-		path := c.Request.URL.Path
+		path := c.FullPath()
 		path = ParseUriApi(path)
 
 		group, serviceName := GetGroupAndService()
@@ -230,7 +230,7 @@ func Trace() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		span := xtrace.SpanFromContext(c.Request.Context())
 		if span == nil {
-			newSpan, ctx := xtrace.StartSpanFromContext(c.Request.Context(), c.Request.RequestURI)
+			newSpan, ctx := xtrace.StartSpanFromContext(c.Request.Context(), c.FullPath())
 			c.Request.WithContext(ctx)
 			span = newSpan
 		}
