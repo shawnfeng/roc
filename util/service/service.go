@@ -442,12 +442,12 @@ func ServConfig(etcdAddrs []string, servLoc string, baseLoc string, config inter
 	xlog.Infof(ctx, "%s create etcd client start, cfg: %v", fun, cfg)
 	c, err := etcd.New(cfg)
 	if err != nil {
-		return fmt.Errorf("create etchd client cfg error")
+		return fmt.Errorf("create etcd client cfg error")
 	}
 
 	client := etcd.NewKeysAPI(c)
 	if client == nil {
-		return fmt.Errorf("create etchd api error")
+		return fmt.Errorf("create etcd api error")
 	}
 
 	// 获取全局配置
@@ -505,12 +505,12 @@ func newServBaseV2WithOptions(options *RocOptions) (*ServBaseV2, error) {
 	xlog.Infof(ctx, "%s create etcd client start, cfg: %v", fun, cfg)
 	c, err := etcd.New(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("create etchd client cfg error")
+		return nil, fmt.Errorf("create etcd client cfg error")
 	}
 
 	client := etcd.NewKeysAPI(c)
 	if client == nil {
-		return nil, fmt.Errorf("create etchd api error")
+		return nil, fmt.Errorf("create etcd api error")
 	}
 
 	path := fmt.Sprintf("%s/%s/%s", confEtcd.useBaseloc, BASE_LOC_SKEY, options.args.servLoc)

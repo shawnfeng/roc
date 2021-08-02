@@ -104,12 +104,12 @@ func NewClientEtcdV2(confEtcd configEtcd, servlocation string) (*ClientEtcdV2, e
 
 	c, err := etcd.New(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("create etchd client cfg error")
+		return nil, fmt.Errorf("create etcd client cfg error")
 	}
 
 	client := etcd.NewKeysAPI(c)
 	if client == nil {
-		return nil, fmt.Errorf("create etchd api error")
+		return nil, fmt.Errorf("create etcd api error")
 	}
 
 	distloc := checkDistVersion(client, confEtcd.useBaseloc, servlocation)
