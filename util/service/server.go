@@ -36,6 +36,11 @@ const (
 
 const START_TYPE_LOCAL = "local"
 
+const (
+	// ENV_LANE 环境变量用于指定「泳道」。
+	ENV_LANE = "LANE"
+)
+
 var server = NewServer()
 
 // Server ...
@@ -60,14 +65,16 @@ type cmdArgs struct {
 }
 
 func (m *Server) parseFlag() (*cmdArgs, error) {
+	const GroupUnset = "UNSET" // palceholder, 用于标记「group 未设置」
 	var serv, logDir, skey, group, startType, backdoorPort string
 	flag.StringVar(&serv, "serv", "", "servic name")
 	flag.StringVar(&logDir, "logdir", "", "serice log dir")
 	flag.StringVar(&skey, "skey", "", "service session key")
-	flag.StringVar(&group, "group", "", "service group")
+	flag.StringVar(&group, "group", GroupUnset, "泳道。已废弃，请使用环境变量 LANE 设置泳道")
 	// 启动方式：local - 不注册至etcd
 	flag.StringVar(&startType, "stype", "", "start up type, local is not register to etcd")
 	flag.StringVar(&backdoorPort, "backdoor_port", "", "service backdoor port")
+
 	flag.Parse()
 
 	// 优先启动参数
@@ -86,6 +93,11 @@ func (m *Server) parseFlag() (*cmdArgs, error) {
 	crossRegionIdList := os.Getenv("CROSSREGIONIDLIST")
 
 	region := getRegionFromEnvOrDefault()
+
+	// 优先级: 命令行最高，次之环境变量
+	if group == GroupUnset {
+		group = os.Getenv(ENV_LANE)
+	}
 
 	return &cmdArgs{
 		servLoc:           serv,
