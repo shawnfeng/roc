@@ -14,6 +14,9 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xerror"
+
+	"gitlab.pri.ibanyu.com/middleware/dolphin/rate_limit"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
@@ -84,7 +87,7 @@ type HandlerFunc func(*Context)
 func NewHttpServer() *HttpServer {
 	// 实例化gin Server
 	router := gin.New()
-	router.Use(Recovery(), AccessLog(), InjectFromRequest(), Metric(), Trace())
+	router.Use(Recovery(), AccessLog(), RateLimit(), InjectFromRequest(), Metric(), Trace())
 
 	// 404 处理
 	router.NoRoute(NotFound())
@@ -290,6 +293,31 @@ func Recovery() gin.HandlerFunc {
 				c.AbortWithStatus(500)
 			}
 		}()
+		c.Next()
+	}
+}
+
+func RateLimit() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx := c.Request.Context()
+		path := c.FullPath()
+		caller := GetCallerFromBaggage(ctx)
+		err := rateLimitRegistry.InterfaceRateLimit(ctx, path, caller)
+		if err != nil {
+			code := codes.Internal
+			nfResp := &ErrorResponseBody{
+				Ret: -1,
+			}
+			if err == rate_limit.ErrRateLimited {
+				xlog.Warnf(ctx, "rate limited: path=%s, caller=%s", path, caller)
+				code = xerror.RateLimited
+			}
+			httpStatus := xerror.MapErrorCodeToHTTPStatusCode(code)
+			nfResp.Code = int32(code)
+			nfResp.Msg = http.StatusText(httpStatus)
+			c.AbortWithStatusJSON(httpStatus, nfResp)
+			return
+		}
 		c.Next()
 	}
 }
