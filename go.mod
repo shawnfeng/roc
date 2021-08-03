@@ -10,7 +10,7 @@ require (
 	github.com/shawnfeng/consistent v1.0.3
 	github.com/stretchr/testify v1.7.0
 	github.com/uber/jaeger-client-go v2.20.1+incompatible
-	gitlab.pri.ibanyu.com/middleware/dolphin v1.0.8
+	gitlab.pri.ibanyu.com/middleware/dolphin v1.0.9
 	gitlab.pri.ibanyu.com/middleware/seaweed v1.2.68
 	gitlab.pri.ibanyu.com/middleware/util v1.3.189
 	gitlab.pri.ibanyu.com/tracing/go-grpc v0.0.0-20201117083632-fd2d4bfc37a7
