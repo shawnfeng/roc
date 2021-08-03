@@ -3,3 +3,5 @@ roc-node/logmon/
 roc-node/roc-node
 .idea
 .DS_Store
+
+*.swp
