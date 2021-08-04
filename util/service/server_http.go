@@ -301,6 +301,8 @@ func RateLimit() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
 		path := c.FullPath()
+		// 为了使dolphin存储结构更加清晰，采用的替换
+		path = strings.ReplaceAll(path, "/", "$")
 		caller := GetCallerFromBaggage(ctx)
 		err := rateLimitRegistry.InterfaceRateLimit(ctx, path, caller)
 		if err != nil {
