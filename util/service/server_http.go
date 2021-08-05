@@ -78,13 +78,16 @@ type ReqHeader struct {
 }
 
 func NewGinServer() *gin.Engine {
-	// 实例化 gin Server
+	fun := "NewGinServer -->"
+
 	router := gin.New()
 
 	middlewares := []gin.HandlerFunc{Recovery(), AccessLog(), InjectFromRequest(), Metric(), Trace()}
-	if isDisableContextCancel() {
+	disableContextCancel := isDisableContextCancel()
+	if disableContextCancel {
 		middlewares = append(middlewares, DisableContextCancel())
 	}
+	xlog.Infof(context.TODO(), "%s disableContextCancel: %v", fun, disableContextCancel)
 
 	router.Use(middlewares...)
 
