@@ -336,7 +336,7 @@ func RateLimit() gin.HandlerFunc {
 		if err != nil {
 			code := codes.Internal
 			if err == rate_limit.ErrRateLimited {
-				xlog.Warnf(ctx, "rate limited: path=%s, caller=%s", c.FullPath(), caller)
+				xlog.Warnf(ctx, "rate limited: path=%s, caller=%s", c.Request.URL, caller)
 				code = xerror.RateLimited
 			}
 			httpStatus := xerror.MapErrorCodeToHTTPStatusCode(code)
