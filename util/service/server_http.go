@@ -77,17 +77,32 @@ type ReqHeader struct {
 	ZoneName  string `json:"zone_name"`
 }
 
+func NewGinServer() *gin.Engine {
+	fun := "NewGinServer -->"
+
+	router := gin.New()
+
+	middlewares := []gin.HandlerFunc{Recovery(), AccessLog(), InjectFromRequest(), Metric(), Trace()}
+	disableContextCancel := isDisableContextCancel()
+	if disableContextCancel {
+		middlewares = append(middlewares, DisableContextCancel())
+	}
+	xlog.Infof(context.TODO(), "%s disableContextCancel: %v", fun, disableContextCancel)
+
+	router.Use(middlewares...)
+
+	// 404 处理
+	router.NoRoute(NotFound())
+
+	return router
+}
+
 // HandlerFunc ...
 type HandlerFunc func(*Context)
 
 // NewHttpServer create http server with gin
 func NewHttpServer() *HttpServer {
-	// 实例化gin Server
-	router := gin.New()
-	router.Use(Recovery(), AccessLog(), InjectFromRequest(), Metric(), Trace())
-
-	// 404 处理
-	router.NoRoute(NotFound())
+	router := NewGinServer()
 
 	return &HttpServer{router}
 }
@@ -191,6 +206,20 @@ func (c *Context) Bind(obj interface{}) error {
 	return c.MustBindWith(obj, b)
 }
 
+func isDisableContextCancel() bool {
+	if r, ok := GetConfigCenter().GetBool(context.Background(),disableContextCancelKey); ok {
+		return r
+	}
+	return false
+}
+
+func DisableContextCancel() gin.HandlerFunc{
+	return func(c *gin.Context) {
+		c.Request = c.Request.WithContext(xcontext.NewValueContext(c.Request.Context()))
+		c.Next()
+	}
+}
+
 func InjectFromRequest() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
@@ -231,7 +260,7 @@ func Trace() gin.HandlerFunc {
 		span := xtrace.SpanFromContext(c.Request.Context())
 		if span == nil {
 			newSpan, ctx := xtrace.StartSpanFromContext(c.Request.Context(), c.FullPath())
-			c.Request.WithContext(ctx)
+			c.Request = c.Request.WithContext(ctx)
 			span = newSpan
 		}
 		defer span.Finish()
@@ -519,3 +548,4 @@ func extractContextHeadFromReqHeader(ctx context.Context, req *http.Request) con
 	ctx = context.WithValue(ctx, xcontext.ContextKeyHead, head)
 	return ctx
 }
+
