@@ -14,7 +14,9 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.pri.ibanyu.com/middleware/dolphin/rate_limit"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xerror"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
@@ -82,7 +84,7 @@ func NewGinServer() *gin.Engine {
 
 	router := gin.New()
 
-	middlewares := []gin.HandlerFunc{Recovery(), AccessLog(), InjectFromRequest(), Metric(), Trace()}
+	middlewares := []gin.HandlerFunc{Recovery(), AccessLog(), Trace(), RateLimit(), Metric(), InjectFromRequest()}
 	disableContextCancel := isDisableContextCancel()
 	if disableContextCancel {
 		middlewares = append(middlewares, DisableContextCancel())
@@ -207,13 +209,13 @@ func (c *Context) Bind(obj interface{}) error {
 }
 
 func isDisableContextCancel() bool {
-	if r, ok := GetConfigCenter().GetBool(context.Background(),disableContextCancelKey); ok {
+	if r, ok := GetConfigCenter().GetBool(context.Background(), disableContextCancelKey); ok {
 		return r
 	}
 	return false
 }
 
-func DisableContextCancel() gin.HandlerFunc{
+func DisableContextCancel() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Request = c.Request.WithContext(xcontext.NewValueContext(c.Request.Context()))
 		c.Next()
@@ -319,6 +321,33 @@ func Recovery() gin.HandlerFunc {
 				c.AbortWithStatus(500)
 			}
 		}()
+		c.Next()
+	}
+}
+
+func RateLimit() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx := c.Request.Context()
+		path := c.FullPath()
+		// 为了使dolphin存储结构更加清晰，采用的替换
+		path = strings.ReplaceAll(path, "/", "$")
+		caller := GetCallerFromBaggage(ctx)
+		err := rateLimitRegistry.InterfaceRateLimit(ctx, path, caller)
+		if err != nil {
+			code := codes.Internal
+			if err == rate_limit.ErrRateLimited {
+				xlog.Warnf(ctx, "rate limited: path=%s, caller=%s", c.Request.URL, caller)
+				code = xerror.RateLimited
+			}
+			httpStatus := xerror.MapErrorCodeToHTTPStatusCode(code)
+			errorResponse := &ErrorResponseBody{
+				Ret:  -1,
+				Code: int32(code),
+				Msg:  http.StatusText(httpStatus),
+			}
+			c.AbortWithStatusJSON(httpStatus, errorResponse)
+			return
+		}
 		c.Next()
 	}
 }
@@ -548,4 +577,3 @@ func extractContextHeadFromReqHeader(ctx context.Context, req *http.Request) con
 	ctx = context.WithValue(ctx, xcontext.ContextKeyHead, head)
 	return ctx
 }
-
