@@ -84,7 +84,7 @@ func NewGinServer() *gin.Engine {
 
 	router := gin.New()
 
-	middlewares := []gin.HandlerFunc{Recovery(), Trace(), RateLimit(), Metric(), AccessLog(), InjectFromRequest()}
+	middlewares := []gin.HandlerFunc{Recovery(), AccessLog(), Trace(), RateLimit(), Metric(), InjectFromRequest()}
 	disableContextCancel := isDisableContextCancel()
 	if disableContextCancel {
 		middlewares = append(middlewares, DisableContextCancel())
