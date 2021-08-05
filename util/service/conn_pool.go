@@ -77,14 +77,19 @@ func (cp *ConnectionPool) Open() {
 func (cp *ConnectionPool) stat() {
 	tickC := time.Tick(statTick)
 	go func() {
+		count := int64(0)
 		for !cp.closed.Get() {
+			count++
 			select {
 			case <-tickC:
 				if cp.closed.Get() {
 					return
 				}
 				confActive, confIdle, active, idle := cp.connections.Stat()
-				xlog.Infof(context.Background(), "caller: %s, callee: %s, callee_addr: %s, conf_active: %d, conf_idle: %d, active: %d, idle: %d", GetServName(), cp.calleeServiceKey, cp.addr, confActive, confIdle, active, idle)
+				if count % 10 == 0 {
+					// 减少日志为原来的十分之一
+					xlog.Infof(context.Background(), "caller: %s, callee: %s, callee_addr: %s, conf_active: %d, conf_idle: %d, active: %d, idle: %d", GetServName(), cp.calleeServiceKey, cp.addr, confActive, confIdle, active, idle)
+				}
 				group, service := GetGroupAndService()
 				_metricRPCConnectionPool.With(xprom.LabelGroupName, group,
 					xprom.LabelServiceName, service,

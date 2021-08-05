@@ -127,20 +127,7 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 		return servInfo, nil
 
 	case *gin.Engine:
-		var extraHttpMiddlewares []middleware
-		disableContextCancel := dr.isDisableContextCancel(ctx)
-		xlog.Infof(ctx, "%s disableContextCancel: %v, processor: %s", fun, disableContextCancel, n)
-		if disableContextCancel {
-			extraHttpMiddlewares = append(extraHttpMiddlewares, disableContextCancelMiddleware)
-		}
-
-		enableMetricMiddleware := dr.isEnableMetricMiddleware(ctx)
-		xlog.Infof(ctx, "%s enableMetricMiddleware: %v, processor: %s", fun, enableMetricMiddleware, n)
-		if enableMetricMiddleware {
-			extraHttpMiddlewares = append(extraHttpMiddlewares, metricMiddleware)
-		}
-
-		sa, err := powerGin(addr, d, extraHttpMiddlewares...)
+		sa, err := powerGin(addr, d)
 		if err != nil {
 			return nil, err
 		}
@@ -151,13 +138,7 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 		return servInfo, nil
 
 	case *HttpServer:
-		var extraHttpMiddlewares []middleware
-		disableContextCancel := dr.isDisableContextCancel(ctx)
-		xlog.Infof(ctx, "%s disableContextCancel: %v, processor: %s", fun, disableContextCancel, n)
-		if disableContextCancel {
-			extraHttpMiddlewares = append(extraHttpMiddlewares, disableContextCancelMiddleware)
-		}
-		sa, err := powerGin(addr, d.Engine, extraHttpMiddlewares...)
+		sa, err := powerGin(addr, d.Engine)
 		if err != nil {
 			return nil, err
 		}
@@ -315,7 +296,7 @@ func powerGrpc(addr string, server *GrpcServer) (string, error) {
 	return laddr, nil
 }
 
-func powerGin(addr string, router *gin.Engine, middlewares ...middleware) (string, error) {
+func powerGin(addr string, router *gin.Engine) (string, error) {
 	fun := "powerGin -->"
 	ctx := context.Background()
 
@@ -323,9 +304,8 @@ func powerGin(addr string, router *gin.Engine, middlewares ...middleware) (strin
 	if err != nil {
 		return "", err
 	}
-	// tracing
-	mw := decorateHttpMiddleware(router, middlewares...)
-	serv := &http.Server{Handler: mw}
+
+	serv := &http.Server{Handler: router}
 	go func() {
 		err := serv.Serve(netListen)
 		if err != nil {
@@ -393,4 +373,3 @@ func newDisableContextCancelGrpcUnaryInterceptor() grpc.UnaryServerInterceptor {
 		return handler(valueCtx, req)
 	}
 }
-

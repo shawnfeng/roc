@@ -90,9 +90,6 @@ func FactoryHealthCheck() xhttp.HandleRequest {
 }
 
 func (m *HealthCheck) Handle(r *xhttp.HttpRequest) xhttp.HttpResponse {
-	fun := "HealthCheck -->"
-	xlog.Infof(context.Background(), "%s in", fun)
-
 	return xhttp.NewHttpRespString(200, "{}")
 }
 
