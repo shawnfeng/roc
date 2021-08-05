@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"gitlab.pri.ibanyu.com/middleware/seaweed/xerror"
 	"gitlab.pri.ibanyu.com/middleware/dolphin/rate_limit"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xerror"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
@@ -209,13 +209,13 @@ func (c *Context) Bind(obj interface{}) error {
 }
 
 func isDisableContextCancel() bool {
-	if r, ok := GetConfigCenter().GetBool(context.Background(),disableContextCancelKey); ok {
+	if r, ok := GetConfigCenter().GetBool(context.Background(), disableContextCancelKey); ok {
 		return r
 	}
 	return false
 }
 
-func DisableContextCancel() gin.HandlerFunc{
+func DisableContextCancel() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Request = c.Request.WithContext(xcontext.NewValueContext(c.Request.Context()))
 		c.Next()
