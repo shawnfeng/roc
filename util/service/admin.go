@@ -11,11 +11,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/julienschmidt/httprouter"
-
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xfile"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xnet/xhttp"
+
+	"github.com/julienschmidt/httprouter"
 )
 
 type backDoorHttp struct {
