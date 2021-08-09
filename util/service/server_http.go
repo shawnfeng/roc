@@ -84,9 +84,6 @@ func NewGinServer() *gin.Engine {
 
 	router := gin.New()
 
-	// 404 处理
-	router.NoRoute(NotFound())
-
 	middlewares := []gin.HandlerFunc{Recovery(), AccessLog(), Trace(), RateLimit(), Metric(), InjectFromRequest()}
 	disableContextCancel := isDisableContextCancel()
 	if disableContextCancel {
@@ -95,6 +92,9 @@ func NewGinServer() *gin.Engine {
 	xlog.Infof(context.TODO(), "%s disableContextCancel: %v", fun, disableContextCancel)
 
 	router.Use(middlewares...)
+
+	// 404 处理
+	router.NoRoute(NotFound())
 
 	return router
 }
