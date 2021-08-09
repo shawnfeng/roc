@@ -5,7 +5,7 @@ require (
 	github.com/coreos/etcd v3.3.22+incompatible
 	github.com/gin-gonic/gin v1.7.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
-	github.com/julienschmidt/httprouter v1.2.0
+	github.com/julienschmidt/httprouter v1.3.1-0.20200921135023-fe77dd05ab5a
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/shawnfeng/consistent v1.0.3
 	github.com/stretchr/testify v1.7.0

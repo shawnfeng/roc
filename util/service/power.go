@@ -148,9 +148,39 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 		}
 		return servInfo, nil
 
+	case *HttpRouter:
+		sa, err := powerHttpRouter(addr, d.Router)
+		if err != nil {
+			return nil, err
+		}
+		servInfo := &ServInfo{
+			Type: PROCESSOR_GIN,
+			Addr: sa,
+		}
+		return servInfo, nil
+
 	default:
 		return nil, fmt.Errorf("processor: %s driver not recognition", n)
 	}
+}
+
+func powerHttpRouter(addr string, router *httprouter.Router) (string, error) {
+	fun := "powerHttp -->"
+	ctx := context.Background()
+
+	netListen, laddr, err := listenServAddr(ctx, addr)
+	if err != nil {
+		return "", err
+	}
+
+	go func() {
+		err := http.Serve(netListen, router)
+		if err != nil {
+			xlog.Panicf(ctx, "%s laddr[%s]", fun, laddr)
+		}
+	}()
+
+	return laddr, nil
 }
 
 func powerHttp(addr string, router *httprouter.Router, middlewares ...middleware) (string, error) {
@@ -343,7 +373,7 @@ func reloadRouter(processor string, server interface{}, driver interface{}) erro
 func metricMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		ctx = contextWithErrCode(ctx,1)
+		ctx = contextWithErrCode(ctx, 1)
 		newR := r.WithContext(ctx)
 		path := r.URL.Path
 		path = ParseUriApi(path)

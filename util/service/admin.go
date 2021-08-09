@@ -14,8 +14,6 @@ import (
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xfile"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xnet/xhttp"
-
-	"github.com/julienschmidt/httprouter"
 )
 
 type backDoorHttp struct {
@@ -44,7 +42,7 @@ func (m *backDoorHttp) Init() error {
 func (m *backDoorHttp) Driver() (string, interface{}) {
 	//fun := "backDoorHttp.Driver -->"
 
-	router := httprouter.New()
+	router := NewHttpRouter()
 	port := m.port
 	if port == "" {
 		port = "60000"
