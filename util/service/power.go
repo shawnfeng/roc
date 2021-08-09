@@ -154,7 +154,7 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 			return nil, err
 		}
 		servInfo := &ServInfo{
-			Type: PROCESSOR_GIN,
+			Type: PROCESSOR_HTTP,
 			Addr: sa,
 		}
 		return servInfo, nil
@@ -165,7 +165,7 @@ func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p P
 }
 
 func powerHttpRouter(addr string, router *httprouter.Router) (string, error) {
-	fun := "powerHttp -->"
+	fun := "powerHttpRouter -->"
 	ctx := context.Background()
 
 	netListen, laddr, err := listenServAddr(ctx, addr)

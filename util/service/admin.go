@@ -11,6 +11,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/julienschmidt/httprouter"
+
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xfile"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xnet/xhttp"
@@ -42,7 +44,7 @@ func (m *backDoorHttp) Init() error {
 func (m *backDoorHttp) Driver() (string, interface{}) {
 	//fun := "backDoorHttp.Driver -->"
 
-	router := NewHttpRouter()
+	router := httprouter.New()
 	port := m.port
 	if port == "" {
 		port = "60000"
