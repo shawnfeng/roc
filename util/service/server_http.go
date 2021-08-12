@@ -578,9 +578,11 @@ func extractContextHeadFromReqHeader(ctx context.Context, req *http.Request) con
 	return ctx
 }
 
+type Middleware func(httprouter.Handle) httprouter.Handle
+
 type HttpRouter struct {
 	*httprouter.Router
-	*MiddlewareQueue
+	middlewares []Middleware
 }
 
 // NewHttpRouter returns a new initialized Router.
@@ -588,10 +590,13 @@ type HttpRouter struct {
 func NewHttpRouter() *HttpRouter {
 	fun := "NewHttpRouter -->"
 
-	r := httprouter.New()
-	r.SaveMatchedRoutePath = true
+	router := httprouter.New()
+	router.SaveMatchedRoutePath = true
 
-	m := NewMiddlewareQueue()
+	r := &HttpRouter{
+		Router: router,
+	}
+
 	middlewares := []Middleware{TraceForHttpRouter(), MetricForHttpRouter()}
 
 	disableContextCancel := isDisableContextCancel()
@@ -600,8 +605,28 @@ func NewHttpRouter() *HttpRouter {
 	}
 	xlog.Infof(context.TODO(), "%s disableContextCancel: %v", fun, disableContextCancel)
 
-	m.Use(middlewares...)
-	return &HttpRouter{r, m}
+	r.Use(middlewares...)
+	return r
+}
+
+// Use attaches global middlewares to the router
+func (r *HttpRouter) Use(middlewares ...Middleware) {
+	r.middlewares = append(r.middlewares, middlewares...)
+}
+
+func (r *HttpRouter) wrap(fn httprouter.Handle) httprouter.Handle {
+	if len(r.middlewares) == 0 {
+		return fn
+	}
+
+	// There is at least one item in the middleware list.
+	result := r.middlewares[0](fn)
+
+	for _, m := range r.middlewares {
+		result = m(result)
+	}
+
+	return result
 }
 
 // GET is a shortcut for router.Handle(http.MethodGet, path, handle)
@@ -648,7 +673,7 @@ func (r *HttpRouter) DELETE(path string, handle httprouter.Handle) {
 // frequently used, non-standardized or custom methods (e.g. for internal
 // communication with a proxy).
 func (r *HttpRouter) Handle(method, path string, handle httprouter.Handle) {
-	r.Router.Handle(method, path, r.Wrap(handle))
+	r.Router.Handle(method, path, r.wrap(handle))
 }
 
 // Handler is an adapter which allows the usage of an http.Handler as a
@@ -656,7 +681,7 @@ func (r *HttpRouter) Handle(method, path string, handle httprouter.Handle) {
 // The Params are available in the request context under ParamsKey.
 func (r *HttpRouter) Handler(method, path string, handler http.Handler) {
 	//r.Router.Handler()
-	r.Router.Handle(method, path, r.Wrap(r.warpHttpToHttpRouter(handler)))
+	r.Router.Handle(method, path, r.wrap(warpHttpHandlerToHttpRouterHandle(handler)))
 }
 
 // HandlerFunc is an adapter which allows the usage of an http.HandlerFunc as a
@@ -666,7 +691,7 @@ func (r *HttpRouter) HandlerFunc(method, path string, handler http.HandlerFunc) 
 }
 
 // warpHttpToHttpRouter wraps http.Handler and returns httprouter.Handle
-func (r *HttpRouter) warpHttpToHttpRouter(next http.Handler) httprouter.Handle {
+func warpHttpHandlerToHttpRouterHandle(next http.Handler) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		ctx := context.WithValue(r.Context(), httprouter.ParamsKey, ps)
 		//call next middleware with new context
