@@ -593,10 +593,6 @@ func NewHttpRouter() *HttpRouter {
 	router := httprouter.New()
 	router.SaveMatchedRoutePath = true
 
-	r := &HttpRouter{
-		Router: router,
-	}
-
 	middlewares := []Middleware{TraceForHttpRouter(), MetricForHttpRouter()}
 
 	disableContextCancel := isDisableContextCancel()
@@ -605,8 +601,10 @@ func NewHttpRouter() *HttpRouter {
 	}
 	xlog.Infof(context.TODO(), "%s disableContextCancel: %v", fun, disableContextCancel)
 
-	r.Use(middlewares...)
-	return r
+	return &HttpRouter{
+		Router:      router,
+		middlewares: middlewares,
+	}
 }
 
 // Use attaches global middlewares to the router
