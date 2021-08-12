@@ -577,3 +577,172 @@ func extractContextHeadFromReqHeader(ctx context.Context, req *http.Request) con
 	ctx = context.WithValue(ctx, xcontext.ContextKeyHead, head)
 	return ctx
 }
+
+type Middleware func(httprouter.Handle) httprouter.Handle
+
+type HttpRouter struct {
+	*httprouter.Router
+	middlewares []Middleware
+}
+
+// NewHttpRouter returns a new initialized Router.
+// Supported trace, metric and custom middlewares
+func NewHttpRouter() *HttpRouter {
+	fun := "NewHttpRouter -->"
+
+	router := httprouter.New()
+	router.SaveMatchedRoutePath = true
+
+	middlewares := []Middleware{TraceForHttpRouter(), MetricForHttpRouter()}
+
+	disableContextCancel := isDisableContextCancel()
+	if disableContextCancel {
+		middlewares = append(middlewares, DisableContextCancelForHttpRouter())
+	}
+	xlog.Infof(context.TODO(), "%s disableContextCancel: %v", fun, disableContextCancel)
+
+	return &HttpRouter{
+		Router:      router,
+		middlewares: middlewares,
+	}
+}
+
+// Use attaches global middlewares to the router
+func (r *HttpRouter) Use(middlewares ...Middleware) {
+	r.middlewares = append(r.middlewares, middlewares...)
+}
+
+func (r *HttpRouter) wrap(fn httprouter.Handle) httprouter.Handle {
+	if len(r.middlewares) == 0 {
+		return fn
+	}
+
+	// There is at least one item in the middleware list.
+	result := r.middlewares[0](fn)
+
+	for _, m := range r.middlewares {
+		result = m(result)
+	}
+
+	return result
+}
+
+// GET is a shortcut for router.Handle(http.MethodGet, path, handle)
+func (r *HttpRouter) GET(path string, handle httprouter.Handle) {
+	r.Handle(http.MethodGet, path, handle)
+}
+
+// HEAD is a shortcut for router.Handle(http.MethodHead, path, handle)
+func (r *HttpRouter) HEAD(path string, handle httprouter.Handle) {
+	r.Handle(http.MethodHead, path, handle)
+}
+
+// OPTIONS is a shortcut for router.Handle(http.MethodOptions, path, handle)
+func (r *HttpRouter) OPTIONS(path string, handle httprouter.Handle) {
+	r.Handle(http.MethodOptions, path, handle)
+}
+
+// POST is a shortcut for router.Handle(http.MethodPost, path, handle)
+func (r *HttpRouter) POST(path string, handle httprouter.Handle) {
+	r.Handle(http.MethodPost, path, handle)
+}
+
+// PUT is a shortcut for router.Handle(http.MethodPut, path, handle)
+func (r *HttpRouter) PUT(path string, handle httprouter.Handle) {
+	r.Handle(http.MethodPut, path, handle)
+}
+
+// PATCH is a shortcut for router.Handle(http.MethodPatch, path, handle)
+func (r *HttpRouter) PATCH(path string, handle httprouter.Handle) {
+	r.Handle(http.MethodPatch, path, handle)
+}
+
+// DELETE is a shortcut for router.Handle(http.MethodDelete, path, handle)
+func (r *HttpRouter) DELETE(path string, handle httprouter.Handle) {
+	r.Handle(http.MethodDelete, path, handle)
+}
+
+// Handle registers a new request handle with the given path and method.
+//
+// For GET, POST, PUT, PATCH and DELETE requests the respective shortcut
+// functions can be used.
+//
+// This function is intended for bulk loading and to allow the usage of less
+// frequently used, non-standardized or custom methods (e.g. for internal
+// communication with a proxy).
+func (r *HttpRouter) Handle(method, path string, handle httprouter.Handle) {
+	r.Router.Handle(method, path, r.wrap(handle))
+}
+
+// Handler is an adapter which allows the usage of an http.Handler as a
+// request handle.
+// The Params are available in the request context under ParamsKey.
+func (r *HttpRouter) Handler(method, path string, handler http.Handler) {
+	//r.Router.Handler()
+	r.Router.Handle(method, path, r.wrap(warpHttpHandlerToHttpRouterHandle(handler)))
+}
+
+// HandlerFunc is an adapter which allows the usage of an http.HandlerFunc as a
+// request handle.
+func (r *HttpRouter) HandlerFunc(method, path string, handler http.HandlerFunc) {
+	r.Handler(method, path, handler)
+}
+
+// warpHttpToHttpRouter wraps http.Handler and returns httprouter.Handle
+func warpHttpHandlerToHttpRouterHandle(next http.Handler) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+		ctx := context.WithValue(r.Context(), httprouter.ParamsKey, ps)
+		//call next middleware with new context
+		next.ServeHTTP(w, r.WithContext(ctx))
+	}
+}
+
+func TraceForHttpRouter() Middleware {
+	return func(fn httprouter.Handle) httprouter.Handle {
+		return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+			span := xtrace.SpanFromContext(r.Context())
+			if span == nil {
+				fullPath := ps.MatchedRoutePath()
+				newSpan, ctx := xtrace.StartSpanFromContext(r.Context(), fullPath)
+				r = r.WithContext(ctx)
+				span = newSpan
+			}
+			defer span.Finish()
+
+			if sc, ok := span.Context().(jaeger.SpanContext); ok {
+				w.Header()[HttpHeaderKeyTraceID] = []string{fmt.Sprint(sc.TraceID())}
+			}
+			fn(w, r, ps)
+		}
+	}
+}
+
+func MetricForHttpRouter() Middleware {
+	return func(fn httprouter.Handle) httprouter.Handle {
+		return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+			ctx := r.Context()
+			ctx = contextWithErrCode(ctx, 1)
+			newR := r.WithContext(ctx)
+			path := ps.MatchedRoutePath()
+
+			now := time.Now()
+			fn(w, newR, ps)
+			dt := time.Since(now)
+
+			errCode := getErrCodeFromContext(ctx)
+
+			group, serviceName := GetGroupAndService()
+			_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, path, xprom.LabelErrCode, strconv.Itoa(errCode)).Inc()
+			_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, path, xprom.LabelErrCode, strconv.Itoa(errCode)).Observe(float64(dt / time.Millisecond))
+		}
+	}
+}
+
+func DisableContextCancelForHttpRouter() Middleware {
+	return func(fn httprouter.Handle) httprouter.Handle {
+		return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+			newR := r.WithContext(xcontext.NewValueContext(r.Context()))
+			fn(w, newR, ps)
+		}
+	}
+}

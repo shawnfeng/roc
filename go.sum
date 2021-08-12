@@ -408,6 +408,10 @@ github.com/jtolds/gls v4.20.0+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfV
 github.com/julienschmidt/httprouter v1.0.1-0.20150106073633-b55664b9e920/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
 github.com/julienschmidt/httprouter v1.2.0 h1:TDTW5Yz1mjftljbcKqRcrYhd4XeOoI98t+9HbQbYf7g=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
+github.com/julienschmidt/httprouter v1.3.0 h1:U0609e9tgbseu3rBINet9P48AI/D3oJs4dN7jwJOQ1U=
+github.com/julienschmidt/httprouter v1.3.0/go.mod h1:JR6WtHb+2LUe8TCKY3cZOxFyyO8IZAc4RVcycCCAKdM=
+github.com/julienschmidt/httprouter v1.3.1-0.20200921135023-fe77dd05ab5a h1:VTF3sHLbpm2PdWMPKVWUMwKg85VE7Ep7wgBw8ETYri8=
+github.com/julienschmidt/httprouter v1.3.1-0.20200921135023-fe77dd05ab5a/go.mod h1:JR6WtHb+2LUe8TCKY3cZOxFyyO8IZAc4RVcycCCAKdM=
 github.com/jung-kurt/gofpdf v1.0.3-0.20190309125859-24315acbbda5/go.mod h1:7Id9E/uU8ce6rXgefFLlgrJj/GYY22cpxn+r32jIOes=
 github.com/kaneshin/go-pkg v0.0.0-20150919125626-a8e1479186cf h1:kBpksZbhb1xNFDTPbxh5H5G0o0MJZKrH004ELvq/zWI=
 github.com/kaneshin/go-pkg v0.0.0-20150919125626-a8e1479186cf/go.mod h1:XI2QuPvM6xUXWcpwlqaMB+SxxV7XNr3aO/DrUK8lRZo=
@@ -728,12 +732,6 @@ gitlab.pri.ibanyu.com/middleware/delayqueue v0.0.0-20200213090847-cd24af2bd1f2 h
 gitlab.pri.ibanyu.com/middleware/delayqueue v0.0.0-20200213090847-cd24af2bd1f2/go.mod h1:4nx2iPOcfEy+4QbgoNq+ZuqwV0+ZvaF3dyvM34uObFo=
 gitlab.pri.ibanyu.com/middleware/dolphin v1.0.6 h1:AzQfX786Jegn7LueD9QSxX4EyBCy5jOJVTT2byB8PcU=
 gitlab.pri.ibanyu.com/middleware/dolphin v1.0.6/go.mod h1:205+jmF+Ai0JHm/SzJP1Bpkrd64H98XO+Q99s0wvyuA=
-gitlab.pri.ibanyu.com/middleware/dolphin v1.0.7 h1:4d7ZR756tK+T35ETGLBhgkfsYzLK52Y4v7M2N3+DIeI=
-gitlab.pri.ibanyu.com/middleware/dolphin v1.0.7/go.mod h1:205+jmF+Ai0JHm/SzJP1Bpkrd64H98XO+Q99s0wvyuA=
-gitlab.pri.ibanyu.com/middleware/dolphin v1.0.8-0.20210701024449-d2244571584d h1:vdTO/E+sDshYoUD4bR0sWpSCzEKO/sERS8Ur5edmvQI=
-gitlab.pri.ibanyu.com/middleware/dolphin v1.0.8-0.20210701024449-d2244571584d/go.mod h1:vPp90q09zL2drW2rljdrkClbcWysYoHGjkp70+xKeXw=
-gitlab.pri.ibanyu.com/middleware/dolphin v1.0.8 h1:U+RIXlX3pLfRW9cFw5yqzdWTKVoQrbPD5/yWK/cDXII=
-gitlab.pri.ibanyu.com/middleware/dolphin v1.0.8/go.mod h1:vPp90q09zL2drW2rljdrkClbcWysYoHGjkp70+xKeXw=
 gitlab.pri.ibanyu.com/middleware/dolphin v1.0.9 h1:R7Uz8EAt9XFzpj/X0EzBznYc8lnxNKfjvKooTT5bTZ4=
 gitlab.pri.ibanyu.com/middleware/dolphin v1.0.9/go.mod h1:vPp90q09zL2drW2rljdrkClbcWysYoHGjkp70+xKeXw=
 gitlab.pri.ibanyu.com/middleware/seaweed v1.0.5/go.mod h1:iCFyLPlxZOk9Z6sJ+b92gN+mN1OsmZ67Ez8j/1wtp14=
