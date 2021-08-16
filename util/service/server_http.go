@@ -620,8 +620,8 @@ func (r *HttpRouter) wrap(fn httprouter.Handle) httprouter.Handle {
 	// There is at least one item in the middleware list.
 	result := r.middlewares[0](fn)
 
-	for _, m := range r.middlewares {
-		result = m(result)
+	for i := 1; i < len(r.middlewares); i++ {
+		result = r.middlewares[i](result)
 	}
 
 	return result
