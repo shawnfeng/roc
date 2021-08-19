@@ -233,11 +233,6 @@ func (m *Server) initServer(confEtcd configEtcd, args *cmdArgs, initfn func(Serv
 	defer xlog.AppLogSync()
 	defer xlog.StatLogSync()
 
-	// NOTE: initBackdoor会启动http服务，但由于health check的http请求不需要追踪，且它是判断服务启动与否的关键，所以initTracer可以放在它之后进行
-	xlog.Infof(ctx, "%s init backdoor start", fun)
-	m.initBackdoor(sb, args)
-	xlog.Infof(ctx, "%s init backdoor end", fun)
-
 	xlog.Infof(ctx, "%s init handleModel start", fun)
 	err = m.handleModel(sb, args.servLoc, args.model)
 	if err != nil {
@@ -275,6 +270,11 @@ func (m *Server) initServer(confEtcd configEtcd, args *cmdArgs, initfn func(Serv
 		return err
 	}
 	xlog.Infof(ctx, "%s init processor end", fun)
+
+	// NOTE: initBackdoor会启动http服务，但由于health check的http请求不需要追踪，且它是判断服务启动与否的关键，所以initTracer可以放在它之后进行
+	xlog.Infof(ctx, "%s init backdoor start", fun)
+	m.initBackdoor(sb, args)
+	xlog.Infof(ctx, "%s init backdoor end", fun)
 
 	xlog.Infof(ctx, "%s init SetGroupAndDisable start", fun)
 	sb.SetGroupAndDisable(args.group, args.disable)
