@@ -64,8 +64,9 @@ const (
 	ENV_GROUP_PRE = "pre"
 
 	// RPCConfNamespace RPC Apollo Conf Namespace
-	RPCConfNamespace     = "rpc.client"
-	ApplicationNamespace = "application"
+	RPCConfNamespace       = "rpc.client"
+	RPCServerConfNamespace = "rpc.server"
+	ApplicationNamespace   = "application"
 
 	serverStatusStop         = 1
 	DefaultEtcdClientTimeout = 3 * time.Second
@@ -500,7 +501,7 @@ func newServBaseV2WithCmdArgs(confEtcd configEtcd, args *cmdArgs) (*ServBaseV2, 
 
 	// init global config center
 	xlog.Infof(ctx, " %s init configcenter start", fun)
-	configCenter, err := xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, args.servLoc, []string{ApplicationNamespace, RPCConfNamespace, xsql.MysqlConfNamespace, xmgo.MongoConfNamespace})
+	configCenter, err := xconfig.NewConfigCenter(context.TODO(), apollo.ConfigTypeApollo, args.servLoc, []string{ApplicationNamespace, RPCConfNamespace, RPCServerConfNamespace, xsql.MysqlConfNamespace, xmgo.MongoConfNamespace})
 	if err != nil {
 		return nil, err
 	}
