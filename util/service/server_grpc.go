@@ -347,7 +347,7 @@ func shouldLogRequest(fullMethod string) bool {
 	printBodyMethod := printBodyMethod{}
 
 	// 方法配置
-	_ = center.Unmarshal(context.Background(), &printBodyMethod)
+	_ = center.UnmarshalWithNamespace(context.Background(), RPCServerConfNamespace, &printBodyMethod)
 	// 不打印的优先级更高
 	if methodInList(methodName, printBodyMethod.NoLogRequestMethodList) {
 		return false
