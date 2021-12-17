@@ -153,18 +153,21 @@ func (m *ServBaseV2) addRegisterInfo(path, regInfo string) {
 }
 
 func (m *ServBaseV2) clearRegisterInfos() {
-	fun := "ServBaseV2.clearRegisterInfos -->"
-
 	m.muReg.Lock()
 	defer m.muReg.Unlock()
-
+	
 	for path, _ := range m.regInfos {
-		_, err := m.etcdClient.Delete(context.Background(), path, &etcd.DeleteOptions{
-			Recursive: true,
-		})
-		if err != nil {
-			xlog.Warnf(context.Background(), "%s path: %s, err: %v", fun, path, err)
-		}
+		delSidNodeInEtcd(context.Background(), path, m.etcdClient)
+		break
+	}
+}
+
+// key is the key inside sid, eg: /roc/dist2/base/redis-manager/88/backdoor
+func delSidNodeInEtcd(ctx context.Context, key string, c etcd.KeysAPI) {
+	keyStrs := strings.Split(key, "/")
+	_, err := c.Delete(ctx, strings.Join(keyStrs[:len(keyStrs)-1], "/"), &etcd.DeleteOptions{Dir: true, Recursive: true})
+	if err != nil {
+		xlog.Warnf(ctx, "delSidNodeInEtcd-> delete sid: %s failed: %s", key, err.Error())
 	}
 }
 
