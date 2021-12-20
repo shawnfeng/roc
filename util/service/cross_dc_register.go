@@ -99,7 +99,9 @@ func (m *ServBaseV2) clearCrossDCRegisterInfos() {
 
 	for addr, _ := range m.crossRegisterClients {
 		for path, _ := range m.regInfos {
-			delSidNodeInEtcd(context.Background(), path, m.crossRegisterClients[addr])
+			ctx := context.Background()
+			delSidNodeInEtcd(ctx, path, m.crossRegisterClients[addr])
+			delSkeyInEtcd(ctx, path, m.etcdClient)
 			break
 		}
 	}

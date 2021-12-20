@@ -155,9 +155,11 @@ func (m *ServBaseV2) addRegisterInfo(path, regInfo string) {
 func (m *ServBaseV2) clearRegisterInfos() {
 	m.muReg.Lock()
 	defer m.muReg.Unlock()
-	
+
 	for path, _ := range m.regInfos {
-		delSidNodeInEtcd(context.Background(), path, m.etcdClient)
+		ctx := context.Background()
+		delSidNodeInEtcd(ctx, path, m.etcdClient)
+		delSkeyInEtcd(ctx, path, m.etcdClient)
 		break
 	}
 }
@@ -168,6 +170,17 @@ func delSidNodeInEtcd(ctx context.Context, key string, c etcd.KeysAPI) {
 	_, err := c.Delete(ctx, strings.Join(keyStrs[:len(keyStrs)-1], "/"), &etcd.DeleteOptions{Dir: true, Recursive: true})
 	if err != nil {
 		xlog.Warnf(ctx, "delSidNodeInEtcd-> delete sid: %s failed: %s", key, err.Error())
+	}
+}
+
+// skey eg: /roc/skey/base/redis-manager/5
+// sid eg: /roc/dist2/base/redis-manager/5
+func delSkeyInEtcd(ctx context.Context, key string, c etcd.KeysAPI) {
+	key = strings.Replace(key, "dist2", "skey", 1)
+	keyStrs := strings.Split(key, "/")
+	_, err := c.Delete(ctx, strings.Join(keyStrs[:len(keyStrs)-1], "/"), nil)
+	if err != nil {
+		xlog.Warnf(ctx, "delSkeyInEtcd-> delete skey: %s failed: %s", key, err.Error())
 	}
 }
 
