@@ -315,12 +315,17 @@ func headInfoServerInterceptor() grpc.UnaryServerInterceptor {
 		if !ok {
 			md = metadata.New(nil)
 		}
-		var hlc string
+		var hlc, hiiiInfo string
 		values := md[xcontext.ContextPropertiesKeyHLC]
 		if len(values) >= 1 {
 			hlc = values[0]
 		}
+		values = md[xcontext.ContextPropertiesKeyHiiiHeader]
+		if len(values) >= 1 {
+			hiiiInfo = values[0]
+		}
 		ctx = xcontext.SetHeaderPropertiesHLC(ctx, hlc)
+		ctx = xcontext.SetPropertiesHiiiHeader(ctx, hiiiInfo)
 		return handler(ctx, req)
 	}
 }

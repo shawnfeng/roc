@@ -388,6 +388,10 @@ func ContextHeadUnaryClientInterceptor() grpc.UnaryClientInterceptor {
 		if ok {
 			md.Set(xcontext.ContextPropertiesKeyHLC, hlc)
 		}
+		hiiiInfo, ok := xcontext.GetPropertiesHiiiHeader(ctx)
+		if ok {
+			md.Set(xcontext.ContextPropertiesKeyHiiiHeader, hiiiInfo)
+		}
 		return invoker(metadata.NewOutgoingContext(ctx, md), method, req, reply, cc, opts...)
 	}
 }
