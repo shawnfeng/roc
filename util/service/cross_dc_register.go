@@ -94,20 +94,15 @@ func (m *ServBaseV2) doCrossDCRegister(path, js string, refresh bool) error {
 }
 
 func (m *ServBaseV2) clearCrossDCRegisterInfos() {
-	fun := "ServBaseV2.clearCrossDCRegisterInfos -->"
-	ctx := context.Background()
-
 	m.muReg.Lock()
 	defer m.muReg.Unlock()
 
 	for addr, _ := range m.crossRegisterClients {
 		for path, _ := range m.regInfos {
-			_, err := m.crossRegisterClients[addr].Delete(context.Background(), path, &etcd.DeleteOptions{
-				Recursive: true,
-			})
-			if err != nil {
-				xlog.Warnf(ctx, "%s path: %s, err: %v", fun, path, err)
-			}
+			ctx := context.Background()
+			delSidNodeInEtcd(ctx, path, m.crossRegisterClients[addr])
+			delSkeyInEtcd(ctx, path, m.etcdClient)
+			break
 		}
 	}
 }
