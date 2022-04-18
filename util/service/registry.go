@@ -15,12 +15,11 @@ import (
 	"sync"
 	"time"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xconsistent"
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
-
 	"gitlab.pri.ibanyu.com/middleware/seaweed/xtime"
 
 	etcd "github.com/coreos/etcd/client"
-	"github.com/shawnfeng/consistent"
 )
 
 type servCopyStr struct {
@@ -53,7 +52,7 @@ type ClientEtcdV2 struct {
 
 	muServlist sync.Mutex
 	servCopy   servCopyCollect
-	servHash   map[string]*consistent.Consistent
+	servHash   map[string]*xconsistent.Consistent
 
 	muChangeEvent      sync.Mutex
 	changeEventHandler []deleteAddrHandler
@@ -489,9 +488,9 @@ func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 		}
 	}
 
-	shash := make(map[string]*consistent.Consistent)
+	shash := make(map[string]*xconsistent.Consistent)
 	for group, list := range slist {
-		hash := consistent.NewWithElts(list)
+		hash := xconsistent.NewWithElts(list)
 		if hash != nil {
 			shash[group] = hash
 		}
