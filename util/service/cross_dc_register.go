@@ -97,13 +97,8 @@ func (m *ServBaseV2) clearCrossDCRegisterInfos() {
 	m.muReg.Lock()
 	defer m.muReg.Unlock()
 
-	for addr, _ := range m.crossRegisterClients {
-		for path, _ := range m.regInfos {
-			ctx := context.Background()
-			delSidNodeInEtcd(ctx, path, m.crossRegisterClients[addr])
-			delSkeyInEtcd(ctx, path, m.etcdClient)
-			break
-		}
+	for _, etcdClient := range m.crossRegisterClients {
+		m.clearRegisterInfosInEtcd(context.Background(), etcdClient)
 	}
 }
 
