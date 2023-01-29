@@ -156,31 +156,23 @@ func (m *ServBaseV2) clearRegisterInfos() {
 	m.muReg.Lock()
 	defer m.muReg.Unlock()
 
-	for path, _ := range m.regInfos {
-		ctx := context.Background()
-		delSidNodeInEtcd(ctx, path, m.etcdClient)
-		delSkeyInEtcd(ctx, path, m.etcdClient)
-		break
-	}
+	m.clearRegisterInfosInEtcd(context.Background(), m.etcdClient)
 }
 
-// key is the key inside sid, eg: /roc/dist2/base/redis-manager/88/backdoor
-func delSidNodeInEtcd(ctx context.Context, key string, c etcd.KeysAPI) {
-	keyStrs := strings.Split(key, "/")
-	_, err := c.Delete(ctx, strings.Join(keyStrs[:len(keyStrs)-1], "/"), &etcd.DeleteOptions{Dir: true, Recursive: true})
-	if err != nil {
-		xlog.Warnf(ctx, "delSidNodeInEtcd-> delete sid: %s failed: %s", key, err.Error())
-	}
-}
+func (m *ServBaseV2) clearRegisterInfosInEtcd(ctx context.Context, c etcd.KeysAPI) {
+	fun := "clearEtcdRegisterInfos"
 
-// skey eg: /roc/skey/base/redis-manager/5
-// sid eg: /roc/dist2/base/redis-manager/5
-func delSkeyInEtcd(ctx context.Context, key string, c etcd.KeysAPI) {
-	key = strings.Replace(key, "dist2", "skey", 1)
-	keyStrs := strings.Split(key, "/")
-	_, err := c.Delete(ctx, strings.Join(keyStrs[:len(keyStrs)-1], "/"), nil)
-	if err != nil {
-		xlog.Warnf(ctx, "delSkeyInEtcd-> delete skey: %s failed: %s", key, err.Error())
+	toDeleteDirs := []string{
+		fmt.Sprintf("%s/%s/%s/%d", m.confEtcd.useBaseloc, BASE_LOC_DIST_V2, m.servLocation, m.servId),
+		fmt.Sprintf("%s/%s/%s/%d", m.confEtcd.useBaseloc, BASE_LOC_SKEY, m.servLocation, m.servId),
+		fmt.Sprintf("%s/%s/%s/%d", m.confEtcd.useBaseloc, BASE_LOC_DIST, m.servLocation, m.servId),
+	}
+	for _, path := range toDeleteDirs {
+		if _, err := c.Delete(context.Background(), path, &etcd.DeleteOptions{
+			Recursive: true,
+		}); err != nil {
+			xlog.Warnf(context.Background(), "%s path: %s, err: %v", fun, path, err)
+		}
 	}
 }
 
