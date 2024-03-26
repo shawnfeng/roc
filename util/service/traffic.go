@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/opentracing/opentracing-go"
-	"github.com/shawnfeng/sutil/scontext"
-	"github.com/shawnfeng/sutil/slog/slog"
-	"github.com/uber/jaeger-client-go"
 	"net/http"
 	"strings"
+
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
+
+	"github.com/uber/jaeger-client-go"
 )
 
 const (
@@ -28,8 +30,8 @@ const (
 
 func httpTrafficLogMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// NOTE: log before handling business logic
-		logTrafficForHttpServer(r.Context())
+		// NOTE: log before handling business logic, too many useless logs, remove it
+		// logTrafficForHttpServer(r.Context())
 		next.ServeHTTP(w, r)
 	})
 }
@@ -37,14 +39,14 @@ func httpTrafficLogMiddleware(next http.Handler) http.Handler {
 func trafficKVFromContext(ctx context.Context) (kv map[string]interface{}) {
 	kv = map[string]interface{}{}
 
-	kv[TrafficLogKeyUID], _ = scontext.GetUid(ctx)
-	kv[TrafficLogKeyGroup] = scontext.GetControlRouteGroupWithDefault(ctx, scontext.DefaultGroup)
+	kv[TrafficLogKeyUID], _ = xcontext.GetUID(ctx)
+	kv[TrafficLogKeyGroup] = xcontext.GetControlRouteGroupWithDefault(ctx, xcontext.DefaultGroup)
 
-	if callerName, ok := scontext.GetControlCallerServerName(ctx); ok {
+	if callerName, ok := xcontext.GetControlCallerServerName(ctx); ok {
 		kv[TrafficLogKeyCaller] = callerName
 	}
 
-	span := opentracing.SpanFromContext(ctx)
+	span := xtrace.SpanFromContext(ctx)
 	if span == nil {
 		return
 	}
@@ -80,5 +82,5 @@ func serviceFromServPath(spath string) string {
 
 func logTrafficByKV(ctx context.Context, kv map[string]interface{}) {
 	bs, _ := json.Marshal(kv)
-	slog.Infof(ctx, "%s\t%s", TrafficLogID, string(bs))
+	xlog.Infof(ctx, "%s\t%s", TrafficLogID, string(bs))
 }

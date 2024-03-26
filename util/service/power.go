@@ -5,76 +5,264 @@
 package rocserv
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"net"
+	"net/http"
+	"reflect"
+	"strconv"
+	"time"
+
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xconfig"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xnet"
+	xprom "gitlab.pri.ibanyu.com/middleware/seaweed/xstat/xmetric/xprometheus"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xtrace"
+	"gitlab.pri.ibanyu.com/tracing/go-stdlib/nethttp"
+
 	"git.apache.org/thrift.git/lib/go/thrift"
 	"github.com/gin-gonic/gin"
 	"github.com/julienschmidt/httprouter"
-	"github.com/opentracing-contrib/go-stdlib/nethttp"
-	"github.com/opentracing/opentracing-go"
-	"github.com/shawnfeng/sutil/slog"
-	"github.com/shawnfeng/sutil/snetutil"
-	"github.com/shawnfeng/sutil/trace"
-	"net"
-	"net/http"
+	"google.golang.org/grpc"
 )
 
-func powerHttp(addr string, router *httprouter.Router) (string, error) {
-	fun := "powerHttp -->"
+// rpc protocol
+const (
+	PROCESSOR_HTTP   = "http"
+	PROCESSOR_THRIFT = "thrift"
+	PROCESSOR_GRPC   = "grpc"
+	PROCESSOR_GIN    = "gin"
+)
 
-	paddr, err := snetutil.GetListenAddr(addr)
+const disableContextCancelKey = "disable_context_cancel"
+const enableMetricMiddlewareKey = "enable_metric_middleware"
+
+var errNilDriver = errors.New("nil driver")
+
+type middleware func(next http.Handler) http.Handler
+
+type driverBuilder struct {
+	c xconfig.ConfigCenter
+}
+
+func newDriverBuilder(c xconfig.ConfigCenter) *driverBuilder {
+	return &driverBuilder{
+		c: c,
+	}
+}
+
+func (dr *driverBuilder) isDisableContextCancel(ctx context.Context) bool {
+	use, ok := dr.c.GetBool(ctx, disableContextCancelKey)
+	if !ok {
+		return false
+	}
+	return use
+}
+
+func (dr *driverBuilder) isEnableMetricMiddleware(ctx context.Context) bool {
+	use, ok := dr.c.GetBool(ctx, enableMetricMiddlewareKey)
+	if !ok {
+		return false
+	}
+	return use
+}
+
+func (dr *driverBuilder) powerProcessorDriver(ctx context.Context, n string, p Processor) (*ServInfo, error) {
+	fun := "driverBuilder.powerProcessorDriver -> "
+	addr, driver := p.Driver()
+	if driver == nil {
+		return nil, errNilDriver
+	}
+
+	xlog.Infof(ctx, "%s processor: %s type: %s addr: %s", fun, n, reflect.TypeOf(driver), addr)
+
+	switch d := driver.(type) {
+	case *httprouter.Router:
+		var extraHttpMiddlewares []middleware
+		disableContextCancel := dr.isDisableContextCancel(ctx)
+		xlog.Infof(ctx, "%s disableContextCancel: %v, processor: %s", fun, disableContextCancel, n)
+		if disableContextCancel {
+			extraHttpMiddlewares = append(extraHttpMiddlewares, disableContextCancelMiddleware)
+		}
+
+		enableMetricMiddleware := dr.isEnableMetricMiddleware(ctx)
+		xlog.Infof(ctx, "%s enableMetricMiddleware: %v, processor: %s", fun, enableMetricMiddleware, n)
+		if enableMetricMiddleware {
+			extraHttpMiddlewares = append(extraHttpMiddlewares, metricMiddleware)
+		}
+
+		sa, err := powerHttp(addr, d, extraHttpMiddlewares...)
+		if err != nil {
+			return nil, err
+		}
+		servInfo := &ServInfo{
+			Type: PROCESSOR_HTTP,
+			Addr: sa,
+		}
+		return servInfo, nil
+
+	case thrift.TProcessor:
+		sa, err := powerThrift(addr, d)
+		if err != nil {
+			return nil, err
+		}
+		servInfo := &ServInfo{
+			Type: PROCESSOR_THRIFT,
+			Addr: sa,
+		}
+		return servInfo, nil
+
+	case *GrpcServer:
+		// 添加内部拦截器的操作必须放到NewServer中, 否则无法在服务代码中完成service注册
+		sa, err := powerGrpc(addr, d)
+		if err != nil {
+			return nil, err
+		}
+		servInfo := &ServInfo{
+			Type: PROCESSOR_GRPC,
+			Addr: sa,
+		}
+		return servInfo, nil
+
+	case *gin.Engine:
+		sa, err := powerGin(addr, d)
+		if err != nil {
+			return nil, err
+		}
+		servInfo := &ServInfo{
+			Type: PROCESSOR_GIN,
+			Addr: sa,
+		}
+		return servInfo, nil
+
+	case *HttpServer:
+		sa, err := powerGin(addr, d.Engine)
+		if err != nil {
+			return nil, err
+		}
+		servInfo := &ServInfo{
+			Type: PROCESSOR_GIN,
+			Addr: sa,
+		}
+		return servInfo, nil
+
+	case *HttpRouter:
+		sa, err := powerHttpRouter(addr, d.Router)
+		if err != nil {
+			return nil, err
+		}
+		servInfo := &ServInfo{
+			Type: PROCESSOR_HTTP,
+			Addr: sa,
+		}
+		return servInfo, nil
+
+	default:
+		return nil, fmt.Errorf("processor: %s driver not recognition", n)
+	}
+}
+
+func powerHttpRouter(addr string, router *httprouter.Router) (string, error) {
+	fun := "powerHttpRouter -->"
+	ctx := context.Background()
+
+	netListen, laddr, err := listenServAddr(ctx, addr)
 	if err != nil {
 		return "", err
 	}
-
-	slog.Infof("%s config addr[%s]", fun, paddr)
-
-	tcpAddr, err := net.ResolveTCPAddr("tcp", paddr)
-	if err != nil {
-		return "", err
-	}
-
-	netListen, err := net.Listen(tcpAddr.Network(), tcpAddr.String())
-	if err != nil {
-		return "", err
-	}
-
-	laddr, err := snetutil.GetServAddr(netListen.Addr())
-	if err != nil {
-		netListen.Close()
-		return "", err
-	}
-
-	slog.Infof("%s listen addr[%s]", fun, laddr)
-
-	// tracing
-	mw := nethttp.Middleware(
-		opentracing.GlobalTracer(),
-		// add logging middleware
-		httpTrafficLogMiddleware(router),
-		nethttp.OperationNameFunc(func(r *http.Request) string {
-			return "HTTP " + r.Method + ": " + r.URL.Path
-		}),
-		nethttp.MWSpanFilter(trace.UrlSpanFilter))
 
 	go func() {
-		err := http.Serve(netListen, mw)
+		err := http.Serve(netListen, router)
 		if err != nil {
-			slog.Panicf("%s laddr[%s]", fun, laddr)
+			xlog.Panicf(ctx, "%s laddr[%s]", fun, laddr)
 		}
 	}()
 
 	return laddr, nil
 }
 
-func powerThrift(addr string, processor thrift.TProcessor) (string, error) {
-	fun := "powerThrift -->"
+func powerHttp(addr string, router *httprouter.Router, middlewares ...middleware) (string, error) {
+	fun := "powerHttp -->"
+	ctx := context.Background()
 
-	paddr, err := snetutil.GetListenAddr(addr)
+	netListen, laddr, err := listenServAddr(ctx, addr)
 	if err != nil {
 		return "", err
 	}
 
-	slog.Infof("%s config addr[%s]", fun, paddr)
+	// tracing
+	mw := decorateHttpMiddleware(router, middlewares...)
+
+	go func() {
+		err := http.Serve(netListen, mw)
+		if err != nil {
+			xlog.Panicf(ctx, "%s laddr[%s]", fun, laddr)
+		}
+	}()
+
+	return laddr, nil
+}
+
+// 打开端口监听, 并返回服务地址
+func listenServAddr(ctx context.Context, addr string) (net.Listener, string, error) {
+	fun := "listenServAddr --> "
+	paddr, err := xnet.GetListenAddr(addr)
+	if err != nil {
+		return nil, "", err
+	}
+
+	xlog.Infof(ctx, "%s config addr[%s]", fun, paddr)
+
+	tcpAddr, err := net.ResolveTCPAddr("tcp", paddr)
+	if err != nil {
+		return nil, "", err
+	}
+
+	netListen, err := net.Listen(tcpAddr.Network(), tcpAddr.String())
+	if err != nil {
+		return nil, "", err
+	}
+
+	laddr, err := xnet.GetServAddr(netListen.Addr())
+	if err != nil {
+		netListen.Close()
+		return nil, "", err
+	}
+
+	xlog.Infof(ctx, "%s listen addr[%s]", fun, laddr)
+	return netListen, laddr, nil
+}
+
+// 添加http middleware
+func decorateHttpMiddleware(router http.Handler, middlewares ...middleware) http.Handler {
+	r := router
+	for _, m := range middlewares {
+		r = m(r)
+	}
+	// tracing
+	mw := nethttp.MiddlewareWithGlobalTracer(
+		// add logging middleware
+		httpTrafficLogMiddleware(r),
+		nethttp.OperationNameFunc(func(r *http.Request) string {
+			return "HTTP " + r.Method + ": " + r.URL.Path
+		}),
+		nethttp.MWSpanFilter(xtrace.UrlSpanFilter))
+
+	return mw
+}
+
+func powerThrift(addr string, processor thrift.TProcessor) (string, error) {
+	fun := "powerThrift -->"
+	ctx := context.Background()
+
+	paddr, err := xnet.GetListenAddr(addr)
+	if err != nil {
+		return "", err
+	}
+
+	xlog.Infof(ctx, "%s config addr[%s]", fun, paddr)
 
 	transportFactory := thrift.NewTFramedTransportFactory(thrift.NewTTransportFactory())
 	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
@@ -94,17 +282,17 @@ func powerThrift(addr string, processor thrift.TProcessor) (string, error) {
 		return "", err
 	}
 
-	laddr, err := snetutil.GetServAddr(serverTransport.Addr())
+	laddr, err := xnet.GetServAddr(serverTransport.Addr())
 	if err != nil {
 		return "", err
 	}
 
-	slog.Infof("%s listen addr[%s]", fun, laddr)
+	xlog.Infof(ctx, "%s listen addr[%s]", fun, laddr)
 
 	go func() {
 		err := server.Serve()
 		if err != nil {
-			slog.Panicf("%s laddr[%s]", fun, laddr)
+			xlog.Panicf(ctx, "%s laddr[%s]", fun, laddr)
 		}
 	}()
 
@@ -115,74 +303,47 @@ func powerThrift(addr string, processor thrift.TProcessor) (string, error) {
 //启动grpc ，并返回端口信息
 func powerGrpc(addr string, server *GrpcServer) (string, error) {
 	fun := "powerGrpc -->"
-	paddr, err := snetutil.GetListenAddr(addr)
+	ctx := context.Background()
+	paddr, err := xnet.GetListenAddr(addr)
 	if err != nil {
 		return "", err
 	}
-	slog.Infof("%s config addr[%s]", fun, paddr)
+	xlog.Infof(ctx, "%s config addr[%s]", fun, paddr)
 	lis, err := net.Listen("tcp", paddr)
 	if err != nil {
 		return "", fmt.Errorf("grpc tcp Listen err:%v", err)
 	}
-	laddr, err := snetutil.GetServAddr(lis.Addr())
+	laddr, err := xnet.GetServAddr(lis.Addr())
 	if err != nil {
 		return "", fmt.Errorf(" GetServAddr err:%v", err)
 	}
-	slog.Infof("%s listen grpc addr[%s]", fun, laddr)
+	xlog.Infof(ctx, "%s listen grpc addr[%s]", fun, laddr)
 	go func() {
 		if err := server.Server.Serve(lis); err != nil {
-			slog.Panicf("%s grpc laddr[%s]", fun, laddr)
+			xlog.Panicf(ctx, "%s grpc laddr[%s]", fun, laddr)
 		}
 	}()
 	return laddr, nil
 }
 
-func powerGin(addr string, router *gin.Engine) (string, *http.Server, error) {
+func powerGin(addr string, router *gin.Engine) (string, error) {
 	fun := "powerGin -->"
+	ctx := context.Background()
 
-	paddr, err := snetutil.GetListenAddr(addr)
+	netListen, laddr, err := listenServAddr(ctx, addr)
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 
-	slog.Infof("%s config addr[%s]", fun, paddr)
-
-	tcpAddr, err := net.ResolveTCPAddr("tcp", paddr)
-	if err != nil {
-		return "", nil, err
-	}
-
-	netListen, err := net.Listen(tcpAddr.Network(), tcpAddr.String())
-	if err != nil {
-		return "", nil, err
-	}
-
-	laddr, err := snetutil.GetServAddr(netListen.Addr())
-	if err != nil {
-		netListen.Close()
-		return "", nil, err
-	}
-
-	slog.Infof("%s listen addr[%s]", fun, laddr)
-
-	// tracing
-	mw := nethttp.Middleware(
-		opentracing.GlobalTracer(),
-		httpTrafficLogMiddleware(router),
-		nethttp.OperationNameFunc(func(r *http.Request) string {
-			return "HTTP " + r.Method + ": " + r.URL.Path
-		}),
-		nethttp.MWSpanFilter(trace.UrlSpanFilter))
-
-	serv := &http.Server{Handler: mw}
+	serv := &http.Server{Handler: router}
 	go func() {
 		err := serv.Serve(netListen)
 		if err != nil {
-			slog.Panicf("%s laddr[%s]", fun, laddr)
+			xlog.Panicf(ctx, "%s laddr[%s]", fun, laddr)
 		}
 	}()
 
-	return laddr, serv, nil
+	return laddr, nil
 }
 
 func reloadRouter(processor string, server interface{}, driver interface{}) error {
@@ -195,17 +356,50 @@ func reloadRouter(processor string, server interface{}, driver interface{}) erro
 
 	switch router := driver.(type) {
 	case *gin.Engine:
-		mw := nethttp.Middleware(
-			opentracing.GlobalTracer(),
+		mw := nethttp.MiddlewareWithGlobalTracer(
 			router,
 			nethttp.OperationNameFunc(func(r *http.Request) string {
 				return "HTTP " + r.Method + ": " + r.URL.Path
 			}))
 		s.Handler = mw
-		slog.Infof("%s reload ok, processors:%s", fun, processor)
+		xlog.Infof(context.Background(), "%s reload ok, processors:%s", fun, processor)
 	default:
 		return fmt.Errorf("processor:%s driver not recognition", processor)
 	}
 
 	return nil
+}
+
+func metricMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		ctx = contextWithErrCode(ctx, 1)
+		newR := r.WithContext(ctx)
+		path := r.URL.Path
+		path = ParseUriApi(path)
+
+		now := time.Now()
+		next.ServeHTTP(w, newR)
+		dt := time.Since(now)
+
+		errCode := getErrCodeFromContext(ctx)
+
+		group, serviceName := GetGroupAndService()
+		_metricAPIRequestCount.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, path, xprom.LabelErrCode, strconv.Itoa(errCode)).Inc()
+		_metricAPIRequestTime.With(xprom.LabelGroupName, group, xprom.LabelServiceName, serviceName, xprom.LabelAPI, path, xprom.LabelErrCode, strconv.Itoa(errCode)).Observe(float64(dt / time.Millisecond))
+	})
+}
+
+func disableContextCancelMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		newR := r.WithContext(xcontext.NewValueContext(r.Context()))
+		next.ServeHTTP(w, newR)
+	})
+}
+
+func newDisableContextCancelGrpcUnaryInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+		valueCtx := xcontext.NewValueContext(ctx)
+		return handler(valueCtx, req)
+	}
 }

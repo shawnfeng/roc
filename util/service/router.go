@@ -6,10 +6,18 @@ package rocserv
 
 import (
 	"context"
-	"github.com/shawnfeng/sutil/scontext"
-	"github.com/shawnfeng/sutil/slog"
 	"sync"
+
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xcontext"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
 )
+
+// Router router include consistent hash、load of concurrent、concrete addr
+type Router interface {
+	Route(ctx context.Context, processor, key string) *ServInfo
+	Pre(s *ServInfo) error
+	Post(s *ServInfo) error
+}
 
 func NewRouter(routerType int, cb ClientLookup) Router {
 	fun := "NewRouter -->"
@@ -22,20 +30,8 @@ func NewRouter(routerType int, cb ClientLookup) Router {
 	case 2:
 		return NewAddr(cb)
 	default:
-		slog.Errorf("%s routerType err: %d", fun, routerType)
+		xlog.Errorf(context.Background(), "%s err routerType: %d", fun, routerType)
 		return NewHash(cb)
-	}
-}
-
-type Router interface {
-	Route(ctx context.Context, processor, key string) *ServInfo
-	Pre(s *ServInfo) error
-	Post(s *ServInfo) error
-}
-
-func NewHash(cb ClientLookup) *Hash {
-	return &Hash{
-		cb: cb,
 	}
 }
 
@@ -43,14 +39,10 @@ type Hash struct {
 	cb ClientLookup
 }
 
-func (m *Hash) Route(ctx context.Context, processor, key string) *ServInfo {
-	//fun := "Hash.Route -->"
-
-	group := scontext.GetControlRouteGroupWithDefault(ctx, scontext.DefaultGroup)
-	s := m.cb.GetServAddrWithGroup(group, processor, key)
-
-	//slog.Infof("%s group:%s, processor:%s, key:%s, s:%v", fun, group, processor, key, s)
-	return s
+func NewHash(cb ClientLookup) *Hash {
+	return &Hash{
+		cb: cb,
+	}
 }
 
 func (m *Hash) Pre(s *ServInfo) error {
@@ -61,11 +53,13 @@ func (m *Hash) Post(s *ServInfo) error {
 	return nil
 }
 
-func NewConcurrent(cb ClientLookup) *Concurrent {
-	return &Concurrent{
-		cb:      cb,
-		counter: make(map[string]int64),
-	}
+func (m *Hash) Route(ctx context.Context, processor, key string) *ServInfo {
+	//fun := "Hash.Route -->"
+
+	group := xcontext.GetControlRouteGroupWithDefault(ctx, xcontext.DefaultGroup)
+	s := m.cb.GetServAddrWithGroup(group, processor, key)
+
+	return s
 }
 
 type Concurrent struct {
@@ -74,56 +68,11 @@ type Concurrent struct {
 	counter map[string]int64
 }
 
-func (m *Concurrent) Route(ctx context.Context, processor, key string) *ServInfo {
-	fun := "Concurrent.Route -->"
-
-	group := scontext.GetControlRouteGroupWithDefault(ctx, scontext.DefaultGroup)
-	s := m.route(group, processor, key)
-	if s != nil {
-		slog.Infof("%s group:%s, processor:%s, key:%s, s:%v", fun, group, processor, key, s)
-		return s
+func NewConcurrent(cb ClientLookup) *Concurrent {
+	return &Concurrent{
+		cb:      cb,
+		counter: make(map[string]int64),
 	}
-
-	s = m.route("", processor, key)
-	//slog.Infof("%s group:%s, new group:%s, processor:%s, key:%s, s:%v", fun, group, "", processor, key, s)
-	return s
-}
-
-func (m *Concurrent) route(group, processor, key string) *ServInfo {
-	fun := "route -->"
-
-	list := m.cb.GetAllServAddrWithGroup(group, processor)
-	if list == nil {
-		return nil
-	}
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	min := int64(0)
-	var s *ServInfo
-	for _, serv := range list {
-
-		count := m.counter[serv.Addr]
-		//slog.Infof("%s processor:%s, addr:%s, count: %d", fun, processor, serv.Addr, count)
-		if count == 0 {
-			min = count
-			s = serv
-			break
-		}
-
-		if min == 0 || min > count {
-			min = count
-			s = serv
-		}
-	}
-	if s != nil {
-		//slog.Infof("%s processor:%s, addr:%s", fun, processor, s.Addr)
-	} else {
-		slog.Errorf("%s processor:%s, route fail", fun, processor)
-	}
-
-	return s
 }
 
 func (m *Concurrent) Pre(s *ServInfo) error {
@@ -142,22 +91,85 @@ func (m *Concurrent) Post(s *ServInfo) error {
 	return nil
 }
 
-func NewAddr(cb ClientLookup) *Addr {
-	return &Addr{cb: cb}
+func (m *Concurrent) Route(ctx context.Context, processor, key string) *ServInfo {
+	fun := "Concurrent.Route -->"
+
+	group := xcontext.GetControlRouteGroupWithDefault(ctx, xcontext.DefaultGroup)
+	s := m.route(group, processor, key)
+	if s != nil {
+		xlog.Debugf(ctx, "%s group: %s, processor: %s, key: %s, router: %v", fun, group, processor, key, s)
+		return s
+	}
+
+	s = m.route("", processor, key)
+	xlog.Warnf(ctx, "%s route to group error and back to default, group: %s, processor: %s, key: %s, router: %v", fun, group, processor, key, s)
+	return s
+}
+
+func (m *Concurrent) route(group, processor, key string) *ServInfo {
+	fun := "Concurrent.route -->"
+
+	list := m.cb.GetAllServAddrWithGroup(group, processor)
+	if list == nil {
+		xlog.Infof(context.Background(), "%s processor: %s, key: %s, group: %s, servKey: %s, servPath: %s, server info list is nil",
+			fun, processor, key, group, m.cb.ServKey(), m.cb.ServPath())
+		return nil
+	}
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	min := int64(0)
+	var s *ServInfo
+	for _, serv := range list {
+
+		count := m.counter[serv.Addr]
+		if count == 0 {
+			min = count
+			s = serv
+			break
+		}
+
+		if min == 0 || min > count {
+			min = count
+			s = serv
+		}
+	}
+	if s != nil {
+	} else {
+		xlog.Errorf(context.Background(), "%s processor: %s, key: %s, group: %s, servKey: %s, servPath: %s, route fail",
+			fun, processor, key, group, m.cb.ServKey(), m.cb.ServPath())
+	}
+
+	return s
 }
 
 type Addr struct {
 	cb ClientLookup
 }
 
+func NewAddr(cb ClientLookup) *Addr {
+	return &Addr{cb: cb}
+}
+
+func (m *Addr) Pre(s *ServInfo) error {
+	return nil
+}
+
+func (m *Addr) Post(s *ServInfo) error {
+	return nil
+}
+
 // NOTE: 这里复用 key，作为 addr，用途同样是从一堆服务实例中找到目标实例
 func (m *Addr) Route(ctx context.Context, processor, addr string) (si *ServInfo) {
 	fun := "Addr.Route -->"
 
-	group := scontext.GetControlRouteGroupWithDefault(ctx, scontext.DefaultGroup)
+	group := xcontext.GetControlRouteGroupWithDefault(ctx, xcontext.DefaultGroup)
 	servList := m.cb.GetAllServAddrWithGroup(group, processor)
 
 	if servList == nil {
+		xlog.Infof(context.Background(), "%s processor: %s, group: %s, servKey: %s, servPath: %s, server info list is nil",
+			fun, processor, group, m.cb.ServKey(), m.cb.ServPath())
 		return
 	}
 
@@ -169,18 +181,11 @@ func (m *Addr) Route(ctx context.Context, processor, addr string) (si *ServInfo)
 	}
 
 	if si != nil {
-		slog.Infof("%s processor:%s, addr:%s", fun, processor, addr)
+		xlog.Infof(ctx, "%s processor:%s, addr:%s", fun, processor, addr)
 	} else {
-		slog.Errorf("%s processor:%s, route failed", fun, processor)
+		xlog.Errorf(ctx, "%s processor: %s, addr: %s, group: %s, servKey: %s, servPath: %s, route failed",
+			fun, processor, addr, group, m.cb.ServKey(), m.cb.ServPath())
 	}
 
 	return
-}
-
-func (m *Addr) Pre(s *ServInfo) error {
-	return nil
-}
-
-func (m *Addr) Post(s *ServInfo) error {
-	return nil
 }

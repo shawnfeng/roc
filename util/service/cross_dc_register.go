@@ -2,120 +2,121 @@ package rocserv
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xlog"
+	"gitlab.pri.ibanyu.com/middleware/util/servbase"
+
 	etcd "github.com/coreos/etcd/client"
-	"github.com/shawnfeng/sutil/slog"
 )
 
 // RegisterCrossDCService, the path and value is the same as RegisterService, but different register center
 func (m *ServBaseV2) RegisterCrossDCService(servs map[string]*ServInfo) error {
 	fun := "ServBaseV2.RegisterService -->"
-
+	ctx := context.Background()
 	err := m.RegisterServiceV2(servs, BASE_LOC_REG_SERV, true)
 	if err != nil {
-		slog.Errorf("%s reg v2 err:%s", fun, err)
+		xlog.Errorf(ctx, "%s register server v2 failed, err: %v", fun, err)
 		return err
 	}
 
 	err = m.RegisterServiceV1(servs, true)
 	if err != nil {
-		slog.Errorf("%s reg v1 err:%s", fun, err)
+		xlog.Errorf(ctx, "%s register server v1 failed, err: %v", fun, err)
 		return err
 	}
 
-	slog.Infof("%s regist ok", fun)
+	xlog.Infof(ctx, "%s register cross dc server ok", fun)
 
 	return nil
 }
 
 func (m *ServBaseV2) doCrossDCRegister(path, js string, refresh bool) error {
 	fun := "ServBaseV2.doCrossDCRegister -->"
-
+	ctx := context.Background()
 	for addr, _ := range m.crossRegisterClients {
 		// 创建完成标志
-		var iscreate bool
+		var isCreated bool
 
-		slog.Infof("%s path:%s data:%s refresh:%t", fun, path, js, refresh)
-
-		go func() {
+		go func(etcdAddr string) {
 
 			for j := 0; ; j++ {
-				var err error
-				var r *etcd.Response
-				if !iscreate {
-					slog.Warnf("%s create idx:%d servs:%s", fun, j, js)
-					r, err = m.crossRegisterClients[addr].Set(context.Background(), path, js, &etcd.SetOptions{
-						TTL: time.Second * 60,
-					})
-				} else {
-					if refresh {
-						// 在刷新ttl时候，不允许变更value
-						slog.Infof("%s refresh ttl idx:%d servs:%s", fun, j, js)
-						r, err = m.crossRegisterClients[addr].Set(context.Background(), path, "", &etcd.SetOptions{
-							PrevExist: etcd.PrevExist,
-							TTL:       time.Second * 60,
-							Refresh:   true,
-						})
-					} else {
-						r, err = m.crossRegisterClients[addr].Set(context.Background(), path, js, &etcd.SetOptions{
+				updateEtcd := func() {
+					var err error
+					var r *etcd.Response
+					if !isCreated {
+						xlog.Warnf(ctx, "%s create idx:%d server_info: %s", fun, j, js)
+						r, err = m.crossRegisterClients[etcdAddr].Set(context.Background(), path, js, &etcd.SetOptions{
 							TTL: time.Second * 60,
 						})
+					} else {
+						if refresh {
+							// 在刷新ttl时候，不允许变更value
+							r, err = m.crossRegisterClients[etcdAddr].Set(context.Background(), path, "", &etcd.SetOptions{
+								PrevExist: etcd.PrevExist,
+								TTL:       time.Second * 60,
+								Refresh:   true,
+							})
+						} else {
+							r, err = m.crossRegisterClients[etcdAddr].Set(context.Background(), path, js, &etcd.SetOptions{
+								TTL: time.Second * 60,
+							})
+						}
+
 					}
 
+					if err != nil {
+						isCreated = false
+						xlog.Errorf(ctx, "%s reg error, round: %d, addr: %s, resp: %v, err: %v", fun, j, etcdAddr, r, err)
+
+					} else {
+						isCreated = true
+						xlog.Infof(ctx, " %s reg success, round: %d, addr: %s", fun, j, etcdAddr)
+					}
 				}
 
-				if err != nil {
-					iscreate = false
-					slog.Errorf("%s reg idx:%d err:%s", fun, j, err)
-
-				} else {
-					iscreate = true
-					jr, _ := json.Marshal(r)
-					slog.Infof("%s reg idx:%d ok:%s", fun, j, jr)
-				}
+				withRegLockRunClosureBeforeStop(m, ctx, fun, updateEtcd)
 
 				time.Sleep(time.Second * 20)
 
 				if m.isStop() {
-					slog.Infof("%s service stop, register stop", fun)
+					xlog.Infof(ctx, "%s server stop, register info [%s] clear", fun, path)
 					return
 				}
 			}
 
-		}()
+		}(addr)
 	}
 
 	return nil
 }
 
 func (m *ServBaseV2) clearCrossDCRegisterInfos() {
-	fun := "ServBaseV2.clearCrossDCRegisterInfos -->"
-
-	//延迟清理注册信息,防止新实例还没有完成注册
-	time.Sleep(time.Second * 2)
-
 	m.muReg.Lock()
 	defer m.muReg.Unlock()
 
-	for addr, _ := range m.crossRegisterClients {
-		for path, _ := range m.regInfos {
-			_, err := m.crossRegisterClients[addr].Set(context.Background(), path, "", &etcd.SetOptions{
-				PrevExist: etcd.PrevExist,
-				TTL:       0,
-				Refresh:   true,
-			})
-			if err != nil {
-				slog.Warnf("%s path:%s err:%v", fun, path, err)
-			}
-		}
+	for _, etcdClient := range m.crossRegisterClients {
+		m.clearRegisterInfosInEtcd(context.Background(), etcdClient)
 	}
 }
 
 // 初始化跨机房etcd客户端
 func initCrossRegisterCenter(sb *ServBaseV2) error {
+	if len(sb.crossRegisterRegionIds) == 0 {
+		return initCrossRegisterCenterOrigin(sb)
+	}
+
+	return initCrossRegisterCenterNew(sb)
+}
+
+// 旧版本初始化跨机房注册etcd客户端, 使用服务内静态配置
+func initCrossRegisterCenterOrigin(sb *ServBaseV2) error {
+	fun := "initCrossRegisterCenterOrigin --> "
+	ctx := context.Background()
+	xlog.Infof(ctx, "%s start", fun)
+
 	var baseConfig BaseConfig
 	err := sb.ServConfig(&baseConfig)
 	if err != nil {
@@ -123,18 +124,50 @@ func initCrossRegisterCenter(sb *ServBaseV2) error {
 	}
 	for _, addr := range baseConfig.Base.CrossRegisterCenters {
 		baseCfg := etcd.Config{
-			Endpoints: []string{addr},
-			Transport: etcd.DefaultTransport,
+			Endpoints:               []string{addr},
+			Transport:               etcd.DefaultTransport,
+			HeaderTimeoutPerRequest: DefaultEtcdClientTimeout,
 		}
 		baseClient, err := etcd.New(baseCfg)
 		if err != nil {
-			return fmt.Errorf("create etcd client failed, config: %v", baseCfg)
+			return fmt.Errorf("create etcd client failed, config: %v, err: %v", baseCfg, err)
 		}
-		baseKeysAPI := etcd.NewKeysAPI(baseClient)
-		if baseClient == nil {
-			return fmt.Errorf("create etchd api error")
-		}
+		baseKeysAPI := etcd.NewKeysAPI(baseClient) // not nil
 		sb.crossRegisterClients[addr] = baseKeysAPI
 	}
+
+	xlog.Infof(ctx, "%s success", fun)
+	return nil
+}
+
+// 新版本使用字符串格式的regionId代替addr作为client key
+func initCrossRegisterCenterNew(sb *ServBaseV2) error {
+	fun := "initCrossRegisterCenterNew --> "
+	ctx := context.Background()
+	xlog.Infof(ctx, "%s start", fun)
+
+	for _, regionId := range sb.crossRegisterRegionIds {
+		endpoints, ok := servbase.GetCrossRegisterEndpoints(regionId)
+		if !ok {
+			xlog.Errorf(ctx, "%s region has no endpoints, id: %d", fun, regionId)
+			return fmt.Errorf("region has no endpoints, id: %d", regionId)
+		}
+		baseCfg := etcd.Config{
+			Endpoints:               endpoints,
+			Transport:               etcd.DefaultTransport,
+			HeaderTimeoutPerRequest: DefaultEtcdClientTimeout,
+		}
+		baseClient, err := etcd.New(baseCfg)
+		if err != nil {
+			xlog.Errorf(ctx, "%s create etcd client failed, regionId: %v, config: %v, err: %v", fun, regionId, baseCfg, err)
+			return fmt.Errorf("create etcd client failed, regionId: %v, config: %v, err: %v", regionId, baseCfg, err)
+		}
+		baseKeysAPI := etcd.NewKeysAPI(baseClient)
+
+		regionIdStr := strconv.Itoa(regionId)
+		sb.crossRegisterClients[regionIdStr] = baseKeysAPI
+	}
+
+	xlog.Infof(ctx, "%s success", fun)
 	return nil
 }
