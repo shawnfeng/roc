@@ -62,7 +62,7 @@ func (m *ClientThrift) deleteAddrHandler(addrs []string) {
 	}
 }
 
-func (m *ClientThrift) route(ctx context.Context, key string) (*ServInfo, rpcClientConn) {
+func (m *ClientThrift) route(ctx context.Context, key string) (*ServInfo, RpcClientConn) {
 	s := m.router.Route(ctx, m.processor, key)
 	if s == nil {
 		return nil, nil
@@ -163,7 +163,7 @@ func (m *ClientThrift) doWithContext(ctx context.Context, hashKey, funcName stri
 	return err
 }
 
-func (m *ClientThrift) rpc(si *ServInfo, rc rpcClientConn, timeout time.Duration, fnrpc func(interface{}) error) error {
+func (m *ClientThrift) rpc(si *ServInfo, rc RpcClientConn, timeout time.Duration, fnrpc func(interface{}) error) error {
 	rc.SetTimeout(timeout)
 	c := rc.GetServiceClient()
 
@@ -172,7 +172,7 @@ func (m *ClientThrift) rpc(si *ServInfo, rc rpcClientConn, timeout time.Duration
 	return err
 }
 
-func (m *ClientThrift) rpcWithContext(ctx context.Context, si *ServInfo, rc rpcClientConn, timeout time.Duration, fnrpc func(context.Context, interface{}) error) error {
+func (m *ClientThrift) rpcWithContext(ctx context.Context, si *ServInfo, rc RpcClientConn, timeout time.Duration, fnrpc func(context.Context, interface{}) error) error {
 	rc.SetTimeout(timeout)
 	c := rc.GetServiceClient()
 
@@ -284,7 +284,7 @@ func (m *thriftClientConn) GetServiceClient() interface{} {
 	return m.serviceClient
 }
 
-func (m *ClientThrift) newConn(addr string) (rpcClientConn, error) {
+func (m *ClientThrift) newConn(addr string) (RpcClientConn, error) {
 	fun := "ClientThrift.newConn -->"
 	ctx := context.Background()
 

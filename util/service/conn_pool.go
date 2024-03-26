@@ -23,7 +23,7 @@ var (
 	ErrConnectionPoolClosed = errors.New("connection pool is closed")
 )
 
-type rpcClientConn interface {
+type RpcClientConn interface {
 	Close() error
 	SetTimeout(timeout time.Duration) error
 	GetServiceClient() interface{}
@@ -34,7 +34,7 @@ type ConnectionPool struct {
 	calleeServiceKey string
 
 	rpcType     string
-	rpcFactory  func(addr string) (rpcClientConn, error)
+	rpcFactory  func(addr string) (RpcClientConn, error)
 	addr        string
 	idle        int // count of idle connection
 	active      int // count of established connection, sometime active will bigger than idle, then the conn will be closed
@@ -46,7 +46,7 @@ type ConnectionPool struct {
 }
 
 // NewConnectionPool constructor of ConnectionPool
-func NewConnectionPool(addr string, idle, active int, idleTimeout time.Duration, rpcFactory func(addr string) (rpcClientConn, error), calleeServiceKey string) *ConnectionPool {
+func NewConnectionPool(addr string, idle, active int, idleTimeout time.Duration, rpcFactory func(addr string) (RpcClientConn, error), calleeServiceKey string) *ConnectionPool {
 	cp := &ConnectionPool{addr: addr, idle: idle, active: active, idleTimeout: idleTimeout, rpcFactory: rpcFactory, calleeServiceKey: calleeServiceKey, closed: sync2.NewAtomicBool(false)}
 	return cp
 }
@@ -86,7 +86,7 @@ func (cp *ConnectionPool) stat() {
 					return
 				}
 				confActive, confIdle, active, idle := cp.connections.Stat()
-				if count % 10 == 0 {
+				if count%10 == 0 {
 					// 减少日志为原来的十分之一
 					xlog.Infof(context.Background(), "caller: %s, callee: %s, callee_addr: %s, conf_active: %d, conf_idle: %d, active: %d, idle: %d", GetServName(), cp.calleeServiceKey, cp.addr, confActive, confIdle, active, idle)
 				}
@@ -144,7 +144,7 @@ func (cp *ConnectionPool) Addr() string {
 }
 
 // Get return a connection, you should call PooledConnection's Recycle once done
-func (cp *ConnectionPool) Get(ctx context.Context) (rpcClientConn, error) {
+func (cp *ConnectionPool) Get(ctx context.Context) (RpcClientConn, error) {
 	p := cp.pool()
 	if p == nil {
 		return nil, ErrConnectionPoolClosed
@@ -157,11 +157,11 @@ func (cp *ConnectionPool) Get(ctx context.Context) (rpcClientConn, error) {
 		return nil, err
 	}
 
-	return r.(rpcClientConn), nil
+	return r.(RpcClientConn), nil
 }
 
 // Put recycle a connection into the pool
-func (cp *ConnectionPool) Put(conn rpcClientConn, forceClose bool) {
+func (cp *ConnectionPool) Put(conn RpcClientConn, forceClose bool) {
 	p := cp.pool()
 	if p == nil {
 		panic(ErrConnectionPoolClosed)

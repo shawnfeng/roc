@@ -114,7 +114,7 @@ func (m *ClientGrpc) DirectRouteRpc(provider *Provider, fnrpc func(interface{}) 
 	return err
 }
 
-func (m *ClientGrpc) getClient(provider *Provider) (*ServInfo, rpcClientConn, error) {
+func (m *ClientGrpc) getClient(provider *Provider) (*ServInfo, RpcClientConn, error) {
 	servInfos := m.clientLookup.GetAllServAddr(m.processor)
 	if len(servInfos) < 1 {
 		return nil, nil, errors.New(m.processor + " server provider is emtpy ")
@@ -221,20 +221,20 @@ func (m *ClientGrpc) doWithContext(ctx context.Context, hashKey, funcName string
 	return err
 }
 
-func (m *ClientGrpc) rpc(si *ServInfo, rc rpcClientConn, fnrpc func(interface{}) error) error {
+func (m *ClientGrpc) rpc(si *ServInfo, rc RpcClientConn, fnrpc func(interface{}) error) error {
 	c := rc.GetServiceClient()
 	err := fnrpc(c)
 	m.pool.Put(si.Addr, rc, err)
 	return err
 }
 
-func (m *ClientGrpc) rpcWithContext(ctx context.Context, si *ServInfo, rc rpcClientConn, fnrpc func(context.Context, interface{}) error) error {
+func (m *ClientGrpc) rpcWithContext(ctx context.Context, si *ServInfo, rc RpcClientConn, fnrpc func(context.Context, interface{}) error) error {
 	c := rc.GetServiceClient()
 	err := fnrpc(ctx, c)
 	return err
 }
 
-func (m *ClientGrpc) route(ctx context.Context, key string) (*ServInfo, rpcClientConn) {
+func (m *ClientGrpc) route(ctx context.Context, key string) (*ServInfo, RpcClientConn) {
 	s := m.router.Route(ctx, m.processor, key)
 	if s == nil {
 		return nil, nil
@@ -327,7 +327,7 @@ func (m *grpcClientConn) GetServiceClient() interface{} {
 }
 
 // factory function in client connection pool
-func (m *ClientGrpc) newConn(addr string) (rpcClientConn, error) {
+func (m *ClientGrpc) newConn(addr string) (RpcClientConn, error) {
 	fun := "ClientGrpc.newConn-->"
 
 	// 可加入多种拦截器
