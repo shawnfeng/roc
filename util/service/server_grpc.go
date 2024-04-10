@@ -259,7 +259,7 @@ func rateLimitStreamServerInterceptor() grpc.StreamServerInterceptor {
 			}
 			return err
 		} else {
-			return handler(ctx, ss)
+			return handler(srv, ss)
 		}
 	}
 }
