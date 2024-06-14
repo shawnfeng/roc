@@ -36,11 +36,10 @@ func (m *ServBaseV2) RegisterCrossDCService(servs map[string]*ServInfo) error {
 func (m *ServBaseV2) doCrossDCRegister(path, js string, refresh bool) error {
 	fun := "ServBaseV2.doCrossDCRegister -->"
 	ctx := context.Background()
-	for addr, _ := range m.crossRegisterClients {
-		// 创建完成标志
-		var isCreated bool
-
+	for addr := range m.crossRegisterClients {
 		go func(etcdAddr string) {
+			// 创建完成标志
+			var isCreated bool
 
 			for j := 0; ; j++ {
 				updateEtcd := func() {
@@ -64,24 +63,21 @@ func (m *ServBaseV2) doCrossDCRegister(path, js string, refresh bool) error {
 								TTL: time.Second * 60,
 							})
 						}
-
 					}
 
 					if err != nil {
 						isCreated = false
 						xlog.Errorf(ctx, "%s reg error, round: %d, addr: %s, resp: %v, err: %v", fun, j, etcdAddr, r, err)
-
 					} else {
 						isCreated = true
 						xlog.Infof(ctx, " %s reg success, round: %d, addr: %s", fun, j, etcdAddr)
 					}
 				}
 
-				withRegLockRunClosureBeforeStop(m, ctx, fun, updateEtcd)
-
-				time.Sleep(time.Second * 20)
-
-				if m.isStop() {
+				if !m.IsStopped() {
+					updateEtcd()
+					time.Sleep(time.Second * 20)
+				} else {
 					xlog.Infof(ctx, "%s server stop, register info [%s] clear", fun, path)
 					return
 				}

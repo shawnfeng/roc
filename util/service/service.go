@@ -115,11 +115,6 @@ type ServBaseV2 struct {
 	regInfos map[string]string
 }
 
-func (m *ServBaseV2) isStop() bool {
-	stopStatus := atomic.LoadInt32(&m.stop)
-	return stopStatus == serverStatusStop
-}
-
 // Stop server stop
 func (m *ServBaseV2) Stop() {
 	f := "ServBaseV2.Stop -->"
@@ -354,10 +349,10 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 	ctx := context.Background()
 	m.addRegisterInfo(path, js)
 
-	// 创建完成标志
-	var isCreated bool
-
 	go func() {
+		// 创建完成标志
+		var isCreated bool
+
 		for i := 0; ; i++ {
 			updateEtcd := func() {
 				var err error
@@ -379,7 +374,6 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 							TTL: time.Second * 60,
 						})
 					}
-
 				}
 
 				if err != nil {
@@ -391,12 +385,11 @@ func (m *ServBaseV2) doRegister(path, js string, refresh bool) error {
 				}
 			}
 
-			withRegLockRunClosureBeforeStop(m, ctx, fun, updateEtcd)
-
-			time.Sleep(time.Second * 20)
-
-			if m.isStop() {
-				xlog.Infof(ctx, "%s server stop, register path [%s] clear", fun, path)
+			if !m.IsStopped() {
+				updateEtcd()
+				time.Sleep(time.Second * 20)
+			} else {
+				xlog.Infof(ctx, "%s server stop, register info [%s] clear", fun, path)
 				return
 			}
 		}
@@ -593,26 +586,6 @@ func (m *ServBaseV2) createControlWithLaneInfo() *thriftutil.Control {
 	return control
 }
 
-// mutex
-
-func withRegLockRunClosureBeforeStop(m *ServBaseV2, ctx context.Context, funcName string, f func()) {
-	startTime := time.Now()
-	m.muReg.Lock()
-	xlog.Infof(ctx, "%s lock muReg for update", funcName)
-	defer func() {
-		m.muReg.Unlock()
-		duration := time.Since(startTime)
-		xlog.Infof(ctx, "%s unlock muReq for update, duration: %v", funcName, duration)
-	}()
-
-	if m.isStop() {
-		xlog.Infof(ctx, "%s server stop, do not run function", funcName)
-		return
-	}
-
-	f()
-}
-
 func genSid(client etcd.KeysAPI, path, skey string) (int, error) {
 	fun := "genSid -->"
 	ctx := context.Background()
@@ -704,5 +677,5 @@ func (m *ServBaseV2) Region() string {
 }
 
 func (m *ServBaseV2) IsStopped() bool {
-	return m.isStop()
+	return atomic.LoadInt32(&m.stop) == serverStatusStop
 }
