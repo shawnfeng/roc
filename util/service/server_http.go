@@ -68,7 +68,8 @@ type ReqHeader struct {
 	Ch      string `json:"h_ch"`
 	Net     int32  `json:"h_nt"`
 	Unionid string `json:"h_unionid"`
-	Het     int32  `json:"h_et"` // 终端类型，0其他；1APP；2web或H5；3微信；4小程序
+	Het     int32  `json:"h_et"`    // 终端类型，0其他；1APP；2web或H5；3微信；4小程序
+	Product string `json:"product"` // 产品包名称
 
 	HLc  string `json:"h_lc"`
 	Cate int32  `json:"cate"`
