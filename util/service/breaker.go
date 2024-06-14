@@ -6,6 +6,8 @@ package rocserv
 
 import (
 	"context"
+	"gitlab.pri.ibanyu.com/middleware/seaweed/xerror"
+	"google.golang.org/grpc/status"
 	"sync"
 	"time"
 
@@ -93,12 +95,34 @@ func (m *Breaker) doStat(key string, total, fail int64) {
 	}
 }
 
+func IsClientError(err error) bool {
+	s := status.Convert(err)
+	statusCode := xerror.MapErrorCodeToHTTPStatusCode(s.Code())
+	if 400 <= statusCode && statusCode <= 499 {
+		return true
+	}
+	return false
+}
+
 func (m *Breaker) Do(ctx context.Context, funcName string, run func(ctx context.Context) error, fallback func(context.Context, error) error) error {
 	fun := "Breaker.Do -->"
+
+	// 包装 run 函数，以便让 breaker 忽略某些客户端错误。
+	// 即，run 出现客户端错误时，breaker 视为无错误发生。以免误触发熔断。
+	var realError error
+	runWrapper := func(ctx context.Context) error {
+		realError = run(ctx)
+		if realError == nil || IsClientError(realError) {
+			return nil
+		} else {
+			return realError
+		}
+	}
+
 	fail := int64(0)
 	// 稳定性平台，接口熔断配置的 key 形如 {servGroup}/{servName}/{funcName}。这里 m.servName 已为 {servGroup}/{servName} 形式了。
 	key := m.servName + "/" + funcName
-	err := circuit_breaker.Do(ctx, key, run, fallback)
+	err := circuit_breaker.Do(ctx, key, runWrapper, fallback)
 	if err == circuit_breaker.ErrCircuitBreakerRegistryNotInited {
 		// circuit_breaker 未初始化，视同无熔断。
 		xlog.Warnf(ctx, " circuit breaker registry not inited! Call `circuit_breaker.Init()` in your project's `logic.Init()` first!")
@@ -112,7 +136,7 @@ func (m *Breaker) Do(ctx context.Context, funcName string, run func(ctx context.
 
 	xlog.Debugf(ctx, "Breaker key:%s fail:%d", key, fail)
 	m.doStat(key, 1, fail)
-	return err
+	return realError
 }
 
 // fallbackFunc register utility. will be used by ClientGrpc, ClientThrift and ClientWrapper.
