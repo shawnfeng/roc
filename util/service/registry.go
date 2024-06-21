@@ -394,7 +394,6 @@ func (m *ClientEtcdV2) parseResponseV1(r *etcd.Response) {
 func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 	fun := "ClientEtcdV2.upServlist -->"
 	ctx := context.Background()
-	xlog.Infof(ctx, "scopy : %s", servCopyCollect(scopy).print())
 	slist := make(map[string][]string)
 	for sid, c := range scopy {
 		if c == nil {
@@ -457,6 +456,7 @@ func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 		}
 	}
 
+	xlog.Infof(ctx, "scopy : %s", slist)
 	shash := make(map[string]*xconsistent.Consistent)
 	for group, list := range slist {
 		hash := xconsistent.NewWithElts(list)
@@ -478,8 +478,8 @@ func (m *ClientEtcdV2) GetServAddr(processor, key string) *ServInfo {
 	return m.GetServAddrWithGroup("", processor, key)
 }
 func (m servCopyCollect) print() string {
-	slist := make(map[string][]string)
-	for sid, c := range m {
+	slist := make(map[string]ServInfo)
+	for _, c := range m {
 		if c == nil {
 			continue
 		}
@@ -504,33 +504,10 @@ func (m servCopyCollect) print() string {
 		if weight == 0 {
 			weight = 100
 		}
-
-		// 设置泳道实例列表, 兼容新老版本
-		lane, ok := c.reg.GetLane()
-		if ok {
-			// 如果lane不为nil, 说明服务端已注册新版本lane元数据, 使用新版本更新泳道实例路由表
-			var tmpList []string
-			if _, ok2 := slist[lane]; ok2 {
-				tmpList = slist[lane]
+		for k, v := range c.reg.Servs {
+			if v.Addr != "" {
+				slist[k] = *v
 			}
-			for i := 0; i < weight; i++ {
-				tmpList = append(tmpList, fmt.Sprintf("%d-%d", sid, i))
-			}
-			slist[lane] = tmpList
-			continue
-		}
-
-		// 否则, 说明服务端还是老版本lane元数据 (在manual中), 退回老版本更新泳道路由表
-		var tmpList []string
-		for _, g := range c.manual.Ctrl.Groups {
-			if _, ok := slist[g]; ok {
-				tmpList = slist[g]
-			}
-			for i := 0; i < weight; i++ {
-				tmpList = append(tmpList, fmt.Sprintf("%d-%d", sid, i))
-			}
-
-			slist[g] = tmpList
 		}
 	}
 	rd, _ := json.Marshal(slist)
