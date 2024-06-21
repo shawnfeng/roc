@@ -394,7 +394,7 @@ func (m *ClientEtcdV2) parseResponseV1(r *etcd.Response) {
 func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 	fun := "ClientEtcdV2.upServlist -->"
 	ctx := context.Background()
-
+	xlog.Infof(ctx, "scopy : %v", scopy)
 	slist := make(map[string][]string)
 	for sid, c := range scopy {
 		if c == nil {
