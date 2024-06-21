@@ -478,7 +478,7 @@ func (m *ClientEtcdV2) GetServAddr(processor, key string) *ServInfo {
 	return m.GetServAddrWithGroup("", processor, key)
 }
 func (m servCopyCollect) print() string {
-	slist := make(map[string]ServInfo)
+	slist := make([]ServInfo, 0)
 	for _, c := range m {
 		if c == nil {
 			continue
@@ -504,9 +504,9 @@ func (m servCopyCollect) print() string {
 		if weight == 0 {
 			weight = 100
 		}
-		for k, v := range c.reg.Servs {
+		for _, v := range c.reg.Servs {
 			if v.Addr != "" {
-				slist[k] = *v
+				slist = append(slist, *v)
 			}
 		}
 	}
