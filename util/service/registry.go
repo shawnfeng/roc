@@ -394,6 +394,7 @@ func (m *ClientEtcdV2) parseResponseV1(r *etcd.Response) {
 func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 	fun := "ClientEtcdV2.upServlist -->"
 	ctx := context.Background()
+	xlog.Infof(ctx, "scopy : %s", servCopyCollect(scopy).print())
 	slist := make(map[string][]string)
 	for sid, c := range scopy {
 		if c == nil {
@@ -456,7 +457,6 @@ func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 		}
 	}
 
-	xlog.Infof(ctx, "scopy : %s", slist)
 	shash := make(map[string]*xconsistent.Consistent)
 	for group, list := range slist {
 		hash := xconsistent.NewWithElts(list)
