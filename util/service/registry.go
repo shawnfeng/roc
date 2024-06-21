@@ -483,7 +483,7 @@ func (m *ClientEtcdV2) GetServAddrWithGroup(group string, processor, key string)
 	ctx := context.Background()
 	m.muServlist.Lock()
 	defer m.muServlist.Unlock()
-	xlog.Infof(ctx, "%s current list: %v", fun, m.servCopy)
+	xlog.Infof(ctx, "%s current list: %s", fun, m.servCopy)
 	if m.servHash == nil {
 		xlog.Errorf(ctx, "%s m.servHash == nil, serv path:%s hash circle processor:%s key:%s", fun, m.servPath, processor, key)
 		return nil
