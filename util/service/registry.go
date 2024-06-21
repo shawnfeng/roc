@@ -394,7 +394,7 @@ func (m *ClientEtcdV2) parseResponseV1(r *etcd.Response) {
 func (m *ClientEtcdV2) upServlist(scopy map[int]*servCopyData) {
 	fun := "ClientEtcdV2.upServlist -->"
 	ctx := context.Background()
-	xlog.Infof(ctx, "scopy : %v", scopy)
+	xlog.Infof(ctx, "scopy : %s", servCopyCollect(scopy).print())
 	slist := make(map[string][]string)
 	for sid, c := range scopy {
 		if c == nil {
@@ -477,13 +477,26 @@ func (m *ClientEtcdV2) GetServAddr(processor, key string) *ServInfo {
 	//fun := "ClientEtcdV2.GetServAddr -->"
 	return m.GetServAddrWithGroup("", processor, key)
 }
-
+func (m servCopyCollect) print() string {
+	var rr = make(map[int]map[string]interface{})
+	for k, v := range m {
+		var rrr = make(map[string]interface{})
+		d1, _ := json.Marshal(v.reg)
+		rrr["reg"] = string(d1)
+		d2, _ := json.Marshal(v.manual)
+		rrr["manual"] = string(d2)
+		rrr["servId"] = v.servId
+		rr[k] = rrr
+	}
+	rd, _ := json.Marshal(rr)
+	return string(rd)
+}
 func (m *ClientEtcdV2) GetServAddrWithGroup(group string, processor, key string) *ServInfo {
 	fun := "ClientEtcdV2.GetServAddrWithGroup-->"
 	ctx := context.Background()
 	m.muServlist.Lock()
 	defer m.muServlist.Unlock()
-	xlog.Infof(ctx, "%s current list: %s", fun, m.servCopy)
+	xlog.Infof(ctx, "%s current list: %s", fun, m.servCopy.print())
 	if m.servHash == nil {
 		xlog.Errorf(ctx, "%s m.servHash == nil, serv path:%s hash circle processor:%s key:%s", fun, m.servPath, processor, key)
 		return nil
