@@ -165,7 +165,7 @@ func (m *ClientEtcdV2) startWatch(chg chan *etcd.Response, path string) {
 			close(chg)
 			return
 		} else {
-			xlog.Infof(ctx, "%s next get idx: %d action: %s nodes: %d index: %d after: %d servPath: %s", fun, i, resp.Action, len(resp.Node.Nodes), resp.Index, wop.AfterIndex, path)
+			xlog.Infof(ctx, "%s next get idx: %d action: %s nodes: %d index: %d after: %d servPath: %s node: %s", fun, i, resp.Action, len(resp.Node.Nodes), resp.Index, wop.AfterIndex, path, resp.Node.Key)
 			// 测试发现next获取到的返回，index，重新获取总有问题，触发两次，不确定，为什么？为什么？
 			// 所以这里每次next前使用的afterindex都重新get了
 		}
@@ -478,7 +478,7 @@ func (m *ClientEtcdV2) GetServAddr(processor, key string) *ServInfo {
 	return m.GetServAddrWithGroup("", processor, key)
 }
 func (m servCopyCollect) print() string {
-	slist := make([]ServInfo, 0)
+	slist := make([]*ServInfo, 0)
 	for _, c := range m {
 		if c == nil {
 			continue
@@ -506,7 +506,7 @@ func (m servCopyCollect) print() string {
 		}
 		for _, v := range c.reg.Servs {
 			if v.Addr != "" {
-				slist = append(slist, *v)
+				slist = append(slist, v)
 			}
 		}
 	}
