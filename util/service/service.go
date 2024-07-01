@@ -174,12 +174,12 @@ func (m *ServBaseV2) clearRegisterInfosInEtcd(ctx context.Context, c etcd.KeysAP
 			xlog.Warnf(context.Background(), "%s path: %s, err: %v", fun, path, err)
 		}
 		xlog.Infof(ctx, "deletekey: %s ", path)
-		r, err := c.Get(ctx, path, &etcd.GetOptions{Recursive: true, Sort: false})
-		var nd *etcd.Node
-		if r != nil {
-			nd = r.Node
-		}
-		xlog.Infof(ctx, "checkdele: path: %s, node: %v, r: %v, err: %v", path, nd, r, err)
+		//r, err := c.Get(ctx, path, &etcd.GetOptions{Recursive: true, Sort: false})
+		//var nd *etcd.Node
+		//if r != nil {
+		//	nd = r.Node
+		//}
+		//xlog.Infof(ctx, "checkdele: path: %s, node: %v, r: %v, err: %v", path, nd, r, err)
 	}
 }
 
